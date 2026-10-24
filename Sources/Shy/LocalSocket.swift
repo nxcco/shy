@@ -204,8 +204,20 @@ enum SwitchMark {
         var asked = query(name)
         asked[kSecReturnAttributes as String] = true
         let status = SecItemCopyMatching(asked as CFDictionary, nil)
-        return status == errSecSuccess || status == errSecMissingEntitlement
+        return status == errSecSuccess || status == errSecMissingEntitlement || !keeps
     }
+
+    /// Whether this copy can keep a mark at all. Without an access group a
+    /// lookup says "not found", not "missing entitlement" — only adding one
+    /// says so — and every launch took the switch for one turned on behind
+    /// Settings' back and turned it off again.
+    private static let keeps: Bool = {
+        var probe = query("probe")
+        probe[kSecValueData as String] = Data("probe".utf8)
+        let status = SecItemAdd(probe as CFDictionary, nil)
+        if status == errSecSuccess { SecItemDelete(query("probe") as CFDictionary) }
+        return status != errSecMissingEntitlement
+    }()
 
     static func grant(_ name: String) {
         var item = query(name)
