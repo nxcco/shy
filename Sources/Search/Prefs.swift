@@ -187,6 +187,8 @@ final class Preferences: ObservableObject {
     /// One tab's line in the column, and the size its title is set in.
     var sideRow: CGFloat { roomyTabs ? 36 : 28 }
     var sideTitle: CGFloat { roomyTabs ? 14 : 12.5 }
+    /// A pinned square's height, roomier with the rows.
+    var sideSquare: CGFloat { roomyTabs ? 42 : 34 }
     /// How wide the column is. Pulled by its edge, and remembered.
     @Published var sideWidth: CGFloat {
         didSet { store.set(Double(sideWidth), forKey: "sidebar.width") }

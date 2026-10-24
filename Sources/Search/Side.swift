@@ -49,7 +49,6 @@ struct SideBar: View {
     /// A tab's line: taller with roomier tabs turned on.
     private var rowHeight: CGFloat { prefs.sideRow }
     private static let gap: CGFloat = 2
-    private static let square: CGFloat = 34
     private static let pinGap: CGFloat = 4
 
     private var onRight: Bool { prefs.sidePosition == .right }
@@ -437,12 +436,13 @@ struct SideBar: View {
     private func pinCells(_ count: Int) -> [CGRect] {
         let room = prefs.sideWidth - 20
         let gap = SideBar.pinGap
-        let fits = Int((room + gap) / (SideBar.square + gap))
+        let square = prefs.sideSquare
+        let fits = Int((room + gap) / (square + gap))
         let rows = SideBar.pinRows(count, most: min(4, max(1, fits)))
         // However few, the squares share the column's width, as in Arc: two
         // are half of it each, one all of it.
         let widths = rows.map { max(20, (room - CGFloat($0 - 1) * gap) / CGFloat($0)) }
-        let height = min(SideBar.square, widths.min() ?? SideBar.square)
+        let height = min(square, widths.min() ?? square)
         var cells: [CGRect] = []
         for (row, n) in rows.enumerated() {
             for col in 0..<n {
