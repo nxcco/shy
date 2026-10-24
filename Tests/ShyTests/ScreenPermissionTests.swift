@@ -197,6 +197,25 @@ final class ScreenPermissionTests: XCTestCase {
         XCTAssertNil(browser.asking)
     }
 
+    /// A page in no row — a peek, a little window — answers for the store it
+    /// is signed in with: a private one is neither given the space's camera
+    /// nor leaves an answer behind; an ordinary one keeps its profile's.
+    func testCameraAnswerFollowsThePageStoreNotTheRow() async throws {
+        let key = "capture.https://screen.example|\(WKMediaCaptureType.camera.rawValue)"
+        for shy in [true, false] {
+            let (browser, tab, frame) = try await fixture(shy: shy)
+            defer { browser.closeAll() }
+            Store.settings.set(true, forKey: key)
+            defer { Store.settings.removeObject(forKey: key) }
+            browser.close(tab) // out of the row, as a peek is
+            XCTAssertNil(browser.tab(for: tab.web))
+            var reply: WKPermissionDecision?
+            browser.askedForCapture(tab.web, origin: frame.securityOrigin, frame: frame, type: .camera) { reply = $0 }
+            XCTAssertEqual(reply, shy ? .deny : .grant, shy ? "private" : "ordinary")
+            XCTAssertNil(browser.asking)
+        }
+    }
+
     private func ask(_ browser: Browser, _ tab: Tab, _ frame: WKFrameInfo, reply: @escaping (Int) -> Void) {
         // The local reply keeps even a broken implementation from opening the picker.
         browser.askedToShareScreen(tab.web, origin: frame.securityOrigin, frame: frame,

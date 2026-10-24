@@ -1452,8 +1452,15 @@ final class Browser: NSObject, ObservableObject {
     /// site can't see in one profile what it was allowed in another and so
     /// tell the two are the same person. Personal's keys are what they
     /// always were.
-    private func scoped(_ key: String, for tab: Tab?) -> String {
-        let profile = tab.map(profile(of:)) ?? profileID
+    ///
+    /// Whose answer it is comes from the page's own store, not from the row
+    /// on screen: a peek, a little window or a parked space's tab is in no
+    /// row, and a private peek once borrowed the space's answer and kept its
+    /// own. Nil — nothing read, nothing kept — for a page that keeps nothing,
+    /// or whose profile is gone.
+    private func scoped(_ key: String, for webView: WKWebView) -> String? {
+        let store = webView.configuration.websiteDataStore
+        guard store.isPersistent, let profile = Profiles.owner(of: store) else { return nil }
         return profile == Profile.personalID ? key : "\(profile.uuidString)|" + key
     }
 
@@ -5905,10 +5912,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             host = origin.host.isEmpty ? (tab(for: webView)?.address?.host() ?? "This page") : origin.host
             site = origin.host.isEmpty ? host : "\(origin.protocol)://\(origin.host)" + (origin.port == 0 ? "" : ":\(origin.port)")
         }
-        let key = scoped("\(site)|\(type.rawValue)", for: tab(for: webView))
-        let shy = tab(for: webView).map { $0.shy || !webView.configuration.websiteDataStore.isPersistent } ?? false
+        let key = scoped("\(site)|\(type.rawValue)", for: webView)
 
-        if !shy, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
+        if let key, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
             decisionHandler(remembered ? .grant : .deny)
             return
         }
@@ -5921,7 +5927,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             // still waiting is refused rather than queued behind it.
             guard !permissionBusy else { return decisionHandler(.deny) }
             decide = decisionHandler
-            askedAbout = shy ? "" : key
+            askedAbout = key ?? ""
             asking = CaptureAsk(host: host, wants: Browser.name(for: type))
         }, drop: { decisionHandler(.deny) })
     }
@@ -5994,16 +6000,16 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
               site == Browser.origin(scheme, host, page.port ?? 0),
               Browser.origin(asker.protocol, asker.host, asker.port) == site
         else { return give(.deny) }
-        let key = scoped("\(site)|location", for: tab)
-        if !tab.shy, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
+        let key = tab.shy ? nil : scoped("\(site)|location", for: webView)
+        if let key, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
             return give(remembered ? .grant : .deny)
         }
         // One question at a time, as for the camera.
         guard !permissionBusy else { return give(.deny) }
         decide = give
-        askedAbout = tab.shy ? "" : key
+        askedAbout = key ?? ""
         let named = Browser.extensionScheme(origin.protocol) ? Browser.extensionName(origin.host) : origin.host
-        asking = CaptureAsk(host: named, wants: "location", once: true, keeps: !tab.shy)
+        asking = CaptureAsk(host: named, wants: "location", once: true, keeps: key != nil)
     }
 
     /// A page asking to send notifications. Asked over its own page, as the
@@ -6027,7 +6033,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
                 decisionHandler(decision == .grant)
                 SiteNotifications.shared.objectWillChange.send()
             }
-            askedAbout = scoped("\(site)|notifications", for: tab)
+            askedAbout = scoped("\(site)|notifications", for: webView) ?? ""
             asking = CaptureAsk(host: origin.host, wants: "notifications")
         }, drop: { decisionHandler(false) })
     }
