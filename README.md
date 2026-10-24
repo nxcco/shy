@@ -30,7 +30,7 @@ Shy isn't a toy or a demo. Its goal is to be a real, independent alternative to 
 Shy is engineered with AI agents and reviewed by a person. It's an indie project, and it grows by people who want a browser like this one. If you do, come build it together:
 
 - Use it, and [open an issue](https://github.com/nxcco/shy/issues) when something is wrong or missing.
-- Pick something from [ROADMAP.md](ROADMAP.md), or propose something small that belongs in it.
+- Pick an [open issue](https://github.com/nxcco/shy/issues), or propose something small that belongs in Shy.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) first: what gets merged, and why Shy stays small.
 
 Report security issues privately, as [SECURITY.md](SECURITY.md) explains.

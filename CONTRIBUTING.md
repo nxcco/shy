@@ -15,12 +15,12 @@ looks or behaves — spaces, groups, a visible address bar, a new panel — is:
 - **optional, and off by default**: someone who never asks for it never sees it;
 - **findable**: a switch in Settings, and a line on the What's New card if it's a big one, so people know it's there to turn on.
 
-Fixes and things every browser is expected to do (Tab moving between a form's fields, ⌘1–⌘9) don't need a switch. Before building a bigger feature, look at how other browsers do it and read what people asked for on its issue; [ROADMAP.md](ROADMAP.md) lists where each request came from.
+Fixes and things every browser is expected to do (Tab moving between a form's fields, ⌘1–⌘9) don't need a switch. Before building a bigger feature, look at how other browsers do it and read what people asked for on its issue.
 
 ## Where things are tracked
 
-- [ROADMAP.md](ROADMAP.md): every idea and report, with where it stands — being built, in the next version, next, or not planned.
-- [CHANGELOG.md](CHANGELOG.md): what has changed since the last version. A pull request that fixes or adds something also adds its line under **Unreleased** (and takes its item off the roadmap), so the next update's notes write themselves.
+- [Issues](https://github.com/nxcco/shy/issues): every idea and report, and what is being worked on.
+- The git history: what changed and why. A commit message says what is different for someone using Shy, not only what the code does.
 
 ## What tends to get merged
 
