@@ -598,6 +598,7 @@ struct SettingsPanel: View {
                     Switch(on: $prefs.usesSpaces)
                 }
             }
+            if prefs.usesSpaces { ProfilesCard(browser: browser) }
         }
     }
 

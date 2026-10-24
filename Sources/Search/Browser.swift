@@ -13,8 +13,6 @@ import Combine
 @MainActor
 enum Shared {
     static let prefs = Preferences()
-    static let bookmarks = Bookmarks()
-    static let history = History()
     static let curtain = Curtain()
     static let loot = Loot()
     static let floater = Float()
@@ -176,7 +174,11 @@ final class Browser: NSObject, ObservableObject {
 
     // MARK: - bookmarks
 
-    let bookmarks = Shared.bookmarks
+    /// The profile of the space on screen (see Profiles.swift).
+    var profileID: UUID { space.profileID }
+    /// Its profile's bookmarks, and below its history: another space's
+    /// profile, another list.
+    var bookmarks: Bookmarks { Profiles.bookmarks(profileID) }
     /// The full list, for taking things out, in a tab.
     var bookmarking: Bool {
         get { pageTab(.bookmarks) != nil }
@@ -340,7 +342,7 @@ final class Browser: NSObject, ObservableObject {
     /// answers to this string.
     @Published var typed = "" { didSet { guess() } }
 
-    let history = Shared.history
+    var history: History { Profiles.history(profileID) }
     /// What the field is offering, best first.
     @Published private(set) var offers: [Suggestion] = []
     /// The rest of the best match, drawn grey after the caret. Tab takes it.
@@ -731,7 +733,7 @@ final class Browser: NSObject, ObservableObject {
         guard let offer = offering else { return }
         offering = nil
         let login = offer.login
-        guard Vault.save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear) else {
+        guard Vault.save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear, in: login.profile) else {
             announce("The keychain refused it")
             return
         }
@@ -795,7 +797,7 @@ final class Browser: NSObject, ObservableObject {
         // Passwords only for a box that goes with one: a box for passkeys
         // alone has no password to put anywhere.
         var kept = prefs.fillsPasswords && passwords
-            ? Vault.kept(matching: host).filter { !inTheClear || $0.clear } : []
+            ? Vault.kept(matching: host, in: profile(of: tab)).filter { !inTheClear || $0.clear } : []
         // The account whose name the step before was sent with comes first:
         // the password page of a sign-in that asks for the name first.
         if let given = tab.givenName(),
@@ -1041,10 +1043,10 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
-    func relist() { saved = Vault.all() }
+    func relist() { saved = Vault.all(in: profileID) }
 
     func keep(host: String, user: String, password: String) {
-        guard Vault.save(host: host, user: user, password: password) else {
+        guard Vault.save(host: host, user: user, password: password, in: profileID) else {
             announce("The keychain refused it")
             return
         }
@@ -1053,7 +1055,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func forget(_ login: Kept) {
-        Vault.forget(host: login.host, user: login.user)
+        Vault.forget(host: login.host, user: login.user, in: login.profile)
         relist()
     }
 
@@ -1082,7 +1084,7 @@ final class Browser: NSObject, ObservableObject {
                 DispatchQueue.global(qos: .userInitiated).async {
                     // Counted as the keychain answers, not as asked: one
                     // it kept is not reported gone.
-                    let gone = shown.filter { Vault.forget(host: $0.host, user: $0.user) }.count
+                    let gone = shown.filter { Vault.forget(host: $0.host, user: $0.user, in: $0.profile) }.count
                     DispatchQueue.main.async {
                         self.forgetting = false
                         self.relist()
@@ -1129,8 +1131,9 @@ final class Browser: NSObject, ObservableObject {
     /// Returns how many were kept.
     func keep(_ found: Chromium.Found) -> Int {
         var kept = 0
+        let profile = profileID
         for login in found.logins
-        where Vault.save(host: login.host, user: login.user, password: login.password, used: login.used, clear: login.clear) {
+        where Vault.save(host: login.host, user: login.user, password: login.password, used: login.used, clear: login.clear, in: profile) {
             kept += 1
         }
         var never = Vault.never
@@ -1203,6 +1206,8 @@ final class Browser: NSObject, ObservableObject {
 
     @discardableResult
     func takeFile(_ url: URL) async -> FileTake {
+        // The profile on screen when it was asked for, wherever the window goes meanwhile.
+        let profile = profileID
         guard !Browser.fileImportTerminating, fileImport == nil else { return FileTake(said: "An import is already running", bookmarks: 0, already: 0, places: 0, kept: 0, skipped: 0, cancelled: false) }
         let id = UUID()
         fileImport = FileImportJob(id: id, filename: url.lastPathComponent, message: "Reading…")
@@ -1268,7 +1273,7 @@ final class Browser: NSObject, ObservableObject {
                     guard !control.isCancelled else { break }
                     let result = await withCheckedContinuation { continuation in
                         DispatchQueue.global(qos: .userInitiated).async {
-                            continuation.resume(returning: Vault.take(csv: text, control: control))
+                            continuation.resume(returning: Vault.take(csv: text, control: control, in: profile))
                         }
                     }
                     kept += result.kept
@@ -1281,7 +1286,7 @@ final class Browser: NSObject, ObservableObject {
         if kept > 0 || skipped > 0 {
             saved = await withCheckedContinuation { continuation in
                 DispatchQueue.global(qos: .utility).async {
-                    continuation.resume(returning: Vault.all())
+                    continuation.resume(returning: Vault.all(in: profile))
                 }
             }
         }
@@ -1327,12 +1332,15 @@ final class Browser: NSObject, ObservableObject {
     @Published var recallHunt = ""
 
     /// Cookies, caches, local storage — everything a site left on this Mac,
-    /// in every space. Clearing it signs you out of everything, which is
-    /// the point.
+    /// in every space and every profile. Clearing it signs you out of
+    /// everything, which is the point.
     func clearSites() {
         let types = WKWebsiteDataStore.allWebsiteDataTypes()
         for space in spaces {
             Spaces.store(for: space.id).removeData(ofTypes: types, modifiedSince: .distantPast) {}
+        }
+        for profile in Profiles.shared.list {
+            Profiles.store(profile.id).removeData(ofTypes: types, modifiedSince: .distantPast) {}
         }
         announce("Signed out of everything")
     }
@@ -1347,11 +1355,15 @@ final class Browser: NSObject, ObservableObject {
         for space in spaces {
             Spaces.store(for: space.id).removeData(ofTypes: types, modifiedSince: .distantPast) {}
         }
+        for profile in Profiles.shared.list {
+            Profiles.store(profile.id).removeData(ofTypes: types, modifiedSince: .distantPast) {}
+        }
         announce("Cache cleared")
     }
 
+    /// Every profile's: the button says every address you have been to.
     func clearHistory() {
-        history.forget()
+        Profiles.shared.list.forEach { Profiles.history($0.id).forget() }
         // The sites' icons are a list of where you have been, too, and so
         // are the searches learned from sites visited (SiteSearch.swift).
         Favicons.shared.forgetAll()
@@ -1937,9 +1949,23 @@ final class Browser: NSObject, ObservableObject {
     /// Spaces (see Spaces.swift): every one, the one on screen, and the
     /// rows of tabs of the others.
     @Published var spaces = Spaces.read() {
-        didSet { Spaces.sharing = Set(spaces.filter { $0.sharesSignIns == true }.map(\.id)) }
+        didSet {
+            Spaces.know(spaces)
+            // A space given to another profile: its tabs here reopen signed
+            // in as that one (see Tab.rehome).
+            let moved = spaces.filter { space in
+                oldValue.first { $0.id == space.id }.map { $0.profileID != space.profileID } ?? false
+            }
+            for space in moved {
+                (space.id == spaceID ? tabs : parked[space.id]?.tabs ?? []).forEach { $0.rehome(in: space.id) }
+            }
+            if !moved.isEmpty { followProfile() }
+        }
     }
     @Published var spaceID = Space.firstID
+    /// The profile whose history and bookmarks this window passes on.
+    private var followed: UUID?
+    private var profileBag: Set<AnyCancellable> = []
     var parked: [UUID: Parked] = [:]
     /// How far the column's rows have followed two fingers sideways, and
     /// whether the card for a new space stands in for them (see SpaceSwipe).
@@ -2043,13 +2069,11 @@ final class Browser: NSObject, ObservableObject {
         // Asked to stay out of the way: it starts that way (see Fold.swift).
         folded = prefs.sidebar && prefs.sideHides
 
-        // The History menu lists what the history holds, and the menu is drawn
-        // from this object's changes — so the history's are passed on.
-        history.objectWillChange
-            .sink { [weak self] in self?.objectWillChange.send() }
-            .store(in: &bag)
-        bookmarks.objectWillChange
-            .sink { [weak self] in self?.objectWillChange.send() }
+        followProfile()
+        // Published before it changes: followed once it has.
+        $spaceID
+            .dropFirst()
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.followProfile() } }
             .store(in: &bag)
 
         // A page's passkeys for under its field, arriving while the caret
@@ -2101,7 +2125,7 @@ final class Browser: NSObject, ObservableObject {
             if !isPopup { closeLeftAlone() }
         }
 
-        Spaces.sharing = Set(spaces.filter { $0.sharesSignIns == true }.map(\.id))
+        Spaces.know(spaces)
         if let record {
             // Another window: the space it showed, and its own rows.
             self.record = record
@@ -2542,8 +2566,9 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// Arc's sidebar brought over (see ImportArc.swift). Each of its spaces
-    /// becomes a space here — the one of the same name if there is one,
-    /// signed in with the others when Arc's used its first profile — its
+    /// becomes a space here — the one of the same name if there is one, in
+    /// the profile on screen when it was in Arc's first, or in a profile
+    /// named as Arc names its own when it was in another — its
     /// pinned list the space's tabs, asleep until gone to, folders opened
     /// out in their order; the favourites, the icons above every space of
     /// a profile in Arc, become the pins of that profile's spaces. A lone space, with spaces off, comes
@@ -2559,12 +2584,14 @@ final class Browser: NSObject, ObservableObject {
         if sidebar.spaces.count > 1 || (prefs.usesSpaces && !sidebar.spaces.isEmpty) {
             if !prefs.usesSpaces { prefs.usesSpaces = true }
             var list = spaces
+            let names = Arc.profileNames()
             for arc in sidebar.spaces {
                 if let same = list.first(where: { $0.name.localizedCaseInsensitiveCompare(arc.name) == .orderedSame }) {
                     targets.append((same.id, arc))
                 } else {
-                    let space = Space(id: UUID(), name: arc.name, colour: 0, icon: arc.symbol,
-                                      sharesSignIns: arc.profile == "Default")
+                    var space = Space(id: UUID(), name: arc.name, colour: 0, icon: arc.symbol, sharesSignIns: true)
+                    let mine = arc.profile == "Default" ? profileID : Profiles.shared.named(names[arc.profile] ?? arc.profile).id
+                    space.profile = mine == Profile.personalID ? nil : mine
                     list.append(space)
                     targets.append((space.id, arc))
                     made += 1
@@ -3798,6 +3825,44 @@ final class Browser: NSObject, ObservableObject {
         writeSession(now: true, space: id, row: row)
         announce("Moved to \(destination.name)")
         return true
+    }
+
+    // MARK: - profiles
+
+    /// The History menu lists what the history holds, and the menu and the
+    /// bookmarks are drawn from this object's changes — so the history's and
+    /// the bookmarks' of the space's profile are passed on, and another
+    /// profile's once the space on screen is in another.
+    func followProfile() {
+        guard followed != profileID else { return }
+        followed = profileID
+        profileBag = []
+        history.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &profileBag)
+        bookmarks.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &profileBag)
+        if pageTab(.passwords) != nil { relist() }
+        objectWillChange.send()
+    }
+
+    /// The profile of the space a tab is in: the one on screen, or a row
+    /// parked behind it.
+    func profile(of tab: Tab) -> UUID {
+        if tabs.contains(where: { $0 === tab }) { return profileID }
+        let space = parked.first { $0.value.tabs.contains { $0 === tab } }?.key
+        return space.flatMap { id in spaces.first { $0.id == id } }?.profileID ?? profileID
+    }
+
+    /// The space's menu › Profile: the space, and its tabs, into another.
+    func setProfile(_ profile: UUID, of id: UUID) {
+        guard let at = spaces.firstIndex(where: { $0.id == id }), spaces[at].profileID != profile else { return }
+        var list = spaces
+        list[at].profile = profile == Profile.personalID ? nil : profile
+        spaces = list
+        Spaces.write(list)
+        announce("\(list[at].name) is in \(Profiles.shared.profile(profile).name)")
     }
 
     // MARK: - a tab to another window
@@ -5044,7 +5109,8 @@ final class Browser: NSObject, ObservableObject {
             if #available(macOS 15.4, *), Extensions.shared.passwordSavingTakenBy != nil { return }
             // Just filled from the Passwords app: it is kept there already.
             if tab.appleFill?.matches(host: host, user: user, password: password) == true { return }
-            let known = Vault.kept(for: host)
+            let profile = self.profile(of: tab)
+            let known = Vault.kept(for: host, in: profile)
             // Nothing to ask about one that is already known. Only that
             // account's secret is read, not every one kept for the site.
             if var same = known.first(where: { $0.user == user }).flatMap(Vault.login), same.password == password {
@@ -5054,7 +5120,7 @@ final class Browser: NSObject, ObservableObject {
                 return
             }
             let offer = Offer(
-                login: Login(host: host, user: user, password: password, used: nil, clear: clear),
+                login: Login(host: host, user: user, password: password, used: nil, clear: clear, profile: profile),
                 changed: known.contains { $0.user == user }
             )
             guard offering != offer else { return }

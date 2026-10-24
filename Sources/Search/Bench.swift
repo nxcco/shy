@@ -1803,16 +1803,16 @@ final class Bench {
             guard Store.testing else { answer(["error": "accounts only works on a --test run"]); return }
             if request["keep"] as? Bool == true { browser.keepOffer() }
             if request["forget"] as? Bool == true {
-                Vault.all().forEach { Vault.forget(host: $0.host, user: $0.user) }
+                Vault.all(in: browser.profileID).forEach { Vault.forget(host: $0.host, user: $0.user, in: browser.profileID) }
                 browser.dropOffer()
             } else if let user = request["forget"] as? String {
                 // One account's, as Settings › Passwords forgets it: "" is
                 // the login kept under no name.
-                Vault.all().filter { $0.user == user }.forEach { Vault.forget(host: $0.host, user: $0.user) }
+                Vault.all(in: browser.profileID).filter { $0.user == user }.forEach { Vault.forget(host: $0.host, user: $0.user, in: browser.profileID) }
             }
             let offer: [String: Any] = browser.offering.map { ["user": $0.login.user, "host": $0.login.host, "changed": $0.changed] } ?? [:]
             // Every account this world keeps, by name, without a secret.
-            let users = Vault.all().map(\.user)
+            let users = Vault.all(in: browser.profileID).map(\.user)
             guard let list = browser.suggesting else { answer(["shown": false, "offer": offer, "kept": users.count, "users": users]); return }
             let rows = list.passkeys.map { ["passkey": $0.name] } + list.logins.map { ["login": $0.user] }
             if let pick = request["pick"] as? Int {

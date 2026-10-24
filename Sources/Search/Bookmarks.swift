@@ -63,7 +63,22 @@ final class Bookmarks: ObservableObject {
     /// button, which fills in on a page that is kept.
     private var kept: Set<String> = []
 
-    init() { load() }
+    /// Its file: bookmarks.json for Personal, one of its own for each other
+    /// profile (see Profiles.swift).
+    private let fileName: String
+    /// Its profile deleted: nothing more is written.
+    private var retired = false
+
+    init(file: String = "bookmarks.json") {
+        fileName = file
+        load()
+    }
+
+    /// Its profile deleted: its file removed, and nothing written again.
+    func retire() {
+        retired = true
+        Disk.remove(file)
+    }
 
     var isEmpty: Bool { roots.isEmpty }
 
@@ -433,7 +448,7 @@ final class Bookmarks: ObservableObject {
                 } else {
                     folders[node.title] = nodes.count
                     nodes.append(node)
-                    added += try fileCount([node], control: control)
+                    added += try Bookmarks.fileCount([node], control: control)
                 }
             } else if pages.contains(node.url ?? "") {
                 already += 1
@@ -496,7 +511,7 @@ final class Bookmarks: ObservableObject {
 
     // MARK: - the file
 
-    private static var file: URL { Store.file("bookmarks.json") }
+    private var file: URL { Store.file(fileName) }
 
     // MARK: - for extensions
 
@@ -597,18 +612,19 @@ final class Bookmarks: ObservableObject {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: Bookmarks.file) else { return }
+        guard let data = try? Data(contentsOf: file) else { return }
         guard let list = try? JSONDecoder().decode([Bookmark].self, from: data) else {
-            Store.quarantine(Bookmarks.file)
+            Store.quarantine(file)
             return
         }
         roots = list
     }
 
     private func save() {
+        guard !retired else { return }
         let snapshot = roots
         // One after another, the newest last (see Disk).
-        Disk.write(Bookmarks.file) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(file) { try? JSONEncoder().encode(snapshot) }
     }
 }
 

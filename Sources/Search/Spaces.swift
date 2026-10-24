@@ -31,6 +31,10 @@ struct Space: Codable, Identifiable, Equatable {
     var sharesSignIns: Bool?
     /// Where this space's downloads go; nil for the folder in Settings.
     var downloads: String?
+    /// The profile it is in (see Profiles.swift); nil for Personal.
+    var profile: UUID?
+
+    var profileID: UUID { profile ?? Profile.personalID }
 
     /// The first space: the session and the store there were before spaces.
     static let firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
@@ -78,6 +82,7 @@ enum Spaces {
     }
 
     static func write(_ spaces: [Space]) {
+        MainActor.assumeIsolated { know(spaces) }
         guard let data = try? JSONEncoder().encode(spaces) else { return }
         try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: file, options: .atomic)
@@ -94,11 +99,23 @@ enum Spaces {
     /// Each space's store, made once: WebKit shares processes between views
     /// that ask for the same store object.
     @MainActor private static var stores: [UUID: WKWebsiteDataStore] = [:]
-    /// The spaces signed in wherever the first one is (see Space.sharesSignIns).
+    /// The spaces signed in as their profile is (see Space.sharesSignIns).
     @MainActor static var sharing: Set<UUID> = []
+    /// The profile of each space not in Personal.
+    @MainActor static var owners: [UUID: UUID] = [:]
 
+    /// What the stores are made from: which spaces share their profile's,
+    /// and whose profile each is.
+    @MainActor static func know(_ spaces: [Space]) {
+        sharing = Set(spaces.filter { $0.sharesSignIns == true }.map(\.id))
+        owners = Dictionary(spaces.compactMap { space in space.profile.map { (space.id, $0) } }, uniquingKeysWith: { a, _ in a })
+    }
+
+    @MainActor static func profile(of id: UUID) -> UUID { owners[id] ?? Profile.personalID }
+
+    /// A space's store: its profile's, unless it has sign-ins of its own.
     @MainActor static func store(for id: UUID) -> WKWebsiteDataStore {
-        if id == Space.firstID || sharing.contains(id) { return Store.websites }
+        if id == Space.firstID || sharing.contains(id) { return Profiles.store(profile(of: id)) }
         if let made = stores[id] { return made }
         let made = WKWebsiteDataStore(forIdentifier: id)
         if Store.keepsSignIns { Store.followSignIns(made) } else { Store.followCookies(made) }
@@ -110,7 +127,7 @@ enum Spaces {
     /// tab's: each has a store of its own, out of this list on purpose, so
     /// tracking prevention stays on there whatever the switch says.
     @MainActor static var everyStore: [WKWebsiteDataStore] {
-        [Store.websites] + stores.values
+        [Store.websites] + Profiles.madeStores + stores.values
     }
 
     /// A space's store and everything in it, gone. What it holds — cookies,
@@ -514,6 +531,21 @@ enum SpaceMenu {
         let icon = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
         icon.submenu = icons
         menu.addItem(icon)
+        // The profile it signs in, keeps history, bookmarks and passwords as.
+        let profiles = NSMenu()
+        for profile in Profiles.shared.list {
+            profiles.addItem(item(profile.name, checked: here.profileID == profile.id) { browser.setProfile(profile.id, of: here.id) })
+        }
+        profiles.addItem(.separator())
+        profiles.addItem(item("New Profile…") {
+            Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords. “\(here.name)” moves into it.",
+                     placeholder: "Work", confirm: "Create") { name in
+                browser.setProfile(Profiles.shared.add(named: name).id, of: here.id)
+            }
+        })
+        let profile = NSMenuItem(title: "Profile", action: nil, keyEquivalent: "")
+        profile.submenu = profiles
+        menu.addItem(profile)
         let folder = here.downloads.map { URL(fileURLWithPath: $0).lastPathComponent }
         menu.addItem(item(folder.map { "Downloads to “\($0)”…" } ?? "Downloads Folder…") {
             Ask.folder { browser.setSpaceDownloads(here.id, to: $0) }

@@ -379,7 +379,6 @@ final class ImportFileTests: XCTestCase {
         let browser = makeImportTestBrowser()
         let previousRecords = Store.settings.data(forKey: "import.records")
         let previousUsesSpaces = browser.prefs.usesSpaces
-        let previousUsesTabGroups = browser.prefs.usesTabGroups
         let previousSpaces = browser.spaces
         let suffix = UUID().uuidString
         let workName = "Arc Engineering \(suffix)"
@@ -392,11 +391,11 @@ final class ImportFileTests: XCTestCase {
             for space in browser.spaces where space.name == workName || space.name == personalName {
                 Pins.forget(space.id)
                 Session.erase(space: space.id)
+                if let profile = space.profile { Profiles.shared.delete(profile) }
             }
             browser.spaces = previousSpaces
             Spaces.write(previousSpaces)
             browser.prefs.usesSpaces = previousUsesSpaces
-            browser.prefs.usesTabGroups = previousUsesTabGroups
             if let oldArcFile { try? oldArcFile.write(to: Arc.file, options: .atomic) }
             else {
                 try? FileManager.default.removeItem(at: Arc.file)
@@ -412,7 +411,6 @@ final class ImportFileTests: XCTestCase {
         let sidebar = try makeArcSidebarFixture(workName: workName, personalName: personalName)
         try sidebar.write(to: Arc.file, options: .atomic)
         browser.prefs.usesSpaces = false
-        browser.prefs.usesTabGroups = true
 
         let imported = try XCTUnwrap(source.arcSidebar(profile: nil))
         XCTAssertEqual(source.arcCounts(profile: nil)?.spaces, 2)
@@ -440,7 +438,9 @@ final class ImportFileTests: XCTestCase {
         let work = try XCTUnwrap(browser.spaces.first { $0.name == workName })
         let personal = try XCTUnwrap(browser.spaces.first { $0.name == personalName })
         XCTAssertEqual(work.sharesSignIns, true)
-        XCTAssertEqual(personal.sharesSignIns, false)
+        XCTAssertEqual(personal.sharesSignIns, true)
+        XCTAssertEqual(work.profileID, browser.profileID, "Arc's first profile comes into the profile on screen")
+        XCTAssertNotEqual(personal.profileID, browser.profileID, "another Arc profile comes in as a profile of its own")
         XCTAssertEqual(Pins.defs(work.id).map(\.home), ["https://favorite-work.example/"])
         XCTAssertEqual(Pins.defs(personal.id).map(\.home), ["https://favorite-personal.example/"])
         let workSession = browser.readRow(work.id)

@@ -21,6 +21,8 @@ struct Login: Identifiable, Equatable, Hashable {
     /// written down, is never handed to a page anyone on the way could have
     /// written.
     var clear = false
+    /// The profile it is kept in (see Profiles.swift).
+    var profile = Profile.personalID
 
     var id: String { host + "\u{1}" + user }
 }
@@ -38,6 +40,8 @@ struct Kept: Identifiable, Equatable, Hashable {
     var used: Date?
     /// Kept from a page sent in the clear, over plain http. See `Login`.
     var clear = false
+    /// The profile it is kept in (see Profiles.swift).
+    var profile = Profile.personalID
 
     var id: String { host + "\u{1}" + user }
 }
@@ -45,7 +49,13 @@ struct Kept: Identifiable, Equatable, Hashable {
 enum Vault {
     /// What every item of ours is tagged with. A test run tags its own, so a
     /// password saved while trying something never sits among the real ones.
-    private static let label = Store.world.map { "Search (\($0))" } ?? "Search"
+    private static let base = Store.world.map { "Search (\($0))" } ?? "Search"
+
+    /// Each profile's drawer: Personal's is what every item was tagged with
+    /// before there were profiles, so none of those moves.
+    private static func label(_ profile: UUID) -> String {
+        profile == Profile.personalID ? base : "\(base) · \(profile.uuidString)"
+    }
 
     // MARK: - reading
 
@@ -65,36 +75,36 @@ enum Vault {
     /// the login password, once per item, and a Deny is never remembered.
     /// Reading every account's secret to draw the list under a sign-in box
     /// asked for each of them each time the caret went in.
-    static func kept(for host: String) -> [Kept] {
-        rows(where: [kSecAttrServer as String: host]).compactMap(kept(from:))
+    static func kept(for host: String, in profile: UUID) -> [Kept] {
+        rows(where: [kSecAttrServer as String: host], in: profile).compactMap { kept(from: $0, in: profile) }
     }
 
     /// The keychain matches a server name exactly, and a sign-in rarely lives
     /// on the page you saved it from — accounts.example.com asks, and the
     /// password was kept for example.com. So the site is matched as a site:
     /// the host first, then anything sharing its registrable domain.
-    static func kept(matching host: String) -> [Kept] {
+    static func kept(matching host: String, in profile: UUID) -> [Kept] {
         let domain = registrable(host)
-        let exact = kept(for: host)
-        let wider = rows(where: [:])
+        let exact = kept(for: host, in: profile)
+        let wider = rows(where: [:], in: profile)
             .filter { ($0[kSecAttrServer as String] as? String).map { $0 != host && registrable($0) == domain } ?? false }
-            .compactMap(kept(from:))
+            .compactMap { kept(from: $0, in: profile) }
         return (exact + wider).sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) }
     }
 
     /// Everything this app holds, as the list needs it: no secrets. Each one
     /// is `secret(of:)`, a call of its own, and only when it is asked for.
     /// Read on demand and never kept in a property.
-    static func all() -> [Kept] {
-        rows(where: [:]).compactMap(kept(from:))
+    static func all(in profile: UUID) -> [Kept] {
+        rows(where: [:], in: profile).compactMap { kept(from: $0, in: profile) }
             .sorted { $0.host == $1.host ? $0.user < $1.user : $0.host < $1.host }
     }
 
     /// The items' attributes — no secrets — narrowed by whatever is given.
-    private static func rows(where extra: [String: Any]) -> [[String: Any]] {
+    private static func rows(where extra: [String: Any], in profile: UUID) -> [[String: Any]] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
-            kSecAttrLabel as String: label,
+            kSecAttrLabel as String: label(profile),
             kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitAll,
         ]
@@ -111,11 +121,11 @@ enum Vault {
     }
 
     /// One item's secret, by the two things that name it.
-    private static func secret(host: String, user: String) -> String? {
+    private static func secret(host: String, user: String, in profile: UUID) -> String? {
         var out: CFTypeRef?
         let status = SecItemCopyMatching([
             kSecClass as String: kSecClassInternetPassword,
-            kSecAttrLabel as String: label,
+            kSecAttrLabel as String: label(profile),
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
             kSecReturnData as String: true,
@@ -130,7 +140,7 @@ enum Vault {
 
     /// One item's secret, where a list holds only the item: read when a
     /// password is shown or copied, and never as part of a list.
-    static func secret(of kept: Kept) -> String? { secret(host: kept.host, user: kept.user) }
+    static func secret(of kept: Kept) -> String? { secret(host: kept.host, user: kept.user, in: kept.profile) }
 
     /// What an item's attributes say beyond its name: when it was last used,
     /// and whether it was kept from a page sent in the clear.
@@ -147,7 +157,7 @@ enum Vault {
     /// keychain read, for the one account picked.
     static func login(_ kept: Kept) -> Login? {
         guard let password = secret(of: kept) else { return nil }
-        return Login(host: kept.host, user: kept.user, password: password, used: kept.used, clear: kept.clear)
+        return Login(host: kept.host, user: kept.user, password: password, used: kept.used, clear: kept.clear, profile: kept.profile)
     }
 
     /// The account an item is kept under. A sign-in with a password box
@@ -160,17 +170,17 @@ enum Vault {
     }
 
     /// One item without its secret, for the list.
-    private static func kept(from row: [String: Any]) -> Kept? {
+    private static func kept(from row: [String: Any], in profile: UUID) -> Kept? {
         guard let host = row[kSecAttrServer as String] as? String else { return nil }
         let user = account(of: row)
         let (used, clear) = noted(row)
-        return Kept(host: host, user: user, used: used, clear: clear)
+        return Kept(host: host, user: user, used: used, clear: clear, profile: profile)
     }
 
     // MARK: - writing
 
     @discardableResult
-    static func save(host: String, user: String, password: String, used: Date? = nil, clear: Bool = false) -> Bool {
+    static func save(host: String, user: String, password: String, used: Date? = nil, clear: Bool = false, in profile: UUID) -> Bool {
         guard !host.isEmpty, !password.isEmpty,
               let data = password.data(using: .utf8)
         else { return false }
@@ -182,14 +192,14 @@ enum Vault {
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
-            kSecAttrLabel as String: label,
+            kSecAttrLabel as String: label(profile),
         ]
         // A web form's, which also keeps ours apart from another app's item
         // in the keychain's eyes: one for the same server, account and
         // protocol — git's — makes adding ours fail as a duplicate.
         var fields: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrLabel as String: label,
+            kSecAttrLabel as String: label(profile),
             kSecAttrAuthenticationType as String: kSecAttrAuthenticationTypeHTMLForm,
             kSecAttrProtocol as String: clear ? kSecAttrProtocolHTTP : kSecAttrProtocolHTTPS,
         ]
@@ -206,18 +216,25 @@ enum Vault {
 
     /// It was just used to sign in. Lists put it first from now on.
     static func touch(_ login: Login) {
-        save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear)
+        save(host: login.host, user: login.user, password: login.password, used: Date(), clear: login.clear, in: login.profile)
     }
 
     /// Whether the keychain let it go: Remove All… counts only those.
     @discardableResult
-    static func forget(host: String, user: String) -> Bool {
+    static func forget(host: String, user: String, in profile: UUID) -> Bool {
         SecItemDelete([
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
-            kSecAttrLabel as String: label,
+            kSecAttrLabel as String: label(profile),
         ] as CFDictionary) == errSecSuccess
+    }
+
+    /// Every password a profile kept, gone with the profile. Never
+    /// Personal's, whose drawer is the one there always was.
+    static func forgetAll(in profile: UUID) {
+        guard profile != Profile.personalID else { return }
+        all(in: profile).forEach { forget(host: $0.host, user: $0.user, in: profile) }
     }
 
     // MARK: - sites that asked not to be asked
@@ -281,7 +298,7 @@ enum Vault {
     /// A CSV as Google Password Manager, Chrome or Dia write it: name, url,
     /// username, password, note. Read once, put in the keychain, and the file
     /// is yours to delete — this never keeps a copy of it.
-    static func take(csv text: String) -> (kept: Int, skipped: Int) {
+    static func take(csv text: String, in profile: UUID) -> (kept: Int, skipped: Int) {
         var rows = parse(csv: text)
         guard !rows.isEmpty else { return (0, 0) }
 
@@ -307,14 +324,14 @@ enum Vault {
                 continue
             }
             let clear = row[urlAt].trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("http://")
-            save(host: host, user: row[userAt], password: password, clear: clear) ? (kept += 1) : (skipped += 1)
+            save(host: host, user: row[userAt], password: password, clear: clear, in: profile) ? (kept += 1) : (skipped += 1)
         }
         return (kept, skipped)
     }
 
     /// Called on the import worker. Parsing finishes before any keychain
     /// writes; cancellation between writes preserves an exact partial count.
-    static func take(csv text: String, control: ImportFile.Control) -> (kept: Int, skipped: Int) {
+    static func take(csv text: String, control: ImportFile.Control, in profile: UUID) -> (kept: Int, skipped: Int) {
         guard !control.isCancelled else { return (0, 0) }
         control.report(.init(message: "Reading password CSV…", completed: 0))
         var rows = parse(csv: text, control: control)
@@ -339,7 +356,7 @@ enum Vault {
             let password = row[passAt]
             guard !host.isEmpty, !password.isEmpty else { skipped += 1; continue }
             let clear = row[urlAt].trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("http://")
-            save(host: host, user: row[userAt], password: password, clear: clear) ? (kept += 1) : (skipped += 1)
+            save(host: host, user: row[userAt], password: password, clear: clear, in: profile) ? (kept += 1) : (skipped += 1)
         }
         return (kept, skipped)
     }
