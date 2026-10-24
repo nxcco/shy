@@ -1583,6 +1583,12 @@ final class Browser: NSObject, ObservableObject {
         rememberSession()
     }
 
+    /// A pin no longer on the page it was pinned at.
+    func wandered(_ tab: Tab) -> Bool {
+        guard tab.pin != nil, let home = tab.home else { return false }
+        return !Browser.samePage(home, tab.address)
+    }
+
     /// The same page, give or take a trailing slash.
     static func samePage(_ one: URL, _ other: URL?) -> Bool {
         guard let other else { return false }
@@ -3240,19 +3246,28 @@ final class Browser: NSObject, ObservableObject {
         // tab that no longer exists.
         if floating == tab.id { land(covering: false) }
 
-        // A pinned tab is not closed by ⌘W — it is put down. The letter keeps
-        // its place, the page is let go, and you land on whatever you were
-        // looking at before. Only Unpin takes it out of the row.
+        // A pinned tab is not closed by ⌘W — it is put down. Only Unpin
+        // takes it out of the row.
         if tab.pin != nil {
+            // Wandered off, and on screen: back to the page it was pinned
+            // at, and you stay on it.
+            if activeID == tab.id, wandered(tab) {
+                goHome(tab)
+                return
+            }
             // Put down is gone home, as Arc's pins are: the pin wakes on the
             // page it was pinned at, not wherever its links had taken it.
             tab.rest(at: tab.home)
-            // Ordinary tabs first. Falling back to the most recent tab of any
-            // kind meant closing one pin landed you on another pin, and ⌘W
-            // bounced between the two instead of getting you out of them.
-            let others = tabs.filter { $0.id != tab.id && !$0.asleep }
-            let loose = others.filter { $0.pin == nil }
-            if let back = (loose.isEmpty ? others : loose).max(by: { $0.touched < $1.touched }) {
+            // Off screen already: nothing else moves.
+            guard activeID == tab.id else {
+                writeSession(now: true)
+                return
+            }
+            // An ordinary tab, or a new one; never another pin, which you
+            // hadn't asked for and ⌘W would bounce you between.
+            let loose = tabs.filter { $0.id != tab.id && $0.pin == nil }
+            let awake = loose.filter { !$0.asleep }
+            if let back = (awake.isEmpty ? loose : awake).max(by: { $0.touched < $1.touched }) {
                 select(back)
             } else {
                 newTab()

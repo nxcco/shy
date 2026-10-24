@@ -1172,10 +1172,10 @@ private struct SideRow: View {
         .overlay(alignment: .trailing) {
             if !editing {
                 ZStack {
-                    if hovering {
-                        // A pinned row is put down, not closed (see
-                        // Browser.close), and says so, as Arc's does.
-                        Image(systemName: tab.pin != nil ? "minus" : "xmark")
+                    if hovering, tab.pin == nil || browser.wandered(tab) {
+                        // A pinned row isn't closed (see Browser.close): one
+                        // that has wandered goes back to its pinned page.
+                        Image(systemName: tab.pin != nil ? "arrow.uturn.backward" : "xmark")
                             .font(.system(size: 8, weight: .semibold))
                             .foregroundStyle(Palette.muted)
                             .frame(width: 15, height: 15)
@@ -1188,8 +1188,9 @@ private struct SideRow: View {
                     Color.clear
                         .frame(width: 30, height: prefs.sideRow)
                         .contentShape(Rectangle())
-                        .onTapGesture { if hovering { close() } }
+                        .onTapGesture { if hovering, tab.pin == nil || browser.wandered(tab) { close() } }
                 }
+                .help(tab.pin != nil ? "Back to Pinned Page" : "")
                 .padding(.trailing, 7)
             }
         }
