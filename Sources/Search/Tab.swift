@@ -129,7 +129,18 @@ enum Web {
         if Store.testing, !Store.measuring { config.preferences.inactiveSchedulingPolicy = .none }
         inspector(config.preferences)
         NativePiP.allow(config.preferences)
+        Web.fileIsolation(config)
         return config
+    }
+
+    /// A page on this Mac is an origin of its own, as in Safari, Chrome and
+    /// Firefox: it may show the pictures and styles in its folder, but its
+    /// scripts can't fetch another file there, or the folder's listing — a
+    /// page from Downloads reading the bank statement beside it. Today's
+    /// WebKit already says so; this says it whatever WebKit's default is.
+    static func fileIsolation(_ config: WKWebViewConfiguration, on: Bool = true) {
+        config.preferences.setValue(!on, forKey: "allowFileAccessFromFileURLs")
+        config.setValue(!on, forKey: "allowUniversalAccessFromFileURLs")
     }
 
     /// What a page may not play until it is clicked or a key pressed: sound,
