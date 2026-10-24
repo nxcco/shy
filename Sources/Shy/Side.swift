@@ -331,6 +331,9 @@ struct SideBar: View {
                 }
                 .padding(.bottom, 10)
             }
+            // The same session in every space, so it is already in place
+            // as a space comes in, not drawn when it lands.
+            AgentSection(browser: browser, prefs: prefs, agent: agent)
             VStack(spacing: SideBar.gap) {
                 ForEach(listed) { tab in
                     SideRow(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active,
