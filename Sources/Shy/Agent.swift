@@ -26,7 +26,7 @@ import WebKit
 //
 // Together they are the agent's session: the Agent folder at the top of the
 // column, in every space, shows them (AgentSide.swift), and a page picked
-// there is shown in the window, to watch and never to drive. Off show, they
+// there is shown in the window, to watch or to use yourself. Off show, they
 // live in a window of their own off every screen, so a picture of one is a
 // picture of something, and never take a window from you.
 //

@@ -3,13 +3,15 @@ import WebKit
 
 // What you see of an agent's session (Agent.swift): its folder at the top of
 // the column, in every space; its page in the window when you pick one, to
-// watch and never to drive; and the card that hands one of your tabs over.
-// All of it in the agent's own violet, which nothing of yours ever wears.
+// watch or to use yourself; and the card that hands one of your tabs over.
+// The column's own greys and hairlines: the agent's mark and the bar over
+// its page are what say whose it is.
 
 /// The Agent folder: the session's pages, its questions for you, and the
 /// one button that ends it. Not in any space or profile, so it stays where
 /// it is as you go from one to another; not there at all with no session.
 struct AgentSection: View {
+    @Environment(\.greys) private var greys
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var agent: Agent
@@ -28,10 +30,10 @@ struct AgentSection: View {
                 }
             }
             .padding(4)
-            .background(Palette.agent.opacity(0.09), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .background(greys.tile, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(Palette.agent.opacity(0.35), lineWidth: 1)
+                    .strokeBorder(Palette.hairline, lineWidth: 1)
             )
             .padding(.bottom, 10)
             .transition(.opacity)
@@ -51,7 +53,7 @@ struct AgentSection: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Agent")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.agent)
+                    .foregroundStyle(Palette.ink)
                 Text(status)
                     .font(.system(size: 10.5))
                     .foregroundStyle(Palette.muted)
@@ -86,8 +88,8 @@ struct AgentMark: View {
     var body: some View {
         Image(systemName: "cursorarrow.rays")
             .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(Palette.agent)
-            .opacity(busy && breathing ? 0.35 : 1)
+            .foregroundStyle(Palette.ink)
+            .opacity(busy && breathing ? 0.3 : 1)
             .animation(busy ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true) : .default, value: breathing)
             .onAppear { breathing = busy }
             .onChange(of: busy) { _, now in breathing = now }
@@ -97,6 +99,7 @@ struct AgentMark: View {
 /// One page of the session: its title, whose sign-in it holds if any, and
 /// what the agent is doing to it.
 private struct AgentRow: View {
+    @Environment(\.greys) private var greys
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var agent: Agent
@@ -110,7 +113,7 @@ private struct AgentRow: View {
             ZStack(alignment: .bottomTrailing) {
                 Image(systemName: page.handover == nil ? "globe" : "key.fill")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(page.live != nil ? Palette.agent : Palette.muted)
+                    .foregroundStyle(page.live != nil ? Palette.ink : Palette.muted)
                     .frame(width: 16, height: 16)
             }
             VStack(alignment: .leading, spacing: 0) {
@@ -121,7 +124,7 @@ private struct AgentRow: View {
                 if let line = line {
                     Text(line)
                         .font(.system(size: 10.5))
-                        .foregroundStyle(page.acting != nil ? Palette.agent : Palette.muted)
+                        .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                 }
             }
@@ -141,7 +144,7 @@ private struct AgentRow: View {
         .frame(height: prefs.sideRow)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(shown ? Palette.agent.opacity(0.18) : hovering ? Palette.agent.opacity(0.08) : .clear)
+                .fill(shown ? greys.wash : hovering ? greys.hover : .clear)
         }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
@@ -176,18 +179,18 @@ private struct ApprovalRow: View {
             HStack(spacing: 6) {
                 Spacer(minLength: 0)
                 Pill("Deny") { agent.answer(approval, false) }
-                Pill("Allow", filled: true, tint: Palette.agent) { agent.answer(approval, true) }
+                Pill("Allow", filled: true) { agent.answer(approval, true) }
             }
         }
         .padding(8)
         .background(Palette.ground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.agent.opacity(0.5), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
     }
 }
 
-/// An agent's page in the window, over yours: framed in violet, with a bar
-/// that says whose it is and what it holds, the steps taken on it, and no
-/// way for a click or a key of yours to reach it. Scrolling still does.
+/// An agent's page in the window, over yours, as usable as any page: a bar
+/// over it says whose it is, what it holds and what the agent is doing, and
+/// shows the steps taken on it.
 struct AgentStage: View {
     @ObservedObject var browser: Browser
     @ObservedObject var agent: Agent
@@ -211,19 +214,14 @@ struct AgentStage: View {
         var body: some View {
             VStack(spacing: 0) {
                 bar
+                Rectangle().fill(Palette.hairline).frame(height: 1)
                 ZStack(alignment: .topTrailing) {
                     WebStage(page: page.web)
-                    Glass(page: page.web)
                     if showingSteps { steps }
                 }
             }
             .background(Palette.ground)
             .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: corner, style: .continuous)
-                    .strokeBorder(Palette.agent, lineWidth: page.acting != nil ? 3 : 2)
-            )
-            .animation(Motion.quick, value: page.acting != nil)
         }
 
         private var bar: some View {
@@ -236,7 +234,7 @@ struct AgentStage: View {
                 if let acting = page.acting {
                     Text(acting)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Palette.agent)
+                        .foregroundStyle(Palette.muted)
                 }
                 Spacer(minLength: 8)
                 if let handover = page.live {
@@ -248,7 +246,7 @@ struct AgentStage: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
-            .background(Palette.agent.opacity(0.12))
+            .background(Palette.wash)
         }
 
         private var says: String {
@@ -282,28 +280,6 @@ struct AgentStage: View {
             .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
             .padding(10)
         }
-    }
-}
-
-/// Over an agent's page: takes every click, key and gesture, so nothing of
-/// yours lands on a page the agent is driving, and hands the wheel on, so
-/// you can still look down it.
-private struct Glass: NSViewRepresentable {
-    let page: WKWebView
-
-    func makeNSView(context: Context) -> Pane { Pane() }
-    func updateNSView(_ view: Pane, context: Context) { view.page = page }
-
-    final class Pane: NSView {
-        weak var page: WKWebView?
-        override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
-        override func scrollWheel(with event: NSEvent) { page?.scrollWheel(with: event) }
-        override func mouseDown(with event: NSEvent) {}
-        override func rightMouseDown(with event: NSEvent) {}
-        override func otherMouseDown(with event: NSEvent) {}
-        override func magnify(with event: NSEvent) {}
-        override var acceptsFirstResponder: Bool { false }
-        override func menu(for event: NSEvent) -> NSMenu? { nil }
     }
 }
 
@@ -369,7 +345,7 @@ struct HandoverCard: View {
             HStack {
                 Spacer()
                 Pill("Cancel") { browser.handingOver = nil }
-                Pill("Hand Over", filled: true, tint: Palette.agent) { handOver() }
+                Pill("Hand Over", filled: true) { handOver() }
                     .disabled(found == nil)
                     .opacity(found == nil ? 0.4 : 1)
             }
