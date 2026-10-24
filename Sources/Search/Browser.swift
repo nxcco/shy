@@ -1994,7 +1994,7 @@ final class Browser: NSObject, ObservableObject {
     /// The page as a card is off, and never with the window filling the
     /// screen, where the page goes edge to edge (#607). A page's own video
     /// filling the screen is the window's to add (see ContentView.cards).
-    var asCards: Bool { prefs.sidebar && prefs.cards && !fullScreen }
+    var asCards: Bool { prefs.cards && !fullScreen }
     /// The extension a popup window was opened for (windows.create with
     /// type "popup"), or nil for a browser window. Such a window is small,
     /// the page under a thin line with its site; it is never saved, never
@@ -2058,7 +2058,7 @@ final class Browser: NSObject, ObservableObject {
             Spaces.sweep()
         }
         // Asked to stay out of the way: it starts that way (see Fold.swift).
-        folded = prefs.sidebar && prefs.sideHides
+        folded = prefs.sideHides
 
         followProfile()
         // Published before it changes: followed once it has.
@@ -3052,9 +3052,7 @@ final class Browser: NSObject, ObservableObject {
     private func joins(_ tab: Tab, kindOf anchor: Tab) -> Bool {
         guard tab.folder == anchor.folder else { return false }
         guard tab.pin != nil, anchor.pin != nil, tab.listed != anchor.listed else { return true }
-        if prefs.showsPinRows { return false }
-        tab.listed = anchor.listed
-        return true
+        return false
     }
 
     func dropTabIntoStrip(_ tab: Tab, before target: Tab?) {

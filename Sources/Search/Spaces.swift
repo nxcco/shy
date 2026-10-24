@@ -406,9 +406,8 @@ struct SpaceDot: View {
                     .id(shown?.key ?? key)
                     // The way the tabs go: sideways in the column; in the bar
                     // across the top, up for the next space, down going back.
-                    .transition(.push(from: browser.prefs.sidebar
-                        ? (browser.spaceStep > 0 ? .trailing : .leading)
-                        : (browser.spaceStep > 0 ? .bottom : .top)))
+                    .transition(.push(from: (browser.spaceStep > 0 ? .trailing : .leading)
+                       ))
             }
             .frame(width: SpaceDot.width, height: 26)
             .clipped()
@@ -420,11 +419,11 @@ struct SpaceDot: View {
         }
         .buttonStyle(.plain)
         .overlay { RightClick { SpaceMenu.make(for: browser) } }
-        .popover(isPresented: $drawer, arrowEdge: browser.prefs.sidebar ? .top : .bottom) {
+        .popover(isPresented: $drawer, arrowEdge: .top) {
             SpaceDrawer(browser: browser) { drawer = false }
         }
         .onHover { hovering = $0 }
-        .help("\(browser.space.name) — ⌃1–⌃9, or two fingers \(browser.prefs.sidebar ? "sideways" : "up or down") over the tabs, to switch")
+        .help("\(browser.space.name) — ⌃1–⌃9, or two fingers \("sideways") over the tabs, to switch")
         .onChange(of: key) { _, now in
             let symbol = symbol
             DispatchQueue.main.async {
@@ -437,7 +436,7 @@ struct SpaceDot: View {
         // page would cover it), above it at the column's foot — and
         // gone again: the icon alone is what stays. Over whatever is there,
         // taking no click and moving nothing.
-        .overlay(alignment: browser.prefs.sidebar ? .bottomLeading : .leading) {
+        .overlay(alignment: .bottomLeading) {
             if let named {
                 Text(named)
                     .font(.system(size: 11.5, weight: .medium))
@@ -449,9 +448,9 @@ struct SpaceDot: View {
                     .background(Palette.ground, in: Capsule())
                     .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: 1))
                     .shadow(color: .black.opacity(0.10), radius: 10, y: 3)
-                    .offset(x: browser.prefs.sidebar ? 0 : SpaceDot.width + 4, y: browser.prefs.sidebar ? -30 : 0)
+                    .offset(x: 0, y: -30)
                     .allowsHitTesting(false)
-                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: browser.prefs.sidebar ? .bottomLeading : .leading)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottomLeading)))
             }
         }
         .animation(Motion.quick, value: hovering)

@@ -102,28 +102,14 @@ struct Fold: View {
             // the page the top edge too, and the same band: there was nothing
             // to take hold of until the strip came down. Unfolded, the strip
             // is its own title bar, and no band lies over its tabs.
-            if prefs.sidebar || folding, browser.active?.immersed != true {
+            if browser.active?.immersed != true {
                 DragStrip()
                     .frame(height: Fold.top)
                     .frame(maxWidth: .infinity)
             }
-            if folding, !prefs.sidebar {
-                // Kept while folded, above the window's top edge, and slid
-                // down and back up, as the column is (see below).
-                //
-                // The row has no ground of its own: in the window it lies on
-                // the window's. Out over the page it brings that ground along,
-                // as the column does, or the page showed through between the
-                // tabs, and the shadow fell from every title and icon rather
-                // than from the row's edge.
-                TabBar(browser: browser)
-                    .modifier(FoldShadow(y: 4, behind: true, strength: browser.peeking ? 1 : 0))
-                    .offset(y: browser.peeking ? 0 : -Metrics.strip)
-                    .allowsHitTesting(browser.peeking)
-            }
             ZStack(alignment: onRight ? .trailing : .leading) {
                 Color.clear.frame(width: 0)
-                if folding, prefs.sidebar {
+                if folding {
                     // Kept while folded, off the window's edge, and slid out
                     // and back rather than made anew each time. Made anew,
                     // every row was built again on every peek, about 60ms of
@@ -187,11 +173,6 @@ struct Fold: View {
         // Back to the strip and then to the column again: the column comes
         // back as it rests — whole, not folded from a time nobody remembers,
         // unless Settings says it rests folded.
-        .onChange(of: prefs.sidebar) { _, _ in
-            resetPending()
-            browser.folded = prefs.sidebar && prefs.sideHides
-            browser.peeking = false
-        }
         .onChange(of: prefs.sidePosition) { _, _ in
             resetPending()
             browser.peeking = false
@@ -202,8 +183,7 @@ struct Fold: View {
         }
         .onChange(of: prefs.sideHides) { _, hides in
             resetPending()
-            guard prefs.sidebar else { return }
-            browser.peeking = false
+                        browser.peeking = false
             withAnimation(Motion.folding(out: !hides)) { browser.folded = hides }
         }
         // The address typed into a row is done with, and the pointer went
@@ -237,7 +217,7 @@ struct Fold: View {
     }
 
     private var onRight: Bool {
-        prefs.sidebar && prefs.sidePosition == .right
+        prefs.sidePosition == .right
     }
 
     private func resetPending() {
@@ -271,12 +251,12 @@ struct Fold: View {
         let inWindow = point.x >= 0 && point.x < size.width && point.y >= 0 && point.y < size.height
         // Distance from the column's edge for the column, from the top for
         // the strip.
-        let distance = prefs.sidebar ? (onRight ? size.width - point.x : point.x) : size.height - point.y
+        let distance = (onRight ? size.width - point.x : point.x)
         // Just past the column's edge, beside the window rather than above
         // or below it, come off the window to get there, and not on the Dock
         // or the menu bar.
         let past = onRight ? point.x - size.width : -point.x
-        let beside = prefs.sidebar && past > 0 && past < Fold.overshoot
+        let beside = past > 0 && past < Fold.overshoot
             && point.y >= 0 && point.y < size.height
         let overshot = beside && pointer.crossing
             && NSScreen.screens.contains { $0.visibleFrame.contains(screen) }
@@ -289,7 +269,7 @@ struct Fold: View {
             let top = NSWindow.windowNumber(at: screen, belowWindowWithWindowNumber: 0)
             let onWindow = top == window.windowNumber
             let onOwnPanel = !onWindow && NSApp.windows.contains { $0.windowNumber == top }
-            let reach = prefs.sidebar ? prefs.sideWidth : Metrics.strip
+            let reach = prefs.sideWidth
             // An extension's popup hangs from its button in the column: the
             // column stays out while it is up, or the popup is left hanging
             // from nothing (see ExtensionPopup).
@@ -301,7 +281,7 @@ struct Fold: View {
                   // In full screen, not from the corner where macOS brings
                   // the window's buttons down with the menu bar: the column
                   // came out over them there, on the way to the red one (#241).
-                  !(prefs.sidebar && window.styleMask.contains(.fullScreen) && size.height - point.y < Fold.fullScreenCorner) {
+                  !(window.styleMask.contains(.fullScreen) && size.height - point.y < Fold.fullScreenCorner) {
             // Which window is under the pointer is asked only here, at the
             // edge: another app's window over it doesn't bring the column out.
             guard NSWindow.windowNumber(at: screen, belowWindowWithWindowNumber: 0) == window.windowNumber
@@ -321,7 +301,7 @@ struct Fold: View {
     /// column is folded for good, and always for the strip, whose edge is
     /// the way to the menu bar, and for the pointer just past the edge.
     private func arrive(resting: Bool = false) {
-        guard resting || !prefs.sidebar || prefs.sideHides else { return peek(true) }
+        guard resting || prefs.sideHides else { return peek(true) }
         pass()
         let coming = DispatchWorkItem {
             arriving = nil
@@ -373,11 +353,7 @@ struct Fold: View {
             bar.isHidden = false
             return
         }
-        if prefs.sidebar {
-            Fold.slide(bar, off: lightsOff, by: prefs.sideWidth, right: onRight)
-        } else {
-            Fold.slide(bar, off: lightsOff, by: Metrics.strip, up: true)
-        }
+        Fold.slide(bar, off: lightsOff, by: prefs.sideWidth, right: onRight)
     }
 
     /// The window in front's title bar, for the bench.

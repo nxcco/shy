@@ -112,9 +112,8 @@ struct SearchApp: App {
             CommandGroup(replacing: .toolbar) {
                 // Folded away, not moved (see Fold.swift) — the column, or the
                 // strip across the top.
-                Button(browser.prefs.sidebar
-                       ? (browser.folded ? "Show Sidebar" : "Hide Sidebar")
-                       : (browser.folded ? "Show Tab Bar" : "Hide Tab Bar")) { browser.toggleFold() }
+                Button((browser.folded ? "Show Sidebar" : "Hide Sidebar")
+                      ) { browser.toggleFold() }
                     .shortcut("view.fold")
                 Picker("Tabs Wear", selection: Binding(
                     get: { browser.prefs.glyph },
@@ -227,19 +226,14 @@ struct SearchApp: App {
                     .disabled(browser.activeSplit == nil)
                 Divider()
                 if let tab = browser.active {
-                    let rows = browser.prefs.showsPinRows
                     if tab.pin == nil {
                         Button("Pin Tab") { browser.pin(tab) }
                             .disabled(!tab.isWeb || tab.shy)
-                        if rows {
-                            Button("Pin Tab as Row") { browser.pin(tab, listed: true) }
-                                .disabled(!tab.isWeb || tab.shy)
-                        }
+                        Button("Pin Tab as Row") { browser.pin(tab, listed: true) }
+                            .disabled(!tab.isWeb || tab.shy)
                     } else {
-                        if rows {
-                            Button(tab.listed ? "Show Pin as Square" : "Show Pin as Row") { browser.setListed(tab, !tab.listed) }
-                        }
-                        if !(rows && tab.listed) {
+                        Button(tab.listed ? "Show Pin as Square" : "Show Pin as Row") { browser.setListed(tab, !tab.listed) }
+                        if !tab.listed {
                             Button("Change Letter") { browser.editLetter(tab) }
                         }
                         Button("Unpin Tab") { browser.unpin(tab) }
@@ -463,17 +457,11 @@ struct ContentView: View {
                     .transition(.move(edge: sideOnRight ? .trailing : .leading))
             }
 
-            if !browser.prefs.sidebar, !browser.folded, fullscreenTab == nil {
-                TabBar(browser: browser)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
         }
         .ignoresSafeArea()
         .background { fullscreenWatch }
         .background { GeometryReader { geo in Color.clear.onAppear { across = geo.size.width }
             .onChange(of: geo.size.width) { _, width in across = width } } }
-        .animation(Motion.glide, value: browser.prefs.sidebar)
         .animation(Motion.glide, value: browser.prefs.sidePosition)
         .onAppear { if room == nil { room = chrome } }
         .onChange(of: chrome) { old, new in make(room: new, after: old) }
@@ -492,7 +480,7 @@ struct ContentView: View {
         if cards {
             return CGSize(width: sidebar ? browser.prefs.sideWidth : Metrics.cardGap, height: Metrics.cardGap)
         }
-        return CGSize(width: sidebar ? browser.prefs.sideWidth : 0, height: band)
+        return CGSize(width: sidebar ? browser.prefs.sideWidth : 0, height: 0)
     }
 
     /// The page as a card on the window's ground: with the tabs down the
@@ -542,7 +530,7 @@ struct ContentView: View {
     private var roomed: CGSize { room ?? chrome }
 
     private var sideOnRight: Bool {
-        browser.prefs.sidebar && browser.prefs.sidePosition == .right
+        browser.prefs.sidePosition == .right
     }
 
     /// Chrome going away gives the page its room at once, the page sliding
@@ -694,9 +682,6 @@ struct ContentView: View {
             // there is to watch.
             .animation(browser.fieldShowing ? Motion.settle : Motion.quick, value: browser.fieldShowing)
             .background(windowSetup)
-            .onChange(of: browser.prefs.sidebar) { _, _ in
-                DispatchQueue.main.async { Lights.refresh(window); measureLights() }
-            }
             .onChange(of: browser.asCards) { _, cards in
                 // The ground the page's card sits on, or the page's own.
                 window?.backgroundColor = cards ? Palette.NS.frame : Palette.NS.ground
@@ -851,16 +836,9 @@ struct ContentView: View {
 
     /// True while the tabs are down the left, and not folded away (see Fold.swift).
     private var sidebar: Bool {
-        browser.prefs.sidebar && !browser.folded && fullscreenTab == nil
+        !browser.folded && fullscreenTab == nil
     }
 
-    /// The column has its own corner for the lights, so the page beside it
-    /// starts at the very top; the strip needs a band.
-    private var band: CGFloat {
-        guard fullscreenTab == nil else { return 0 }
-        // Folded, the strip is out of the window and the page has its height.
-        return browser.prefs.sidebar || browser.folded ? 0 : Metrics.strip
-    }
 
     /// Either visible pane may give its page to WebKit's fullscreen window.
     /// Read through immersionRevision: a tab's going full screen and coming
@@ -970,7 +948,7 @@ struct ContentView: View {
         // Lights.swift. The column's first row is the strip's height too, so
         // its three doors sit on the lights' line.
         Lights.keep(window, centreX: { window in
-            browser.prefs.sidebar && browser.prefs.sidePosition == .right
+            browser.prefs.sidePosition == .right
                 ? window.frame.width - browser.prefs.sideWidth + Lights.centre.x
                 : Lights.centre.x
         }) { measureLights() }

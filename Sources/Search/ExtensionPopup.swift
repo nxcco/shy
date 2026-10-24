@@ -115,11 +115,8 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
             // whose top is at minY: measured from maxY, "the top right" was
             // the bottom right, across the window from the column's buttons.
             let bounds = content.bounds, flipped = content.isFlipped
-            let column = Extensions.shared.browser?.prefs.sidebar == true
-            let spot = column
-                ? NSRect(x: bounds.minX + 24, y: flipped ? bounds.maxY - 24 : bounds.minY + 24, width: 1, height: 1)
-                : NSRect(x: bounds.maxX - 60, y: flipped ? bounds.minY + 40 : bounds.maxY - 40, width: 1, height: 1)
-            popover.show(relativeTo: spot, of: content, preferredEdge: column ? .maxX : (flipped ? .maxY : .minY))
+            let spot = NSRect(x: bounds.minX + 24, y: flipped ? bounds.maxY - 24 : bounds.minY + 24, width: 1, height: 1)
+            popover.show(relativeTo: spot, of: content, preferredEdge: .maxX)
         }
         // Sized once loaded — or after a moment regardless, for a page that
         // never finishes loading.

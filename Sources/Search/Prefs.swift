@@ -120,12 +120,6 @@ enum SidebarPosition: String, CaseIterable, Identifiable {
 final class Preferences: ObservableObject {
     private let store = Store.settings
 
-    /// Back, forward and reload before the tabs rather than after them, with
-    /// the tabs across the top. Off unless asked for.
-    @Published var navigationLeft: Bool {
-        didSet { store.set(navigationLeft, forKey: "toolbar.left") }
-    }
-
     /// A local socket a script can drive the browser through, in tabs of its
     /// own. Off unless asked for — in Settings, which is also what leaves
     /// the mark it needs at launch (see Bench.Consent).
@@ -159,9 +153,6 @@ final class Preferences: ObservableObject {
             look.apply()
         }
     }
-    /// The tabs down a side of the window: always, now. The strip across
-    /// the top is what the code still calls the other way.
-    var sidebar: Bool { true }
     /// The side panel's width, as you last left it (see SidePanel.swift).
     @Published var sidePanelWidth: CGFloat {
         didSet {
@@ -474,13 +465,6 @@ final class Preferences: ObservableObject {
     @Published var escapeTwice: Bool {
         didSet { store.set(escapeTwice, forKey: "fullscreen.escapeTwice") }
     }
-    /// Pins behave as Arc's (see Tab.listed, Peek.swift): squares for the
-    /// sites you live in, rows under them for pages you keep, a line with
-    /// Clear above the tabs that come and go; a link to another site opens
-    /// over the pin, and ⌘W or a relaunch takes it back to where it was
-    /// pinned. Rows only with the tabs down the side: across the top every
-    /// pin is a square.
-    var showsPinRows: Bool { sidebar }
     /// The AI add-on: summaries of the page and questions about it (see
     /// AIAssist). Off unless asked for; nothing is sent until you ask.
     @Published var ai: Bool {
@@ -524,7 +508,6 @@ final class Preferences: ObservableObject {
     }
 
     init() {
-        navigationLeft = store.bool(forKey: "toolbar.left")
         // Carried over from when there were four ways of holding the browser
         // and this was one of them.
         // The Mac's own unless asked otherwise — a Mac in dark mode expects
@@ -663,7 +646,7 @@ final class Preferences: ObservableObject {
         for key in ["tabs.groups", "splitView", "panel.sites", "tabs.keepAwake", "pins.shared",
                     "links.show", "swipe.history", "switcher.keys", "tabs.shortcuts", "float.flicks",
                     "commandbar", "search.sites", "spaces", "sidebar", "manner",
-                    "tabs.give", "bookmarks.bar", "links.peek", "update.install", "update.checked", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
+                    "tabs.give", "bookmarks.bar", "links.peek", "toolbar.left", "update.install", "update.checked", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
             store.removeObject(forKey: key)
         }
         // Left behind by an assistant this browser no longer has.

@@ -181,7 +181,6 @@ struct SettingsPanel: View {
                     case .general: general
                     case .tabs:
                         tabs
-                        if !prefs.sidebar { toolbar }
                     case .profiles: ProfilesPage(browser: browser)
                     case .shortcuts: ShortcutsPage(browser: browser, store: .shared, prefs: prefs)
                     case .extensions: ExtensionsPage(browser: browser)
@@ -502,17 +501,6 @@ struct SettingsPanel: View {
 
     // MARK: - tabs
 
-    /// Where back, forward and reload sit with the tabs across the top. With
-    /// the sidebar they are already beside the window's buttons: nothing to
-    /// move, and the line isn't shown.
-    private var toolbar: some View {
-        Card {
-            Line("Back, forward and reload on the left", "Beside the window's buttons, before the tabs") {
-                Switch(on: $prefs.navigationLeft)
-            }
-        }
-    }
-
     private var tabs: some View {
         VStack(alignment: .leading, spacing: 18) {
             Card {
@@ -557,8 +545,8 @@ struct SettingsPanel: View {
                 Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first.") {
                     Picker("New tab position", selection: $prefs.newTabPlace) {
                         Text("After current").tag(NewTabPlace.next)
-                        Text(prefs.sidebar ? "Top" : "Leftmost").tag(NewTabPlace.top)
-                        Text(prefs.sidebar ? "Bottom" : "Rightmost").tag(NewTabPlace.end)
+                        Text("Top").tag(NewTabPlace.top)
+                        Text("Bottom").tag(NewTabPlace.end)
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)

@@ -583,7 +583,7 @@ final class Bench {
                 "offering": browser.offering != nil,
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
-                "sidebar": browser.prefs.sidebar,
+                "sidebar": true,
                 "sidePosition": browser.prefs.sidePosition.rawValue,
                 "sideWidth": Double(browser.prefs.sideWidth),
                 "appearance": NSApp.appearance?.name.rawValue ?? "system",
@@ -788,8 +788,8 @@ final class Bench {
             // own hover answers, the one left and then the one entered, as
             // AppKit hands them over in one pass. Test runs only.
             guard Store.testing else { answer(["error": "hoversweep is for test runs"]); return }
-            guard let window = browser.window ?? Links.window, browser.prefs.sidebar else {
-                answer(["error": "hoversweep needs the tabs down the side"])
+            guard let window = browser.window ?? Links.window else {
+                answer(["error": "hoversweep needs a window"])
                 return
             }
             let prefs = browser.prefs
@@ -2622,28 +2622,6 @@ final class Bench {
             default: break
             }
 
-        case "strip":
-            // The row of tabs across the top, drawn off screen at a width,
-            // with what the browser has now — for what the row looks like
-            // without a window on anybody's screen.
-            guard let path = request["path"] as? String else { answer(["error": "strip needs a path"]); return }
-            let width = request["width"] as? Double ?? 1100
-            let host = NSHostingView(rootView: TabBar(browser: browser).frame(width: width, height: Metrics.strip).background(Palette.ground))
-            host.frame = NSRect(x: 0, y: 0, width: width, height: Double(Metrics.strip))
-            let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
-            window.appearance = NSApp.effectiveAppearance
-            window.contentView = host
-            host.layoutSubtreeIfNeeded()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                guard let picture = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { answer(["error": "nothing drawn"]); return }
-                host.cacheDisplay(in: host.bounds, to: picture)
-                do {
-                    try picture.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-                    answer(["saved": path])
-                } catch { answer(["error": error.localizedDescription]) }
-                window.contentView = nil
-            }
-
         case "pdf":
             // The page on screen as File › Export as PDF… makes it, without
             // a save panel. A test path only: a real browser never lets the
@@ -2680,7 +2658,7 @@ final class Bench {
             guard let path = request["path"] as? String else { answer(["error": "fold needs a path"]); return }
             guard browser.folded, browser.peeking else { answer(["error": "fold and peek first: ui folded on, ui peek on"]); return }
             let width = request["width"] as? Double ?? 1100
-            let size = NSSize(width: width, height: browser.prefs.sidebar ? 500 : 120)
+            let size = NSSize(width: width, height: 500)
             let host = NSHostingView(rootView: ZStack(alignment: .topLeading) {
                 Color.red
                 Fold(browser: browser, prefs: browser.prefs)

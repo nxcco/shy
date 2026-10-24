@@ -42,7 +42,7 @@ final class SpaceSwipe {
     /// points in the column; in a bar only 52 tall, most of its height, so
     /// that scrolling the page with the pointer a little high doesn't.
     static func enough(for browser: Browser) -> CGFloat {
-        browser.prefs.sidebar ? 50 : Metrics.strip * 0.6
+        50
     }
 
     func start(for browser: Browser) {
@@ -86,12 +86,9 @@ final class SpaceSwipe {
     /// Where the tabs are: the column, or the bar across the top.
     private func overTabs(_ event: NSEvent, in browser: Browser) -> Bool {
         guard let window = event.window, window === browser.window else { return false }
-        if browser.prefs.sidebar {
-            return browser.prefs.sidePosition == .right
-                ? event.locationInWindow.x >= window.frame.width - browser.prefs.sideWidth
-                : event.locationInWindow.x < browser.prefs.sideWidth
-        }
-        return event.locationInWindow.y > window.frame.height - Metrics.strip
+        return browser.prefs.sidePosition == .right
+            ? event.locationInWindow.x >= window.frame.width - browser.prefs.sideWidth
+            : event.locationInWindow.x < browser.prefs.sideWidth
     }
 
     /// True for an event the swipe keeps for itself.
@@ -108,7 +105,7 @@ final class SpaceSwipe {
         // never taken for it.
         if !event.hasPreciseScrollingDeltas {
             let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
-            let step = browser.prefs.sidebar ? (abs(dx) > abs(dy) ? dx : 0) : dy
+            let step = (abs(dx) > abs(dy) ? dx : 0)
             guard step != 0, overTabs(event, in: browser) else { return false }
             let now = Date()
             let rested = now.timeIntervalSince(notched) > 0.3 && now > resting
@@ -167,7 +164,7 @@ final class SpaceSwipe {
     @discardableResult
     func moved(dx: CGFloat, dy: CGFloat) -> Bool {
         guard tracking, let browser else { return false }
-        let (step, aside) = browser.prefs.sidebar ? (dx, dy) : (dy, dx)
+        let (step, aside) = (dx, dy)
         gathered.width += step
         gathered.height += aside
         if axis == .undecided {
@@ -182,8 +179,8 @@ final class SpaceSwipe {
     /// Along the spaces' axis, whichever it is — for the bench.
     @discardableResult
     func moved(along travel: CGFloat) -> Bool {
-        guard let browser else { return false }
-        return browser.prefs.sidebar ? moved(dx: travel, dy: 0) : moved(dx: 0, dy: travel)
+        guard browser != nil else { return false }
+        return moved(dx: travel, dy: 0)
     }
 
     func ended(cancelled: Bool = false) {
@@ -216,7 +213,7 @@ final class SpaceSwipe {
             browser.cancelSpaceCreation()
         }
         // A page is the column's width, or the bar's height.
-        let width = browser.prefs.sidebar ? browser.prefs.sideWidth : Metrics.strip
+        let width = browser.prefs.sideWidth
         let away: CGFloat = target > here ? -1 : 1
         browser.spaceStep = target > here ? 1 : -1
         resting = Date().addingTimeInterval(SpaceSwipe.rest)
