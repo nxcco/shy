@@ -365,6 +365,15 @@ enum Browsers {
     /// closed tab.
     static var lastClosedAt: Date? { closed.last?.at }
 
+    /// A deleted space's rows, gone from the windows closed too: ⇧⌘T would
+    /// have brought its tabs back into another space.
+    static func forgetClosed(space id: UUID) {
+        for at in closed.indices {
+            closed[at].record.rows[id.uuidString] = nil
+            if closed[at].record.space == id { closed[at].record.space = Space.firstID }
+        }
+    }
+
     // MARK: - saving
 
     /// A window's state as a record: frame, space, and — for any but the

@@ -320,8 +320,19 @@ enum ImportFile {
         return places
     }
 
+    /// The most of one file an import reads: as for a browser's own JSON
+    /// (ImportRead), far more than any export of bookmarks, passwords or
+    /// history, and short of a file that would take all the memory there is.
+    static let longest = 64 * 1024 * 1024
+
+    /// What a ZIP may hold, by what it says of itself, before any of it is
+    /// opened onto the disk.
+    private static let zipLongest: Int64 = 1024 * 1024 * 1024
+    private static let zipMost = 10_000
+
     /// Reads a file in bounded chunks. The caller receives byte-count progress
-    /// and cancellation is checked between every read.
+    /// and cancellation is checked between every read. Longer than `longest`,
+    /// before or while it is read, and it isn't.
     static func readData(_ file: URL, control: Control, didRead: (Int, Int?) -> Void) throws -> Data {
         try control.checkCancellation()
         let handle = try FileHandle(forReadingFrom: file)
@@ -329,13 +340,15 @@ enum ImportFile {
         var data = Data()
         var completed = 0
         let total = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        if let total, total > longest { throw CocoaError(.fileReadTooLarge) }
         didRead(0, total)
         let chunkSize = 64 * 1024
         while true {
             try control.checkCancellation()
             guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else { break }
-            data.append(chunk)
             completed += chunk.count
+            guard completed <= longest else { throw CocoaError(.fileReadTooLarge) }
+            data.append(chunk)
             didRead(completed, total)
         }
         try control.checkCancellation()
@@ -353,6 +366,7 @@ enum ImportFile {
         }
 
         try control.checkCancellation()
+        guard fits(zip) else { return nil }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-x", "-k", zip.path, folder.path]
@@ -380,6 +394,28 @@ enum ImportFile {
         keepFolder = true
         control.report(Progress(message: "\(zip.lastPathComponent): ZIP extracted", completed: counter.value))
         return folder
+    }
+
+    /// Whether the ZIP's own list adds up to something an import could
+    /// hold: a gigabyte opened out at most, in ten thousand files. A ZIP
+    /// that can't say, or says more, isn't opened — one made to fill the
+    /// disk would have been, all of it, before a file of it was read.
+    private static func fits(_ zip: URL) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-Zt", zip.path]
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        let said = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        process.waitUntilExit()
+        // "12 files, 3456 bytes uncompressed, 789 bytes compressed:  77.2%"
+        let words = said.split(whereSeparator: \.isWhitespace)
+        guard process.terminationStatus == 0, words.count > 4,
+              let files = Int(words[0]), let bytes = Int64(words[2]), words[4].hasPrefix("uncompressed")
+        else { return false }
+        return files <= zipMost && bytes <= zipLongest
     }
 
     private static func terminate(_ process: Process) {

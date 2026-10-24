@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import WebKit
 
@@ -114,6 +115,23 @@ enum Store {
         }
         let text = String(format: "5E4C%04X-%04X-4000-8000-%012X", hash >> 16, hash & 0xFFFF, kind)
         return UUID(uuidString: text)!
+    }
+
+    /// The WebKit store a profile or a space keeps its sign-ins in. WebKit
+    /// keeps stores made by identifier per bundle, not per folder, so a test
+    /// world holding a real profile's or space's id — its profiles.json or
+    /// spaces.json copied in — would have opened that one's real cookies,
+    /// and the bench could drive them. A test world's are named instead from
+    /// the world and the id through SHA-256, which nothing can turn back into
+    /// a real one. A copy under a bundle id of its own has a WebKit folder of
+    /// its own, and keeps the ids as they are.
+    static func webKitID(_ id: UUID) -> UUID {
+        guard testing, !ownContainer, let world else { return id }
+        var bytes = Array(SHA256.hash(data: Data("shy-store:\(world):\(id.uuidString)".utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x40
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 
     /// Application Support/Shy, or "Shy (<world>)" for a test world. Shy

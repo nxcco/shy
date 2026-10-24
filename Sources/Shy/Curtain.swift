@@ -26,6 +26,9 @@ struct Veil: Codable, Identifiable, Equatable {
 final class Curtain: ObservableObject {
     @Published private(set) var byHost: [String: [Veil]] = [:]
     private var saving = false
+    /// Its profile deleted: nothing is written again, so a save still on its
+    /// way can't put its file back.
+    private var retired = false
 
     /// Its file: hidden.json for Personal, one of its own for each other
     /// profile (see Profiles.curtain).
@@ -98,12 +101,15 @@ final class Curtain: ObservableObject {
         byHost = stored
     }
 
+    func retire() { retired = true }
+
     private func save() {
-        guard !saving else { return }
+        guard !saving, !retired else { return }
         saving = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self else { return }
             saving = false
+            guard !retired else { return }
             let snapshot = byHost
             let file = self.file
             DispatchQueue.global(qos: .utility).async {

@@ -74,19 +74,29 @@ def stores():
     for byte in W.encode(): h = ((h ^ byte) * 16777619) & 0xFFFFFFFF
     probe = lambda kind: f"5E4C{h >> 16:04X}-{h & 0xFFFF:04X}-4000-8000-{kind:012X}"
     found = [f"{WEBKIT}/WebsiteDataStore/{probe(1).lower()}", f"{WEBKIT}/WebExtensions/{probe(2)}"]
+    # A space's or profile's store is named from the world and its id
+    # (Store.webKitID); the ones still being erased are already.
+    def named(id):
+        digest = bytearray(hashlib.sha256(f"shy-store:{W}:{str(id).upper()}".encode()).digest()[:16])
+        digest[6] = (digest[6] & 0x0F) | 0x40
+        digest[8] = (digest[8] & 0x3F) | 0x80
+        return str(uuid.UUID(bytes=bytes(digest)))
     ids = []
     try:
-        ids += [space["id"] for space in json.load(open(f"{SUPPORT}/spaces.json")) if space.get("sharesSignIns") is not True]
-    except (OSError, ValueError, TypeError, KeyError):
+        ids += [named(uuid.UUID(space["id"])) for space in json.load(open(f"{SUPPORT}/spaces.json"))
+                if space.get("sharesSignIns") is not True and str(uuid.UUID(space["id"])) != FIRST_SPACE]
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    try:
+        ids += [named(uuid.UUID(profile["id"])) for profile in json.load(open(f"{SUPPORT}/profiles.json"))]
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
         pass
     erasing = subprocess.run(["defaults", "read", SUITE, "spaces.erasing"], capture_output=True, text=True).stdout
     ids += re.findall(r"[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}", erasing)
     for id in ids:
         try: id = str(uuid.UUID(id))
         except (ValueError, AttributeError, TypeError): continue
-        # The first space is signed in where the world is: no store of its own.
-        if id != FIRST_SPACE:
-            found.append(f"{WEBKIT}/WebsiteDataStore/{id}")
+        found.append(f"{WEBKIT}/WebsiteDataStore/{id}")
     return found
 # The real Shy's folder, beside whose stores these are removed.
 REAL = f"{HOME}/Library/Application Support/Shy"

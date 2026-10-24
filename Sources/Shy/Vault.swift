@@ -244,15 +244,23 @@ enum Vault {
 
     // MARK: - sites that asked not to be asked
 
-    private static let neverKey = "passwords.never"
+    /// Each profile's own, as its passwords are: Personal's under the key
+    /// there always was, another's gone with it (SiteMemory.forget).
+    private static func neverKey(_ profile: UUID) -> String { SiteMemory.key("passwords.never", profile) }
 
-    static var never: Set<String> {
-        get { Set(Store.settings.stringArray(forKey: neverKey) ?? []) }
-        set { Store.settings.set(Array(newValue).sorted(), forKey: neverKey) }
+    static func never(in profile: UUID) -> Set<String> {
+        Set(Store.settings.stringArray(forKey: neverKey(profile)) ?? [])
     }
 
-    static func never(_ host: String) { never.insert(host) }
-    static func isNever(_ host: String) -> Bool { never.contains(host) || never.contains(registrable(host)) }
+    static func setNever(_ hosts: Set<String>, in profile: UUID) {
+        Store.settings.set(Array(hosts).sorted(), forKey: neverKey(profile))
+    }
+
+    static func never(_ host: String, in profile: UUID) { setNever(never(in: profile).union([host]), in: profile) }
+    static func isNever(_ host: String, in profile: UUID) -> Bool {
+        let never = never(in: profile)
+        return never.contains(host) || never.contains(registrable(host))
+    }
 
     // MARK: - showing one
 

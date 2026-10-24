@@ -122,7 +122,7 @@ enum Spaces {
     @MainActor static func store(for id: UUID) -> WKWebsiteDataStore {
         if id == Space.firstID || sharing.contains(id) { return Profiles.store(profile(of: id)) }
         if let made = stores[id] { return made }
-        let made = WKWebsiteDataStore(forIdentifier: id)
+        let made = WKWebsiteDataStore(forIdentifier: Store.webKitID(id))
         if Store.keepsSignIns { Store.followSignIns(made) } else { Store.followCookies(made) }
         stores[id] = made
         return made
@@ -154,7 +154,7 @@ enum Spaces {
             store.removeData(ofTypes: everything, modifiedSince: .distantPast) {}
         }
         stores[id] = nil
-        let pending = Set(Store.settings.stringArray(forKey: "spaces.erasing") ?? []).union([id.uuidString])
+        let pending = Set(Store.settings.stringArray(forKey: "spaces.erasing") ?? []).union([Store.webKitID(id).uuidString])
         Store.settings.set(pending.sorted(), forKey: "spaces.erasing")
         sweep()
         for delay in [3.0, 15.0] {
@@ -365,6 +365,7 @@ extension Browser {
         // Gone from the other windows too: their rows there, and the space
         // itself if one was showing it (the list's change moves it).
         for other in Browsers.all where other !== self { other.forget(space: id) }
+        Browsers.forgetClosed(space: id)
         Pins.forget(id)
         // A space signed in with the others has nothing of its own to erase:
         // its cookies are theirs.

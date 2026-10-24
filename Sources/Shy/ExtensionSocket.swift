@@ -21,8 +21,10 @@ enum ExtensionSocket {
     static let name = ExtensionShims.application + ".socket"
 
     /// One session for every socket; each task has its connection as its
-    /// own delegate.
-    private static let session = URLSession(configuration: .default, delegate: nil, delegateQueue: .main)
+    /// own delegate. Ephemeral: the app's shared cookie jar, written to
+    /// disk, was one for every extension and every profile, and a cookie
+    /// one extension's socket was given went with the next one's.
+    private static let session = URLSession(configuration: .ephemeral, delegate: nil, delegateQueue: .main)
     /// Held from the port's opening until either end lets go.
     private static var open: [ObjectIdentifier: Connection] = [:]
 

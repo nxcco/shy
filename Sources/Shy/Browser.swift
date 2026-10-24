@@ -743,7 +743,7 @@ final class Browser: NSObject, ObservableObject {
     /// you want remembered.
     func neverOffer() {
         guard let offer = offering else { return }
-        Vault.never(offer.login.host)
+        Vault.never(offer.login.host, in: offer.login.profile)
         offering = nil
         announce("Never for \(offer.login.host)")
     }
@@ -1134,9 +1134,7 @@ final class Browser: NSObject, ObservableObject {
         where Vault.save(host: login.host, user: login.user, password: login.password, used: login.used, clear: login.clear, in: profile) {
             kept += 1
         }
-        var never = Vault.never
-        found.never.forEach { never.insert($0) }
-        Vault.never = never
+        Vault.setNever(Vault.never(in: profile).union(found.never), in: profile)
         relist()
         return kept
     }
@@ -1882,6 +1880,9 @@ final class Browser: NSObject, ObservableObject {
     /// an address from one profile — a sign-in link, a document — reopened
     /// in another would be taken there with that one's sign-ins.
     var closedHere: [Ghost] { ghosts.filter { $0.profile == profileID } }
+
+    /// A deleted profile's closed tabs, gone with it.
+    func forgetGhosts(of profile: UUID) { ghosts.removeAll { $0.profile == profile } }
 
     struct Ghost: Identifiable, Equatable {
         let id = UUID()
@@ -4733,7 +4734,7 @@ final class Browser: NSObject, ObservableObject {
         tab.onCredentials = { [weak self] tab, host, user, password, clear in
             // an extension's own page isn't a site: Bitwarden's unlock pin was offered as its password.
             guard let self, prefs.savesPasswords, !password.isEmpty, !tab.shy,
-                  !Vault.isNever(host), tab.address.flatMap(Browser.extensionHost(of:)) == nil
+                  !Vault.isNever(host, in: self.profile(of: tab)), tab.address.flatMap(Browser.extensionHost(of:)) == nil
             else { return }
             // A password manager extension that asked Chrome's way to do the
             // saving itself.

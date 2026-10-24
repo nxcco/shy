@@ -115,7 +115,7 @@ final class Profiles: ObservableObject {
     static func store(_ id: UUID) -> WKWebsiteDataStore {
         if id == Profile.personalID { return Store.websites }
         if let made = stores[id] { return made }
-        let made = WKWebsiteDataStore(forIdentifier: id)
+        let made = WKWebsiteDataStore(forIdentifier: Store.webKitID(id))
         if Store.keepsSignIns { Store.followSignIns(made) } else { Store.followCookies(made) }
         stores[id] = made
         return made
@@ -196,6 +196,14 @@ final class Profiles: ObservableObject {
         for space in browser.spaces where space.profile == id && !space.isFirst {
             browser.deleteSpace(space.id)
         }
+        // Pages signed in as it that no space's row holds — a peek, a small
+        // window — close while their store still says whose they are; its
+        // closed tabs are forgotten in every window.
+        for window in Browsers.all {
+            if window.peekTab?.profile == id { window.closePeek() }
+            window.forgetGhosts(of: id)
+        }
+        for little in LittleWindow.all where little.tab.profile == id { little.close() }
         // The first space, if it was in it: to Personal, and its own
         // sign-ins, if it had any, go with the rest.
         let all = Spaces.read()
@@ -220,7 +228,7 @@ final class Profiles: ObservableObject {
             store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
         }
         // The store itself, by the same sweep as a deleted space's.
-        let pending = Set(Store.settings.stringArray(forKey: "spaces.erasing") ?? []).union([id.uuidString])
+        let pending = Set(Store.settings.stringArray(forKey: "spaces.erasing") ?? []).union([Store.webKitID(id).uuidString])
         Store.settings.set(pending.sorted(), forKey: "spaces.erasing")
         Spaces.sweep()
         // As for a space's (Spaces.erase): a page still holding the store
@@ -231,7 +239,7 @@ final class Profiles: ObservableObject {
         Profiles.histories.removeValue(forKey: id)?.retire()
         Profiles.bookmarkLists.removeValue(forKey: id)?.retire()
         // Never opened this run: their files go all the same.
-        Profiles.curtains.removeValue(forKey: id)
+        Profiles.curtains.removeValue(forKey: id)?.retire()
         SiteSearch.forget(in: id)
         Favicons.drop(id)
         for name in ["history-\(id.uuidString).json", "bookmarks-\(id.uuidString).json", "hidden-\(id.uuidString).json"] {

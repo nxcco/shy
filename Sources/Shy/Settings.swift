@@ -625,11 +625,11 @@ struct SettingsPanel: View {
                 ) {
                     Switch(on: $prefs.passkeys)
                 }
-                if !Vault.never.isEmpty {
+                if !Vault.never(in: browser.profileID).isEmpty {
                     Rule()
-                    Line("Sites you told never to save", Vault.never.count == 1 ? "1 site" : "\(Vault.never.count) sites") {
+                    Line("Sites you told never to save", Vault.never(in: browser.profileID).count == 1 ? "1 site" : "\(Vault.never(in: browser.profileID).count) sites") {
                         Pill("Forget") {
-                            Vault.never = []
+                            Vault.setNever([], in: browser.profileID)
                             browser.announce("Every site can ask again")
                         }
                     }

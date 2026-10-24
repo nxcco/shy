@@ -33,8 +33,13 @@ final class Favicons {
     /// A deleted profile's: gone, folder and all.
     static func drop(_ profile: UUID) {
         guard profile != Profile.personalID else { return }
-        of(profile).forgetAll()
+        let gone = of(profile)
+        gone.retired = true
+        gone.forgetAll()
         made[profile] = nil
+        // Once more after any icon or index already on its way to disk.
+        let folder = gone.folder
+        disk.async { try? FileManager.default.removeItem(at: folder) }
     }
 
     /// The tabs to look again for icons, each in its own profile's.
@@ -78,6 +83,8 @@ final class Favicons {
     private var lookups: [String: NSImage?] = [:]
     private var loaded = false
     private var saving = false
+    /// Its profile deleted: nothing more is written to its folder.
+    private var retired = false
     /// Icons a page stopped wearing, to be deleted once no page wears them.
     private var dropped: Set<String> = []
 
@@ -218,6 +225,7 @@ final class Favicons {
         saving = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             saving = false
+            guard !retired else { return }
             let gone = prune().map(file)
             guard let data = try? JSONEncoder().encode(pages) else { return }
             let folder = folder, index = index
@@ -554,7 +562,8 @@ final class Favicons {
     private func keep(_ image: NSImage, for ident: String) {
         guard let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:])
+              let png = rep.representation(using: .png, properties: [:]),
+              !retired
         else { return }
         let file = file(ident)
         let dir = folder

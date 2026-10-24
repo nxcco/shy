@@ -872,11 +872,15 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
         // A page with your sign-in in it stays on its site. Leaving it, the
         // copy is deleted before the request goes, so it can't be carried
         // anywhere else; the page goes on, signed out.
-        guard main, let page = pages.first(where: { $0.web === webView }), let handover = page.live,
+        guard let page = pages.first(where: { $0.web === webView }), let handover = page.live,
               ["http", "https"].contains(scheme)
         else { return decisionHandler(.allow) }
         let host = url.host()?.lowercased() ?? ""
-        guard Vault.registrable(host) == handover.site else {
+        // A frame in the page may go elsewhere — an embedded video, an ad —
+        // and the sign-in stays: the copy is only ever sent to its site. A
+        // form sent from a frame is a form all the same, and below it is
+        // held to the same rules as the page's own.
+        guard !main || Vault.registrable(host) == handover.site else {
             return end(page, "the page left \(handover.site) for \(host)") { decisionHandler(.allow) }
         }
         // A form sent with your sign-in: never on a read-only handover, and
