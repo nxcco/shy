@@ -393,15 +393,55 @@ struct TabMenu: View {
 
     var body: some View {
         singleMenu
-        if browser.selectedTabIDs.contains(tab.id) && browser.visibleSelectedTabCount > 1 {
-            Divider()
-            Button("Copy Addresses") { browser.copySelectedTabLinks() }
-                .disabled(browser.selectedTabLinkCount == 0)
-        }
     }
 
+    /// In sections, the way Safari's and Chrome's tab menus go: the tab
+    /// itself, its pin, where it lives, how it is shown, copying it, and
+    /// closing — each with a line between.
     @ViewBuilder
     private var singleMenu: some View {
+        Button("Rename") { browser.beginTabRename(tab) }
+        Button("Duplicate") {
+            browser.select(tab)
+            browser.duplicate()
+        }
+        .disabled(!tab.isWeb)
+        // The card a click on the tab you are on shows under its address.
+        Button("Site Information…") {
+            if browser.activeID != tab.id { browser.select(tab) }
+            browser.beginTabEdit(tab)
+        }
+        .disabled(tab.isBlank || tab.address == nil || tab.pin != nil)
+        Button(tab.muted ? "Unmute Tab" : "Mute Tab") { tab.toggleMute() }
+        // Its page let go of now, as it would be after half an hour unseen:
+        // the row keeps its title and picture, and it loads again when gone
+        // to. Not the tab on screen, nor one that has to stay awake (#310).
+        Button("Put to Sleep") {
+            browser.sleep(tab) { outcome in
+                if outcome != "asleep" { browser.announce("Stays awake: \(outcome)") }
+            }
+        }
+        .disabled(browser.awake(because: tab) != nil)
+        Divider()
+        if tab.pin == nil {
+            Button("Pin") { browser.pin(tab) }
+                .disabled(!tab.isWeb || tab.shy)
+            Button("Pin as Row") { browser.pin(tab, listed: true) }
+                .disabled(!tab.isWeb || tab.shy)
+        } else {
+            Button(tab.listed ? "Show as Square" : "Show as Row") { browser.setListed(tab, !tab.listed) }
+            // A row wears its title, not its letter; and a click on it is
+            // the address, so the way home a square's double-click is
+            // (Browser.goHome) is here instead, while it has wandered.
+            if tab.listed {
+                Button("Back to Pinned Page") { browser.goHome(tab) }
+                    .disabled(tab.home.map { Browser.samePage($0, tab.address) } ?? true)
+            } else {
+                Button("Change Letter") { browser.editLetter(tab) }
+            }
+            Button("Unpin") { browser.unpin(tab) }
+        }
+        Divider()
         // Into a folder among the pinned rows: kept there, as a pinned row
         // is (see Folders.swift). A folder in a folder is listed under the
         // one it is in, set in.
@@ -427,24 +467,6 @@ struct TabMenu: View {
                 }
             }
         }
-        if tab.pin == nil {
-            Button("Pin") { browser.pin(tab) }
-                .disabled(!tab.isWeb || tab.shy)
-            Button("Pin as Row") { browser.pin(tab, listed: true) }
-                .disabled(!tab.isWeb || tab.shy)
-        } else {
-            Button(tab.listed ? "Show as Square" : "Show as Row") { browser.setListed(tab, !tab.listed) }
-            // A row wears its title, not its letter; and a click on it is
-            // the address, so the way home a square's double-click is
-            // (Browser.goHome) is here instead, while it has wandered.
-            if tab.listed {
-                Button("Back to Pinned Page") { browser.goHome(tab) }
-                    .disabled(tab.home.map { Browser.samePage($0, tab.address) } ?? true)
-            } else {
-                Button("Change Letter") { browser.editLetter(tab) }
-            }
-            Button("Unpin") { browser.unpin(tab) }
-        }
         if !tab.bench,
            tab.address.flatMap({ Browser.extensionHost(of: $0) }) == nil {
             Menu("Move to Space") {
@@ -466,6 +488,24 @@ struct TabMenu: View {
             }
             .help("Pages moved to a Space with different sign-ins reopen there.")
         }
+        if tab.pin == nil, !tab.bench {
+            // Another window, or a new one (see Browser.moveToWindow).
+            let others = Browsers.all.filter { $0 !== browser && $0.isOpen && !$0.isPopup }
+            if others.isEmpty {
+                Button("Move to New Window") { browser.moveToWindow(tab, nil) }
+                    .disabled(browser.tabs.count < 2)
+            } else {
+                Menu("Move to Window") {
+                    Button("New Window") { browser.moveToWindow(tab, nil) }
+                        .disabled(browser.tabs.count < 2)
+                    Divider()
+                    ForEach(Array(others.enumerated()), id: \.offset) { _, other in
+                        Button(other.windowName) { browser.moveToWindow(tab, other) }
+                    }
+                }
+            }
+        }
+        Divider()
         // Right-clicked among tabs picked in the column: those two side
         // by side. More than two can't be, so it is there but off.
         let picked = browser.selectedTabIDs.contains(tab.id) ? browser.visibleSelectedTabCount : 1
@@ -489,44 +529,12 @@ struct TabMenu: View {
             Button("Open in Split View") { browser.openInSplit(tab) }
                 .disabled(tab.bench)
         }
-        if tab.pin == nil, !tab.bench {
-            // Another window, or a new one (see Browser.moveToWindow).
-            let others = Browsers.all.filter { $0 !== browser && $0.isOpen && !$0.isPopup }
-            if others.isEmpty {
-                Button("Move to New Window") { browser.moveToWindow(tab, nil) }
-                    .disabled(browser.tabs.count < 2)
-            } else {
-                Menu("Move to Window") {
-                    Button("New Window") { browser.moveToWindow(tab, nil) }
-                        .disabled(browser.tabs.count < 2)
-                    Divider()
-                    ForEach(Array(others.enumerated()), id: \.offset) { _, other in
-                        Button(other.windowName) { browser.moveToWindow(tab, other) }
-                    }
-                }
-            }
-        }
+        Button("Open in Side Panel") { browser.openInSidePanel(tab) }
+            .disabled(!tab.isWeb || tab.shy)
         Divider()
-        Button("Rename") { browser.beginTabRename(tab) }
-        Button("Duplicate") {
-            browser.select(tab)
-            browser.duplicate()
-        }
-        .disabled(!tab.isWeb)
-        // The card a click on the tab you are on shows under its address.
-        Button("Site Information…") {
-            if browser.activeID != tab.id { browser.select(tab) }
-            browser.beginTabEdit(tab)
-        }
-        .disabled(tab.isBlank || tab.address == nil || tab.pin != nil)
         Button("Copy Address") {
             browser.select(tab)
             browser.copyAddress()
-        }
-        .disabled(!tab.isWeb)
-        Button("Copy as Markdown Link") {
-            browser.select(tab)
-            browser.copyMarkdownLink()
         }
         .disabled(!tab.isWeb)
         Button("Copy Clean Link") {
@@ -534,18 +542,16 @@ struct TabMenu: View {
             browser.copyCleanLink()
         }
         .disabled(!tab.isWeb)
-        Button("Open in Side Panel") { browser.openInSidePanel(tab) }
-            .disabled(!tab.isWeb || tab.shy)
-        Button(tab.muted ? "Unmute Tab" : "Mute Tab") { tab.toggleMute() }
-        // Its page let go of now, as it would be after half an hour unseen:
-        // the row keeps its title and picture, and it loads again when gone
-        // to. Not the tab on screen, nor one that has to stay awake (#310).
-        Button("Put to Sleep") {
-            browser.sleep(tab) { outcome in
-                if outcome != "asleep" { browser.announce("Stays awake: \(outcome)") }
-            }
+        Button("Copy as Markdown Link") {
+            browser.select(tab)
+            browser.copyMarkdownLink()
         }
-        .disabled(browser.awake(because: tab) != nil)
+        .disabled(!tab.isWeb)
+        // Right-clicked among tabs picked in the column: all their addresses.
+        if browser.selectedTabIDs.contains(tab.id) && browser.visibleSelectedTabCount > 1 {
+            Button("Copy Addresses") { browser.copySelectedTabLinks() }
+                .disabled(browser.selectedTabLinkCount == 0)
+        }
         Divider()
         Button("Close Tab", action: close)
         Button("Close Other Tabs") { browser.closeOthers(but: tab) }

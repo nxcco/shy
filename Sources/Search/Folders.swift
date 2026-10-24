@@ -419,11 +419,12 @@ struct FolderRow: View {
 
     @ViewBuilder
     private var menu: some View {
+        Button(folder.folded ? "Open Folder" : "Fold Folder") { browser.toggleFolder(folder.id) }
+        Divider()
         Button("Rename…") { browser.editingFolderID = folder.id }
         if Folders.tops(browser.folders).contains(where: { $0.id == folder.id }) {
             Button("New Folder Inside") { browser.newFolder(in: folder.id) }
         }
-        Button(folder.folded ? "Open Folder" : "Fold Folder") { browser.toggleFolder(folder.id) }
         Divider()
         Button("Delete Folder…") {
             let count = browser.tabs(inFolder: folder.id).count
