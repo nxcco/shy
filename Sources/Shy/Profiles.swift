@@ -56,6 +56,12 @@ enum SiteMemory {
     }
 }
 
+/// An entry of profiles.json, nil when it doesn't read as a profile.
+private struct Lenient: Decodable {
+    let profile: Profile?
+    init(from decoder: Decoder) throws { profile = try? Profile(from: decoder) }
+}
+
 @MainActor
 final class Profiles: ObservableObject {
     static let shared = Profiles()
@@ -76,7 +82,11 @@ final class Profiles: ObservableObject {
     private nonisolated static var file: URL { Store.file("profiles.json") }
 
     nonisolated static func read() -> [Profile] {
-        let saved = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([Profile].self, from: $0) } ?? []
+        // One by one: an entry that doesn't read loses itself, not every
+        // profile — whose spaces would be left in none, their data beyond
+        // the reach of Delete.
+        let saved = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([Lenient].self, from: $0) }?
+            .compactMap(\.profile) ?? []
         let personal = saved.first(where: \.isPersonal) ?? .personal
         return [personal] + saved.filter { !$0.isPersonal }
     }
@@ -213,6 +223,11 @@ final class Profiles: ObservableObject {
         let pending = Set(Store.settings.stringArray(forKey: "spaces.erasing") ?? []).union([id.uuidString])
         Store.settings.set(pending.sorted(), forKey: "spaces.erasing")
         Spaces.sweep()
+        // As for a space's (Spaces.erase): a page still holding the store
+        // keeps it a moment longer.
+        for delay in [3.0, 15.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { Spaces.sweep() }
+        }
         Profiles.histories.removeValue(forKey: id)?.retire()
         Profiles.bookmarkLists.removeValue(forKey: id)?.retire()
         // Never opened this run: their files go all the same.
