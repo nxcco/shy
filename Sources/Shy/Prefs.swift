@@ -117,14 +117,15 @@ final class Preferences: ObservableObject {
     /// The setting said on at launch with no mark from the switch behind it,
     /// and was put back to off.
     private(set) var benchRefused = false
-    /// Agents' pages, through shy-mcp (see Agent.swift). Off unless
-    /// asked for, in Settings, which leaves the mark it needs at launch.
+    /// Agents' pages, through shy-mcp (see Agent.swift). Off unless asked
+    /// for. A plain setting, with no mark to prove Settings set it, unlike
+    /// the bench's: an agent's pages hold nothing of yours (none of your
+    /// tabs, sign-ins or passwords) and only you can hand one over, so
+    /// whatever turned it on gets a browser of its own and nothing more.
     @Published var agent: Bool {
-        didSet {
-            store.set(agent, forKey: "agent")
-            agent ? SwitchMark.grant("agent") : SwitchMark.revoke("agent")
-        }
+        didSet { store.set(agent, forKey: "agent") }
     }
+    /// Always false now; the line that reported a refused switch goes next.
     private(set) var agentRefused = false
     /// What agents may not do in their pages (see Agent.Ability): each turned
     /// off in Settings › Agents. Everything allowed unless taken away.
@@ -458,14 +459,8 @@ final class Preferences: ObservableObject {
             benchRefused = true
             store.set(false, forKey: "bench")
         }
-        let asked = store.bool(forKey: "agent")
-        let marked = asked && (Store.testing || SwitchMark.given("agent"))
-        agent = marked
+        agent = store.bool(forKey: "agent")
         agentDenied = Set(store.stringArray(forKey: "agent.denied") ?? [])
-        if asked, !marked {
-            agentRefused = true
-            store.set(false, forKey: "agent")
-        }
         let chosen = store.string(forKey: "look").flatMap(Look.init) ?? .system
         look = chosen
         // Before the first window, and not deferred: the window that is about
