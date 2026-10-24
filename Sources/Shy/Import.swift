@@ -1329,7 +1329,7 @@ enum Mozilla {
 }
 
 /// One browser to bring things over from, whichever family it belongs to, so
-/// the welcome, the panels and the bench verb work in one vocabulary and
+/// the panels and the bench verb work in one vocabulary and
 /// Chrome and Firefox sit side by side without either knowing about the
 /// other. Everything that reads takes a profile: its folder's name, or nil
 /// for every profile at once.

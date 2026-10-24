@@ -563,7 +563,6 @@ final class Bench {
             // app, and every window the app owns.
             var out: [String: Any] = [
                 "settings": browser.tuning,
-                "welcome": browser.welcoming,
                 "passwords": browser.managing,
                 // A question hanging from the window (Ask), still unanswered.
                 "sheet": browser.window?.attachedSheet != nil,
@@ -1217,7 +1216,7 @@ final class Bench {
 
         case "import":
             // Another browser's passwords, bookmarks and history, brought in
-            // through the same calls the Welcome and the panels make. Only on
+            // through the same calls the panels make. Only on
             // a SHY_PROBE run, which reads made-up profiles from its own
             // folder's Import/ (see Chromium.base), never a real browser.
             guard Store.testing else { answer(["error": "import only works on a --test run"]); return }
@@ -2845,7 +2844,6 @@ final class Bench {
             // did without a person.
             if let on = request["settings"] as? Bool { browser.tuning = on }
             if let on = request["passwords"] as? Bool, Store.testing { browser.managing = on }
-            if let on = request["welcome"] as? Bool { browser.welcoming = on }
             if let on = request["history"] as? Bool { browser.recalling = on }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }

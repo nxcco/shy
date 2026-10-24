@@ -7,8 +7,8 @@ import SwiftUI
 // shows its new switches, each with a line of what it does and the switch
 // itself, and — so nothing gets lost — the switches from earlier versions
 // that are still off. Nothing else: few words (Drice). Closed, it
-// doesn't come back for that version. Not after a fresh install: the welcome
-// is for that. Every version's notes are in Settings › About › What's New…
+// doesn't come back for that version. Not after a fresh install, which has
+// nothing to compare with. Every version's notes are in Settings › About › What's New…
 //
 // A release edits `toggles` (its new switches, marked with its version),
 // `releases` (that it has a card) and `notes` (what it brought).
@@ -87,13 +87,13 @@ enum WhatsNew {
 
     private static let seenKey = "whatsnew.seen"
 
-    /// At launch, once: whether the card is due. Not on a fresh install (the
-    /// welcome is up, and this version counts as seen), nor in a test world
+    /// At launch, once: whether the card is due. Not on a fresh install (this
+    /// version counts as seen), nor in a test world
     /// unless the bench asks; otherwise once per version that has a card.
-    @MainActor static func due(prefs: Preferences, welcoming: Bool) -> Bool {
+    @MainActor static func due(prefs: Preferences, fresh: Bool) -> Bool {
         let store = Store.settings
         guard let current, !Store.testing else { return false }
-        if welcoming {
+        if fresh {
             store.set(current.version, forKey: seenKey)
             return false
         }

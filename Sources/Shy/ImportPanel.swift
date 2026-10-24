@@ -2,8 +2,7 @@ import SwiftUI
 
 /// Bringing things over from another browser, all in one place: which
 /// browser, which of its profiles, and what of it. Opened from Settings ›
-/// Passwords and from Bring in… in Bookmarks and Passwords; the Welcome has
-/// the short version of it. From Settings › Extensions it opens on the
+/// Passwords and from Bring in… in Bookmarks and Passwords. From Settings › Extensions it opens on the
 /// extensions alone.
 ///
 /// What each browser holds is counted as the sheet opens, off the main

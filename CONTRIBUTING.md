@@ -13,7 +13,7 @@ looks or behaves — spaces, groups, a visible address bar, a new panel — is:
 
 - **minimal**: the smallest version that does the job, in the app's own quiet style;
 - **optional, and off by default**: someone who never asks for it never sees it;
-- **findable**: a switch in Settings, and a mention in the welcome screens if it's a big one, so people know it's there to turn on.
+- **findable**: a switch in Settings, and a line on the What's New card if it's a big one, so people know it's there to turn on.
 
 Fixes and things every browser is expected to do (Tab moving between a form's fields, ⌘1–⌘9) don't need a switch. Before building a bigger feature, look at how other browsers do it and read what people asked for on its issue; [ROADMAP.md](ROADMAP.md) lists where each request came from.
 

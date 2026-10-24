@@ -156,8 +156,6 @@ final class Browser: NSObject, ObservableObject {
     /// Settings, as a card over the page, as it first was: something you
     /// set and put away, not a page to keep open (see ContentView.panels).
     @Published var tuning = false
-    /// The first-launch walk-through, over everything. Also from the menu.
-    @Published var welcoming = false
     /// What's new, once after an update (see WhatsNew.swift).
     @Published var newsShowing = false
     /// Every version's notes: Settings › About › What's New…, in a tab.
@@ -2026,8 +2024,9 @@ final class Browser: NSObject, ObservableObject {
             } else if prefs.agentRefused {
                 announce("“Let agents open pages” was turned on outside Settings, and stays off")
             }
-            welcoming = !prefs.welcomed
-            newsShowing = WhatsNew.due(prefs: prefs, welcoming: welcoming)
+            let fresh = !prefs.welcomed
+            prefs.welcomed = true
+            newsShowing = WhatsNew.due(prefs: prefs, fresh: fresh)
             FormRelay.passkeysOffered = prefs.passkeys
             // An icon that arrives is looked for again by every tab showing
             // that site, in every window, not only the one that asked for it:

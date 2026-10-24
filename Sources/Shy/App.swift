@@ -294,8 +294,6 @@ struct ShyApp: App {
             CommandGroup(after: .appSettings) {
                 Button("Settings…") { browser.tuning = true }
                     .shortcut("app.settings")
-                Button("Welcome…") { browser.welcoming = true }
-                    .shortcut("app.welcome")
                 Button("Passwords…") { browser.managing = true }
                     .shortcut("app.passwords")
             }
@@ -584,14 +582,9 @@ struct ContentView: View {
     /// What still comes over the page. Settings, History, Downloads,
     /// Bookmarks, Passwords, Bring Things Over and the release notes are
     /// tabs of their own now (see InternalPages.swift); what is left here
-    /// either comes before there are tabs (Welcome) or comes once by itself
-    /// and goes (What's New).
+    /// comes once by itself and goes (What's New).
     @ViewBuilder
     private var panels: some View {
-        if browser.welcoming {
-            WelcomePanel(browser: browser, prefs: browser.prefs)
-                .ignoresSafeArea()
-        }
         if browser.tuning {
             sheet { SettingsPanel(browser: browser, prefs: browser.prefs) } close: { browser.tuning = false }
         }
@@ -727,7 +720,6 @@ struct ContentView: View {
                 }
             }
             .onChange(of: browser.activeID) { _, _ in handBack() }
-            .animation(Motion.settle, value: browser.welcoming)
             .animation(Motion.settle, value: browser.newsShowing)
             .animation(Motion.settle, value: browser.tuning)
             .animation(Motion.settle, value: browser.reviewing)
@@ -1128,8 +1120,7 @@ struct ContentView: View {
         guard let window, event.window === window else { return false }
         // Settings, History and the rest are tabs, and ⌃Tab goes to and
         // from them like any other.
-        return !browser.welcoming &&
-            !browser.reviewing && !browser.bookmarksOpen &&
+        return !browser.reviewing && !browser.bookmarksOpen &&
             !browser.veiling && !browser.summoning && !browser.makingSpace &&
             browser.peekTab == nil && browser.editingTab == nil &&
             browser.asking == nil && browser.offering == nil && browser.suggesting == nil

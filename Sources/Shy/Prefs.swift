@@ -324,8 +324,8 @@ final class Preferences: ObservableObject {
     @Published var applePasswords: Bool {
         didSet { store.set(applePasswords, forKey: "passwords.apple") }
     }
-    /// The first launch has been walked through. Until then the welcome
-    /// stands over the window.
+    /// Shy has been opened before. A fresh install opens straight into the
+    /// browser; this only keeps What's New from greeting it.
     @Published var welcomed: Bool {
         didSet { store.set(welcomed, forKey: "welcomed") }
     }
@@ -581,8 +581,8 @@ final class Preferences: ObservableObject {
         savesPasswords = store.object(forKey: "passwords.save") as? Bool ?? true
         fillsPasswords = store.object(forKey: "passwords.fill") as? Bool ?? true
         applePasswords = store.bool(forKey: "passwords.apple")
-        // Anyone who already has a session was here before the welcome
-        // existed; they are not asked to sit through it.
+        // Anyone who already has a session was here before the flag
+        // existed.
         welcomed = store.bool(forKey: "welcomed") || store.object(forKey: "glyph") != nil
         ai = AI.shipped && store.bool(forKey: "ai")
         aiProvider = store.string(forKey: "ai.provider").flatMap(AIProvider.init(rawValue:))
