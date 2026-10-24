@@ -1,6 +1,7 @@
-// The app's icon, drawn rather than exported: the mark is Drice's
-// Subtract.svg, read from its own path data rather than loaded as an image,
-// so it stays a crisp vector at every size instead of a raster scaled up.
+// The app's icon, drawn rather than exported: the mark is the word "shy" in
+// black newspaper type, read from its own path data rather than set as text
+// or loaded as an image, so it stays a crisp vector at every size instead of
+// a raster scaled up, and needs no font to build.
 // The icon puts it on a plate — a Dock icon has to be an opaque square
 // whether the logo itself wants a background or not.
 
@@ -15,49 +16,20 @@ let dev = ProcessInfo.processInfo.environment["SEARCH_DEV"] == "1"
 let plateColor = dev ? NSColor(srgbRed: 1.0, green: 0.8, blue: 0.2, alpha: 1) : NSColor.white
 try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
 
-/// Drice's Subtract.svg (22 September 2026): a pill with an S cut out of it,
-/// on its own 608 × 276 canvas. The same path is in Design.swift's
-/// `Logomark` and in the website's mark — one shape, three places.
-let canvas = (width: 608.0, height: 276.0)
-let markData = "M469.443 0C545.471 0.00013198 607.103 61.6325 607.104 137.66C607.104 213.688 545.471 275.321 469.443 275.321H137.66C61.6323 275.321 0 213.688 0 137.66C0.00016085 61.6325 61.6325 0.000140192 137.66 0H469.443ZM138.104 51.5977C127.234 51.5977 117.512 53.5115 108.938 57.3389C100.518 61.0132 93.8581 66.2188 88.959 72.9551C84.2132 79.5381 81.8398 87.3464 81.8398 96.3789C81.8399 105.258 83.6773 112.607 87.3516 118.425C91.0258 124.089 95.9251 128.682 102.049 132.203C108.173 135.571 114.833 138.327 122.028 140.471L151.652 149.197C158.389 151.188 163.9 154.249 168.187 158.383C172.473 162.516 174.617 168.028 174.617 174.917C174.617 182.572 171.402 188.849 164.972 193.748C158.695 198.494 150.122 200.867 139.252 200.867C132.21 200.867 125.702 199.413 119.731 196.504C113.914 193.442 109.091 189.308 105.264 184.103C101.436 178.744 99.2169 172.697 98.6045 165.961H97.6855L75.4102 171.013C76.3287 180.658 79.697 189.308 85.5146 196.963C91.3322 204.618 98.9103 210.665 108.249 215.104C117.741 219.544 128.076 221.765 139.252 221.765C151.193 221.765 161.68 219.774 170.713 215.794C179.746 211.813 186.711 206.225 191.61 199.029C196.662 191.834 199.188 183.414 199.188 173.769C199.188 164.124 197.352 156.239 193.678 150.115C190.003 143.838 185.104 138.863 178.98 135.188C172.857 131.514 166.044 128.605 158.542 126.462L128.229 117.735C121.799 115.898 116.516 113.219 112.383 109.698C108.402 106.177 106.412 101.354 106.412 95.2305C106.412 88.188 109.168 82.6758 114.68 78.6953C120.344 74.5619 128.152 72.4951 138.104 72.4951C147.901 72.4952 155.939 74.9448 162.216 79.8438C168.493 84.7428 172.397 91.1729 173.928 99.1338H174.847L196.663 93.8525C195.745 85.5853 192.605 78.3131 187.247 72.0361C181.889 65.6061 174.923 60.6306 166.35 57.1094C157.929 53.4351 148.514 51.5977 138.104 51.5977Z"
+/// "shy", lowercase, in Times New Roman Bold — the face The Times had cut
+/// for its own pages, so it reads as print — taken from the font's glyph
+/// outlines (CTFontCreatePathForGlyph at 1000 to the em, its quadratic
+/// curves raised to cubic ones) on the word's own bounding box. The same
+/// path is in Design.swift's `Logomark` — one shape, two places.
+let canvas = (width: 1396.5, height: 877.9)
+let markData = "M282.7 192.9L290 348.6L273.4 348.6C253.6 302.4 233 270.8 211.7 253.9C190.3 237 169.1 228.5 147.9 228.5C134.6 228.5 123.2 233 113.8 241.9C104.3 250.9 99.6 261.2 99.6 272.9C99.6 281.7 102.9 290.2 109.4 298.3C119.8 311.7 148.9 334.6 196.8 366.9C244.6 399.3 276.1 426.8 291.3 449.5C306.4 472.1 314 497.4 314 525.4C314 550.8 307.6 575.7 294.9 600.1C282.2 624.5 264.3 643.2 241.2 656.2C218.1 669.3 192.5 675.8 164.6 675.8C142.7 675.8 113.6 668.9 77.1 655.3C67.4 651.7 60.7 649.9 57.1 649.9C46.4 649.9 37.4 658 30.3 674.3L14.2 674.3L6.3 510.3L22.9 510.3C37.6 553.2 57.7 585.4 83.3 606.9C108.8 628.4 133 639.2 155.8 639.2C171.4 639.2 184.2 634.4 194.1 624.8C204 615.2 209 603.5 209 589.8C209 574.2 204.1 560.7 194.3 549.3C184.6 537.9 162.8 520.7 128.9 497.6C79.1 463.1 46.9 436.7 32.2 418.5C10.7 391.8 0 362.3 0 330.1C0 294.9 12.1 263.1 36.4 234.6C60.6 206.1 95.7 191.9 141.6 191.9C166.3 191.9 190.3 197.9 213.4 210C222.2 214.8 229.3 217.3 234.9 217.3C240.7 217.3 245.4 216.1 249 213.6C252.6 211.2 258.3 204.3 266.1 192.9ZM569.8 0L569.8 264.2C594.9 237.8 617.8 219.2 638.7 208.3C659.5 197.3 681.2 191.9 703.6 191.9C732.3 191.9 756.8 200 777.1 216.3C797.4 232.6 811 251.7 817.6 273.7C824.3 295.7 827.6 332.7 827.6 384.8L827.6 563C827.6 597.8 830.9 619.5 837.4 628.2C843.9 636.8 857.1 642.3 877 644.5L877 662.1L645.5 662.1L645.5 644.5C661.8 642.3 674 635.7 682.1 625C688 616.5 690.9 595.9 690.9 563L690.9 359.4C690.9 321.6 689.5 297.9 686.5 288.3C683.6 278.7 678.6 271.2 671.6 265.9C664.6 260.5 656.7 257.8 647.9 257.8C634.9 257.8 622.2 262.3 609.9 271.2C597.5 280.2 584.1 295.9 569.8 318.4L569.8 563C569.8 595.5 572.3 615.9 577.1 624C583.3 635.1 596 641.9 615.2 644.5L615.2 662.1L383.8 662.1L383.8 644.5C403 642.6 416.7 636.4 424.8 626C430.3 618.8 433.1 597.8 433.1 563L433.1 99.1C433.1 64.6 429.9 43.1 423.6 34.7C417.2 26.2 404 20.7 383.8 18.1L383.8 0ZM1148.9 680.7L1001.5 342.3C979.3 291.2 963 259.8 952.4 248C941.8 236.3 929 228.2 914.1 223.6L914.1 205.6L1156.7 205.6L1156.7 223.6C1140.8 224.3 1129.6 227.4 1123 232.9C1116.5 238.4 1113.3 245.1 1113.3 252.9C1113.3 265.3 1121.4 289.7 1137.7 326.2L1215.8 504.9L1269 366.7C1288.2 317.5 1297.9 283.4 1297.9 264.2C1297.9 252.1 1293.9 242.5 1285.9 235.4C1277.9 228.2 1263.8 224.3 1243.7 223.6L1243.7 205.6L1396.5 205.6L1396.5 223.6C1381.5 225.3 1369.3 231 1359.9 241C1350.4 250.9 1334.6 284.7 1312.5 342.3L1182.1 680.7C1149.3 765.3 1124.8 817.4 1108.9 836.9C1086.4 864.3 1058.3 877.9 1024.4 877.9C997.4 877.9 975.5 870.2 958.7 854.7C942 839.3 933.6 820.6 933.6 798.8C933.6 779.9 939.4 764.3 950.9 752C962.5 739.6 976.7 733.4 993.7 733.4C1009.9 733.4 1023 738.6 1033 749C1042.9 759.4 1048 775.6 1048.3 797.4C1048.7 809.7 1050.1 817.7 1052.7 821.3C1055.3 824.9 1059.1 826.7 1064 826.7C1071.8 826.7 1080.1 821.9 1088.9 812.5C1101.9 798.8 1117.2 767.6 1134.8 718.8Z"
 
-/// The H and Y that follow the S, cut from the same pill so the mark reads
-/// SHY. The three letters sit on the pill's three natural centres — the left
-/// cap's (where the S already is), the middle, and the right cap's — so the
-/// gaps between them come out even and the word sits square in the pill.
-/// They are drawn to the S's measure: its 21-unit strokes (22 for an upright
-/// stem, which looks as heavy as a 21 curve), and its cap height less the
-/// overshoot a round letter needs and a flat one doesn't.
-let lettersData: String = {
-    func f(_ v: Double) -> String { String(format: "%.2f", v) }
-    func shape(_ points: [(Double, Double)]) -> String {
-        "M" + points.map { "\(f($0.0)) \(f($0.1))" }.joined(separator: "L") + "Z"
-    }
-    let top = 54.0, bottom = 219.0, stem = 22.0
-    // H, on the pill's centre: two stems and a bar a hair above the middle.
-    let h = 303.55, hw = 59.0, bar = (124.0, 144.0)
-    let H = shape([
-        (h - hw, top), (h - hw + stem, top), (h - hw + stem, bar.0),
-        (h + hw - stem, bar.0), (h + hw - stem, top), (h + hw, top),
-        (h + hw, bottom), (h + hw - stem, bottom), (h + hw - stem, bar.1),
-        (h - hw + stem, bar.1), (h - hw + stem, bottom), (h - hw, bottom),
-    ])
-    // Y, on the right cap's centre: two 21-unit arms meeting on a stem. The
-    // outer edges reach the stem at `fork`; the inner ones meet at the crotch.
-    let y = 469.44, yw = 64.0, fork = 148.0, arm = 21.0
-    let slope = (fork - top) / (yw - stem / 2)
-    let cut = arm * (1 + slope * slope).squareRoot() / slope  // the arm's width along the top
-    let crotch = top + (yw - cut) * slope
-    let Y = shape([
-        (y - yw, top), (y - yw + cut, top), (y, crotch), (y + yw - cut, top),
-        (y + yw, top), (y + stem / 2, fork), (y + stem / 2, bottom),
-        (y - stem / 2, bottom), (y - stem / 2, fork),
-    ])
-    return H + Y
-}()
+/// How much of the plate's width the word spans: wide enough to read from
+/// across the Dock, with a column's margin left either side.
+let share: CGFloat = 0.74
 
 /// A tiny reader for the one path the mark is: absolute M, L, H, V, C, Z —
-/// what Figma writes for a flattened shape, and nothing else.
+/// all a font's outlines need once their quadratics are cubic.
 func svgCommands(_ d: String) -> [(Character, [CGFloat])] {
     var out: [(Character, [CGFloat])] = []
     var current: Character?
@@ -89,7 +61,8 @@ func svgCommands(_ d: String) -> [(Character, [CGFloat])] {
 
 /// The mark, fit to `fraction` of `plate`'s width and centred on it. SVG's y
 /// grows downward and AppKit's upward, so every y is flipped on the way in;
-/// the letters are holes, so the path is filled even-odd.
+/// the path is filled even-odd, as Logomark is, though no letter of "shy"
+/// has a counter to keep open.
 func markPath(in plate: NSRect, fraction: CGFloat) -> NSBezierPath {
     let scale = plate.width * fraction / canvas.width
     let ox = plate.midX - canvas.width * scale / 2
@@ -101,7 +74,7 @@ func markPath(in plate: NSRect, fraction: CGFloat) -> NSBezierPath {
     path.windingRule = .evenOdd
     var last = NSPoint.zero
     var start = NSPoint.zero
-    for (c, n) in svgCommands(markData + lettersData) {
+    for (c, n) in svgCommands(markData) {
         switch c {
         case "M": last = NSPoint(x: n[0], y: n[1]); start = last; path.move(to: pt(n[0], n[1]))
         case "L": last = NSPoint(x: n[0], y: n[1]); path.line(to: pt(n[0], n[1]))
@@ -143,11 +116,10 @@ func draw(_ size: CGFloat) -> NSImage {
     shape.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    // The mark, black on the plate, at the proportion of Drice's search.jpg
-    // (22 September 2026): 607 of a 1000-wide canvas, which on a plate that
-    // is 824 of 1024 comes to three quarters of the plate.
+    // The word, black on the plate, centred on its own box — the y's tail
+    // below balances the h's stem above.
     NSColor(red: 0.09, green: 0.09, blue: 0.09, alpha: 1).setFill()
-    markPath(in: plate, fraction: 0.754).fill()
+    markPath(in: plate, fraction: share).fill()
     return image
 }
 
@@ -186,8 +158,8 @@ print("drew: \(out.path)")
 // do that well with an icon that says what each style should be: from the
 // flat image above it made a darkened plate with the black mark still on
 // it, black on black (#337). Here the plate and the mark are separate, so
-// Dark turns them round — a white mark on the ink colour, the S showing the
-// plate through it — and Tinted gets a white mark whose brightness the
+// Dark turns them round — the word in white on the ink colour, like a
+// reversed-out headline — and Tinted gets a white mark whose brightness the
 // system tints. The light look is left as it is: the same white, the same
 // ink, the mark at the same size, and no glass, gloss or shadow of its own.
 // build.sh compiles it with actool; the images above stay the .icns.
@@ -199,11 +171,11 @@ if CommandLine.arguments.count > 2 {
 
     // An Icon Composer canvas is the plate, 1024 points across; the mark
     // takes the same share of it as it does of the plate drawn above.
-    let width = 1024 * 0.754
+    let width = 1024 * share
     let height = width * canvas.height / canvas.width
     let svg = """
-    <svg xmlns="http://www.w3.org/2000/svg" width="\(width)" height="\(height)" viewBox="0 0 \(Int(canvas.width)) \(Int(canvas.height))">\
-    <path fill-rule="evenodd" fill="#171717" d="\(markData)\(lettersData)"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="\(width)" height="\(height)" viewBox="0 0 \(canvas.width) \(canvas.height)">\
+    <path fill-rule="evenodd" fill="#171717" d="\(markData)"/></svg>
     """
     try svg.write(to: assets.appendingPathComponent("mark.svg"), atomically: true, encoding: .utf8)
 
