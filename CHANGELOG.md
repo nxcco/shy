@@ -40,6 +40,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Changed
 
+- One or two pinned squares share the column's width, as in Arc, instead of leaving empty places beside them. Settings is a little wider, so Profiles & Spaces fits
 - Keep in Every Space is gone. A pin you kept in every space stays in each of them, as that space's own pin
 - Tabs are always down the side: the switch, View › Show Tabs in Sidebar and ⇧⌘S are gone. Shift-click always peeks at a link (the button can still be changed in Settings › Shortcuts), with no switch. Tabs no longer give when pressed, and the bookmarks bar is gone; bookmarks are in the Bookmarks menu and Bookmarks › Show Bookmarks…
 - Settings is a card over the page again, as it first was, rather than a tab. ⌘, opens it; Escape or a click beside it puts it away. Spaces are always there, and a new page in it, Profiles & Spaces, lists every profile with its spaces: make, rename or delete a profile, make a space in it, or give a space to another profile from the menu beside it. Deleting a profile now deletes its spaces and their tabs too, after asking; the first space stays, signed out, in Personal

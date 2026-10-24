@@ -53,9 +53,9 @@ struct SettingsPanel: View {
         }
     }
 
-    private static let rail: CGFloat = 168
-    private static let width: CGFloat = 660
-    private static let height: CGFloat = 500
+    private static let rail: CGFloat = 196
+    private static let width: CGFloat = 700
+    private static let height: CGFloat = 540
 
     var body: some View {
         if asTab { tabbed } else { card }
@@ -139,6 +139,8 @@ struct SettingsPanel: View {
                         .frame(width: 16)
                     Text(page.title)
                         .font(.system(size: 13, weight: on ? .medium : .regular))
+                        .lineLimit(1)
+                        .fixedSize()
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(on ? Palette.ink : (hovering ? Palette.ink.opacity(0.75) : Palette.muted))

@@ -420,8 +420,6 @@ struct SideBar: View {
     /// column is too narrow for four of the classic width — and as even as
     /// they go, the fuller rows first. Five are three and two, seven four
     /// and three, nine three, three and three, ten four, three and three.
-    /// Up to three stay the one row of three places they always were, with
-    /// a place or two empty rather than a lonely button the column's width.
     static func pinRows(_ count: Int, most: Int) -> [Int] {
         guard count > 0 else { return [] }
         let most = max(1, most)
@@ -441,9 +439,9 @@ struct SideBar: View {
         let gap = SideBar.pinGap
         let fits = Int((room + gap) / (SideBar.square + gap))
         let rows = SideBar.pinRows(count, most: min(4, max(1, fits)))
-        // A row of fewer than three keeps three places.
-        let slots = rows.map { rows.count == 1 ? max($0, min(3, fits)) : $0 }
-        let widths = slots.map { max(20, (room - CGFloat($0 - 1) * gap) / CGFloat($0)) }
+        // However few, the squares share the column's width, as in Arc: two
+        // are half of it each, one all of it.
+        let widths = rows.map { max(20, (room - CGFloat($0 - 1) * gap) / CGFloat($0)) }
         let height = min(SideBar.square, widths.min() ?? SideBar.square)
         var cells: [CGRect] = []
         for (row, n) in rows.enumerated() {
@@ -456,8 +454,7 @@ struct SideBar: View {
         return cells
     }
 
-    /// The grid itself: fixed-size cells, left-aligned, so a half-empty last
-    /// row holds its ground rather than stretching to fill it.
+    /// The grid itself: each row's cells sharing the column's width.
     private var pinned: some View {
         let tabs = pinnedTabs
         // A tab carried over the grid: one cell more, and the one it
