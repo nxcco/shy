@@ -87,12 +87,11 @@ final class SidebarPressTests: XCTestCase {
         try await send(.leftMouseDown, at: point, in: window)
         XCTAssertEqual(browser.activeID, first.id)
         try await send(.leftMouseUp, at: point, in: window)
-        XCTAssertNil(browser.editingPin)
         try await send(.leftMouseDown, at: point, in: window)
         try await send(.leftMouseUp, at: point, in: window)
         try await send(.leftMouseDown, at: point, in: window, clicks: 2)
         try await send(.leftMouseUp, at: point, in: window, clicks: 2)
-        XCTAssertEqual(browser.editingPin, first.id, "A pin already home still edits its letter on double-click")
+        XCTAssertEqual(browser.activeID, first.id, "A double-click on a pin already home leaves it as it is")
     }
 
     func testEachSplitHalfFocusesOnPressWithoutEditingOnRelease() async throws {
@@ -221,7 +220,6 @@ final class SidebarPressTests: XCTestCase {
         try await send(.leftMouseUp, at: NSPoint(x: start.x + 80, y: start.y), in: window)
         try await settle()
         XCTAssertEqual(browser.tabs.prefix(2).map(\.id), [second.id, first.id], "A pin carried past the next swaps with it")
-        XCTAssertNil(browser.editingPin)
     }
 
     /// The press that selects (TabPress) held the drag back until the
@@ -251,7 +249,6 @@ final class SidebarPressTests: XCTestCase {
             try await settle()
             XCTAssertNotEqual(browser.tabs.map(\.id), before, "\(kind): still moved once let go")
             XCTAssertNil(browser.editingTab)
-            XCTAssertNil(browser.editingPin)
             for tab in browser.tabs where tab.pin != nil { browser.unpin(tab) }
         }
     }
