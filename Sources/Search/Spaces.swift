@@ -233,7 +233,6 @@ extension Browser {
         parked[spaceID] = Parked(tabs: tabs, active: activeID, splits: splits)
 
         spaceID = id
-        sitePanelFollowsSpace()
         // The space new pages are made in, when this is the window in front;
         // and the one to come back to, when this is the oldest window.
         if Browsers.front === self || Browsers.front == nil { Spaces.current = id }

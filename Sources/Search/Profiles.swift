@@ -199,6 +199,10 @@ final class Profiles: ObservableObject {
             }
             return space
         })
+        // A side panel signed in as it goes first: its page holds the store.
+        for window in Browsers.all {
+            if case .site(_, let profile) = window.sidePanel, profile == id { window.closeSidePanel() }
+        }
         list.removeAll { $0.id == id }
         write()
         if let store = Profiles.stores.removeValue(forKey: id) {

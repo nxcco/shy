@@ -29,8 +29,9 @@ enum SidePanelContent: Equatable {
     /// extension named one (setOptions with a tabId) — it goes with that tab,
     /// hidden on the others and back on it, as in Chrome. Nil: the window's.
     case page(extensionID: String, url: URL, tab: Tab.ID?)
-    /// A website, in the space the window was in when it opened.
-    case site(url: URL, space: UUID)
+    /// A website, signed in as the profile it was opened in, whichever space
+    /// the window goes to after.
+    case site(url: URL, profile: UUID)
 }
 
 /// The sites offered in View › Side Panel, as they are typed: a short list,
@@ -111,19 +112,22 @@ extension Browser {
         open(url, foreground: true)
     }
 
-    /// A website in this window's side panel, signed in as this space's tabs
-    /// are (View › Side Panel, or a tab's Open in Side Panel). The same site
-    /// again closes it, as a second press on an extension's button does.
+    /// A website in this window's side panel, signed in as `profile` — the
+    /// tab's it came from, or the space on screen's — and staying so, space
+    /// after space (View › Side Panel, or a tab's Open in Side Panel). The
+    /// same site again closes it, as a second press on an extension's
+    /// button does.
     @discardableResult
-    func showSiteInPanel(_ url: URL) -> Bool {
+    func showSiteInPanel(_ url: URL, in profile: UUID? = nil) -> Bool {
+        let profile = profile ?? profileID
         guard PanelSites.allowed(url), !isPopup else { return false }
         if sidePanelShown, case .site = sidePanel, SidePanelPages.shared.siteArrived(in: self)?.host() == url.host() {
             closeSidePanel()
             return true
         }
         if case .page(_, _, let tab?) = sidePanel { SidePanelPages.shared.unbind(tab, in: self) }
-        SidePanelPages.shared.loadSite(url, space: spaceID, in: self)
-        sidePanel = .site(url: url, space: spaceID)
+        SidePanelPages.shared.loadSite(url, profile: profile, in: self)
+        sidePanel = .site(url: url, profile: profile)
         sidePanelShown = true
         prefs.panelSite = url.absoluteString
         return true
@@ -137,11 +141,11 @@ extension Browser {
         showSiteInPanel(last ?? PanelSites.offered[0].url)
     }
 
-    /// The tab's page into the side panel, from the tab's menu. Not a
-    /// private tab's: the panel is signed in as the space is.
+    /// The tab's page into the side panel, from the tab's menu, signed in
+    /// as the tab is. Not a private tab's: it keeps nothing to sign in with.
     func openInSidePanel(_ tab: Tab) {
         guard !tab.shy, let url = tab.address else { return }
-        showSiteInPanel(url)
+        showSiteInPanel(url, in: tab.profile)
     }
 
     /// The site in the panel, as a tab of its own, and the panel closed.
@@ -150,15 +154,6 @@ extension Browser {
         let url = SidePanelPages.shared.siteArrived(in: self) ?? first
         closeSidePanel()
         open(url, foreground: true)
-    }
-
-    /// The window went to another space: the site comes again, signed in as
-    /// that space is.
-    func sitePanelFollowsSpace() {
-        guard case .site(let first, let space) = sidePanel, space != spaceID else { return }
-        let url = SidePanelPages.shared.siteArrived(in: self) ?? first
-        SidePanelPages.shared.loadSite(url, space: spaceID, in: self)
-        sidePanel = .site(url: url, space: spaceID)
     }
 
     /// Closed: an extension's page is let go, as Chrome does.
@@ -300,12 +295,12 @@ final class SidePanelPages: NSObject {
         return true
     }
 
-    /// A website, in a page made as a tab's is in `space` (Web.configuration):
-    /// its store, its user agent, extensions where tabs have them. Never a
-    /// private tab's store. No window opens from it without a click.
-    func loadSite(_ url: URL, space: UUID, in browser: Browser) {
+    /// A website, in a page made as a tab's is (Web.configuration) with the
+    /// profile's store: its user agent, extensions where tabs have them.
+    /// Never a private tab's store. No window opens from it without a click.
+    func loadSite(_ url: URL, profile: UUID, in browser: Browser) {
         drop(in: browser)
-        let configuration = Web.configuration(space: space)
+        let configuration = Web.configuration(store: Profiles.store(profile))
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 380, height: 600), configuration: configuration)
         let delegate = SitePanelDelegate(browser: browser)

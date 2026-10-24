@@ -2914,7 +2914,7 @@ final class Bench {
             var content: [String: Any] = ["kind": "none"]
             switch browser.sidePanel {
             case .page(let id, let url, let tab): content = ["kind": "page", "extension": id, "url": url.absoluteString, "tab": tab.map { $0.uuidString } ?? ""]
-            case .site(let url, let space): content = ["kind": "site", "url": url.absoluteString, "space": space.uuidString,
+            case .site(let url, let profile): content = ["kind": "site", "url": url.absoluteString, "profile": profile.uuidString,
                                                        "store": web.map { $0.configuration.websiteDataStore.isPersistent } ?? false,
                                                        "sameStore": web.map { $0.configuration.websiteDataStore === Spaces.store(for: browser.spaceID) } ?? false,
                                                        "inspectable": web.map { if #available(macOS 13.3, *) { return $0.isInspectable } else { return false } } ?? false,
