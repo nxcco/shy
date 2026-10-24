@@ -231,7 +231,6 @@ struct AgentStage: View {
                         .help("Ends at \(handover.ends.formatted(date: .omitted, time: .shortened)) on its own")
                 }
                 Pill(showingSteps ? "Hide Steps" : "Steps (\(page.steps.count))") { showingSteps.toggle() }
-                Pill("Back to Your Tabs") { browser.watchAgent(nil) }
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
