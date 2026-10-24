@@ -3674,23 +3674,25 @@ enum ExtensionShims {
         }
     }
 
-    /// The groups an extension is shown: never one without a tab (see the
-    /// tab groups cases in `run`).
-    private static func listedGroups(_ browser: Browser) -> [TabGroup] {
-        browser.tabGroups.filter { !browser.tabs(in: $0.id).isEmpty }
+    /// The tab groups an extension is shown: the folders with a tab of their
+    /// own in them, never an empty one, as Chrome has no group without a
+    /// tab (see the tab groups cases in `run`).
+    private static func listedGroups(_ browser: Browser) -> [Folder] {
+        let filed = Set(browser.tabs.compactMap { $0.pin == nil ? nil : $0.folder })
+        return browser.folders.filter { filed.contains($0.id) }
     }
 
-    private static func listedGroup(_ number: Any?, in browser: Browser) throws -> TabGroup {
+    private static func listedGroup(_ number: Any?, in browser: Browser) throws -> Folder {
         guard let number = number as? Int,
-              let group = listedGroups(browser).first(where: { TabGroup.number($0.id) == number })
+              let folder = listedGroups(browser).first(where: { Folder.number($0.id) == number })
         else { throw Unsupported(what: "No group with id: \(number.map { "\($0)" } ?? "none").") }
-        return group
+        return folder
     }
 
-    /// A group as Chrome describes it. Search's groups have no colour; grey
+    /// A folder as Chrome describes a group. Folders have no colour; grey
     /// is Chrome's first.
-    private static func chromeGroup(_ group: TabGroup) -> [String: Any] {
-        ["id": TabGroup.number(group.id), "title": group.name, "collapsed": group.collapsed,
+    private static func chromeGroup(_ folder: Folder) -> [String: Any] {
+        ["id": Folder.number(folder.id), "title": folder.name, "collapsed": folder.folded,
          "color": "grey", "windowId": 1, "shared": false]
     }
 
@@ -4507,24 +4509,27 @@ enum ExtensionShims {
             }
 
         // MARK: tab groups
-        // Groups off in Settings › Tabs, an extension's groups are still
-        // made and kept, as Chrome would, but the column shows no heading
-        // for them, as for any group while they are off; turned on, they
-        // are there. Claude in Chrome works only in a group of its own: a
-        // refusal here left it unable to act on any tab. A group without a
-        // tab is never shown.
+        // A tab group is a folder (see Folders.swift): one an extension
+        // makes is a folder at the top of the space's, its tabs pinned rows
+        // in it, kept as any folder's are; a folder you made is a group to
+        // the extension, under its number. Claude in Chrome works only in a
+        // group of its own: a refusal here left it unable to act on any
+        // tab. A folder with no tab of its own is never shown, and one the
+        // extension's calls leave empty goes, as Chrome's empty groups do.
+        // A folder in a folder is a group like any other: Chrome's groups
+        // don't nest, and the extension is told nothing of where it is.
         case "tabs.groups":
             let places: [Any] = first as? [Any] ?? []
             return places.map { place -> Int in
                 guard let tab = located(place, context: context, owner: owner),
-                      let home = owner.browser(of: tab), let group = home.group(of: tab) else { return -1 }
-                return TabGroup.number(group)
+                      let home = owner.browser(of: tab), let folder = home.folder(of: tab) else { return -1 }
+                return Folder.number(folder.id)
             }
         case "tabGroups.query":
             let spec = first as? [String: Any] ?? [:]
             return listedGroups(browser).filter { group in
                 (spec["title"] as? String).map { $0 == group.name } ?? true
-                    && (spec["collapsed"] as? Bool).map { $0 == group.collapsed } ?? true
+                    && (spec["collapsed"] as? Bool).map { $0 == group.folded } ?? true
                     && (spec["color"] as? String).map { $0 == "grey" } ?? true
             }.map(chromeGroup)
         case "tabGroups.get":
@@ -4532,11 +4537,14 @@ enum ExtensionShims {
         case "tabGroups.update":
             let group = try listedGroup(first, in: browser)
             let props = args.dropFirst().first as? [String: Any] ?? [:]
-            if let title = props["title"] as? String { browser.renameTabGroup(group.id, to: title) }
-            if let collapsed = props["collapsed"] as? Bool, collapsed != group.collapsed { browser.toggleTabGroup(group.id) }
-            return chromeGroup(browser.tabGroups.first { $0.id == group.id } ?? group)
+            if let title = props["title"] as? String { browser.renameFolder(group.id, to: title) }
+            if let collapsed = props["collapsed"] as? Bool { browser.setFolded(group.id, collapsed) }
+            return chromeGroup(browser.folders.first { $0.id == group.id } ?? group)
         case "tabGroups.move":
-            throw Unsupported(what: "Search can't move a tab group for an extension")
+            // A folder's place is among the folders, above the line, not at
+            // a tab's index in the row: it stays where it is, and the call,
+            // which in Chrome only rearranges, succeeds.
+            return chromeGroup(try listedGroup(first, in: browser))
         case "tabs.group":
             let places: [Any] = first as? [Any] ?? []
             let tabs = places.compactMap { located($0, context: context, owner: owner) }
@@ -4545,24 +4553,31 @@ enum ExtensionShims {
             guard let browser = owner.browser(of: tabs[0]), tabs.allSatisfy({ owner.browser(of: $0) === browser }) else {
                 throw Unsupported(what: "Tabs from different windows can't share a group")
             }
-            // Pins and private tabs are never in a group in Search.
-            guard tabs.allSatisfy({ $0.pin == nil && !$0.shy }) else {
-                throw Unsupported(what: "Pinned and private tabs can't be grouped")
+            // Private tabs are never in a folder, nor a pin every space shows.
+            guard tabs.allSatisfy({ browser.filable($0) }) else {
+                throw Unsupported(what: "Private tabs, and pins in every space, can't be grouped")
             }
             let target: UUID
             if let number = args.dropFirst().first as? Int, number != -1 {
                 target = try listedGroup(number, in: browser).id
             } else {
-                // A new group, as its menu makes one, without its name to type.
-                target = browser.addTabGroup(containing: tabs[0])
-                browser.editingGroupID = nil
+                // A new folder at the top, as its menu makes one, without
+                // its name to type: the extension names it, if it likes.
+                guard let made = browser.newFolder(editing: false) else { throw Unsupported(what: "No group made") }
+                target = made
             }
-            for tab in tabs { browser.move(tab, toGroup: target) }
-            return TabGroup.number(target)
+            let left = Set(tabs.compactMap(\.folder)).subtracting([target])
+            for tab in tabs { browser.move(tab, toFolder: target) }
+            browser.dropIfEmpty(left)
+            return Folder.number(target)
         case "tabs.ungroup":
+            // Out of its folder and unpinned: the ordinary tab it was
+            // before it was grouped, as Chrome leaves it.
             let places: [Any] = first as? [Any] ?? []
             for tab in places.compactMap({ located($0, context: context, owner: owner) }) {
-                owner.browser(of: tab)?.move(tab, toGroup: nil)
+                guard let browser = owner.browser(of: tab), let folder = browser.folder(of: tab) else { continue }
+                browser.unpin(tab)
+                browser.dropIfEmpty([folder.id])
             }
             return nil
 

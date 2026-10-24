@@ -717,22 +717,19 @@ final class Tab: ObservableObject, Identifiable {
     var peeked: (site: String, at: Date)?
     /// For a pin, kept as a row under the squares rather than as a square:
     /// Arc's pinned list, below its favourites. Still a pin in every other
-    /// way: put down by ⌘W, the same in every window, never in a group.
-    /// Drawn as a square with the tabs across the top.
+    /// way: put down by ⌘W, the same in every window.
     @Published var listed = false
-
-    /// The group that holds this ordinary tab in the sidebar.
-    @Published var groupID: UUID? {
-        didSet { if groupID == nil, oldValue != nil { letGo = Date() } }
-    }
+    /// For a pinned row, the folder it is in (see Folders.swift). Set when
+    /// the row is built, from pins.json, as `listed` is.
+    @Published var folder: UUID?
 
     /// A name you gave it, in place of whatever the page calls itself. It
     /// stays through navigation: a tab you named is a tab you are keeping for
     /// a job, not for a page.
     ///
-    /// Pinned, grouped and named are the three ways of keeping a tab when
-    /// tabs close themselves (see Closing.swift). A tab let go from any of
-    /// them starts its time from then (letGo), not from whenever it was
+    /// Pinned (in a folder or not) and named are the two ways of keeping a
+    /// tab when tabs close themselves (see Closing.swift). A tab let go from
+    /// either starts its time from then (letGo), not from whenever it was
     /// last left.
     @Published var name: String? {
         didSet { if name == nil, oldValue != nil { letGo = Date() } }
@@ -742,8 +739,7 @@ final class Tab: ObservableObject, Identifiable {
     /// what you were just reading is what you are most likely to want back.
     /// Written into the session, so a tab's time away counts across quits.
     private(set) var touched = Date()
-    /// When it was last let go of: unpinned, taken out of its group, its
-    /// name taken away. Kept apart from `touched`, which says when you last
+    /// When it was last let go of: unpinned or its name taken away. Kept apart from `touched`, which says when you last
     /// looked, for ⌃Tab and for where ⌘W on a pin lands; letting go of a
     /// tab isn't looking at it. In the session too (see Closing.swift).
     var letGo: Date?

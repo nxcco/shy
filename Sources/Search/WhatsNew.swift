@@ -44,7 +44,7 @@ enum WhatsNew {
         Toggle(title: "New tab in a floating field", detail: "⌘T raises the address field over the page you are on, as in Arc.",
                since: "1.0.6", get: { $0.floatingNewTab }, set: { $0.floatingNewTab = $1 }),
 
-        Toggle(title: "Start with a fresh window", detail: "Your pinned tabs, tab groups and named tabs, and none of last time's others.",
+        Toggle(title: "Start with a fresh window", detail: "Your pinned tabs, folders and named tabs, and none of last time's others.",
                since: "1.0.5", get: { $0.startsFresh }, set: { $0.startsFresh = $1 }),
 
         Toggle(title: "Sidebar on the right", detail: "The tabs down the right edge of the window.",

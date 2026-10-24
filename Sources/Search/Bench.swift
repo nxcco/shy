@@ -246,11 +246,11 @@ final class Bench {
             // (true) or a square (false).
             // "at": let go there, as the column's drag lets go (PinDrop):
             // among the squares (or the rows, with "listed"), or with "off"
-            // among the tabs in no group — or into "group".
+            // among the tabs.
             var taken: Bool?
             if let at = request["at"] as? Int {
                 if request["off"] as? Bool == true {
-                    taken = browser.unpinDropped(tab, at: at, group: (request["group"] as? String).flatMap(UUID.init))
+                    taken = browser.unpinDropped(tab, at: at)
                 } else {
                     taken = browser.pinDropped(tab, listed: request["listed"] as? Bool ?? false, at: at)
                 }
@@ -1963,52 +1963,51 @@ final class Bench {
             browser.move(tab, to: to)
             answer(["at": browser.tabs.firstIndex { $0.id == tab.id } ?? -1])
 
-        case "group":
-            // Tab groups, as their menus make and change them (TabGroups.swift):
-            // a tab into a new group or an existing one, or out; a group
-            // folded or opened. Test runs only: it rearranges your tabs.
-            guard Store.testing else { answer(["error": "group only works on a --test run"]); return }
+        case "folder":
+            // Folders, as their menus make and change them (Folders.swift):
+            // one made ("new", in "parent" by name), a tab into one by name
+            // or out ("name" "none"), one folded or opened ("fold"), renamed
+            // ("rename") or deleted ("delete"). Test runs only: it
+            // rearranges your tabs.
+            guard Store.testing else { answer(["error": "folder only works on a --test run"]); return }
             let named = request["name"] as? String ?? ""
-            let group = browser.tabGroups.first { $0.name == named || $0.id.uuidString.lowercased().hasPrefix(named.lowercased()) && !named.isEmpty }
-            if let id = request["id"] as? String {
+            let folder = browser.folders.first { $0.name == named || !named.isEmpty && $0.id.uuidString.lowercased().hasPrefix(named.lowercased()) }
+            if request["new"] as? Bool == true {
+                let parent = (request["parent"] as? String).flatMap { name in browser.folders.first { $0.name == name }?.id }
+                guard let made = browser.newFolder(in: parent, named: named.isEmpty ? "Folder" : named, editing: false) else {
+                    answer(["error": "no folder made there"]); return
+                }
+                if let id = request["id"] as? String, let tab = browser.tabs.first(where: { Bench.short($0) == id }) {
+                    browser.move(tab, toFolder: made)
+                }
+            } else if let id = request["id"] as? String {
                 guard let tab = browser.tabs.first(where: { Bench.short($0) == id }) else { answer(["error": "no tab “\(id)” — see tabs"]); return }
-                if request["new"] as? Bool == true {
-                    let made = browser.addTabGroup(containing: tab)
-                    if !named.isEmpty { browser.renameTabGroup(made, to: named) }
-                    browser.editingGroupID = nil
-                } else if named == "none" {
-                    browser.move(tab, toGroup: nil)
-                } else if let group {
-                    browser.move(tab, toGroup: group.id)
+                if named == "none" {
+                    browser.move(tab, toFolder: nil)
+                } else if let folder {
+                    browser.move(tab, toFolder: folder.id, at: request["at"] as? Int)
                 } else {
-                    answer(["error": "no group “\(named)”"]); return
+                    answer(["error": "no folder “\(named)”"]); return
                 }
             } else if request["fold"] as? Bool == true {
-                guard let group else { answer(["error": "no group “\(named)”"]); return }
-                browser.toggleTabGroup(group.id)
-            } else if request["close"] as? Bool == true {
-                guard let group else { answer(["error": "no group “\(named)”"]); return }
-                browser.closeTabGroup(group.id)
+                guard let folder else { answer(["error": "no folder “\(named)”"]); return }
+                browser.toggleFolder(folder.id)
+            } else if let name = request["rename"] as? String {
+                guard let folder else { answer(["error": "no folder “\(named)”"]); return }
+                browser.renameFolder(folder.id, to: name)
+            } else if request["delete"] as? Bool == true {
+                guard let folder else { answer(["error": "no folder “\(named)”"]); return }
+                browser.deleteFolder(folder.id)
             }
-            answer(["on": true, "groups": browser.tabGroups.map { group in
-                ["id": String(group.id.uuidString.prefix(8)).lowercased(), "name": group.name, "collapsed": group.collapsed,
-                 "tabs": browser.tabs(in: group.id).map(Bench.short)] as [String: Any]
-            }])
+            answer(["folders": browser.folders.map { folder in
+                ["id": String(folder.id.uuidString.prefix(8)).lowercased(), "name": folder.name, "folded": folder.folded,
+                 "parent": folder.parent.flatMap { id in browser.folders.first { $0.id == id }?.name } ?? "",
+                 "tabs": browser.tabs.filter { $0.pin != nil && $0.folder == folder.id }.map(Bench.short)] as [String: Any]
+            }, "lines": browser.folderLines.map(Bench.line)])
 
         case "tospace":
             // Move to Space from a tab's menu, to the Nth space. Test runs only.
             guard Store.testing else { answer(["error": "tospace only works on a --test run"]); return }
-            // "group": a group by name, as its menu's Move Group to Space.
-            if let name = request["group"] as? String, let index = request["index"] as? Int,
-               browser.spaces.indices.contains(index - 1) {
-                guard let group = browser.tabGroups.first(where: { $0.name == name }) else {
-                    answer(["error": "no group “\(name)”"]); return
-                }
-                browser.move(group: group.id, toSpace: browser.spaces[index - 1].id)
-                answer(["space": browser.spaces[index - 1].name, "tabs": browser.tabs.map(Bench.short),
-                        "groups": browser.tabGroups.map(\.name)])
-                return
-            }
             guard let id = request["id"] as? String, let index = request["index"] as? Int,
                   let tab = browser.tabs.first(where: { Bench.short($0) == id }),
                   browser.spaces.indices.contains(index - 1)
@@ -2824,13 +2823,13 @@ final class Bench {
                 "making": browser.makingSpace,
                 "swipe": Double(browser.spaceSwipe),
                 // Each space off screen as a swipe draws it passing by
-                // (Parked.drawn): its groups, folded or not, and their tabs.
+                // (Folders.lines): its folders' lines, folded or not, and
+                // its tabs.
                 "drawn": Dictionary(uniqueKeysWithValues: browser.parked.map { id, row in
-                    let (groups, loose) = row.drawn()
+                    let lines = Folders.lines(Pins.folders(id), pins: row.tabs.filter { $0.pin != nil }, front: row.front)
                     return (browser.spaces.first { $0.id == id }?.name ?? id.uuidString, [
-                        "groups": groups.map { ["name": $0.group.name, "collapsed": $0.group.collapsed,
-                                                "tabs": $0.tabs.map(Bench.short)] as [String: Any] },
-                        "loose": loose.map(Bench.short),
+                        "lines": lines.map(Bench.line),
+                        "loose": row.loose.map(Bench.short),
                         "active": row.active.map { id in row.tabs.first { $0.id == id }.map(Bench.short) ?? "" } ?? "",
                     ] as [String: Any])
                 }),
@@ -3064,7 +3063,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "group", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate",
+                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate",
             ]])
         }
     }
@@ -3107,24 +3106,6 @@ final class Bench {
         case "enabled":
             // Split View is always there now; only "on" is still an answer.
             guard request["on"] as? Bool == true else { answer(["error": "Split View is always on"]); return }
-            reply()
-
-        case "group":
-            guard let page = tab() else { answer(["error": "split group needs id"]); return }
-            if let id = (request["group"] as? String).flatMap(UUID.init) {
-                browser.move(page, toGroup: id)
-            } else if request["group"] as? String == "none" {
-                browser.move(page, toGroup: nil)
-            } else {
-                _ = browser.addTabGroup(containing: page)
-            }
-            reply()
-
-        case "collapse":
-            guard let id = (request["group"] as? String).flatMap(UUID.init) else {
-                answer(["error": "split collapse needs group UUID"]); return
-            }
-            browser.toggleTabGroup(id)
             reply()
 
         case "step":
@@ -3472,8 +3453,8 @@ final class Bench {
             "displayedIDs": browser.displayedTabs.map { Bench.short($0) },
             "visibleIDs": browser.tabs.filter { browser.visibleTabIDs.contains($0.id) }.map { Bench.short($0) },
             "shownIDs": browser.shownTabs.map { Bench.short($0) },
-            "groups": browser.tabGroups.map { ["id": $0.id.uuidString, "collapsed": $0.collapsed] as [String: Any] },
-            "groupIDs": browser.tabs.map { $0.groupID?.uuidString ?? "" },
+            "folders": browser.folders.map { ["id": $0.id.uuidString, "folded": $0.folded] as [String: Any] },
+            "folderIDs": browser.tabs.map { $0.folder?.uuidString ?? "" },
             "enabled": true,
             "finding": browser.finding,
             "needle": browser.needle,
@@ -3656,8 +3637,8 @@ final class Bench {
             "internal": tab.page?.url.absoluteString ?? "",
             "title": tab.title,
             "name": tab.name ?? "",
-            // The group it is in, by name, whether or not groups are on.
-            "group": browser?.group(of: tab).flatMap { id in browser?.tabGroups.first { $0.id == id }?.name } ?? "",
+            // The folder it is in, by name.
+            "folder": browser?.folder(of: tab)?.name ?? "",
             "loading": tab.loading,
             "hollow": tab.hollow,
             "view": tab.built?.url?.absoluteString ?? "",
@@ -3700,6 +3681,17 @@ final class Bench {
 
     static func short(_ tab: Tab) -> String {
         String(tab.id.uuidString.prefix(8)).lowercased()
+    }
+
+    /// One of the folders' lines as the column draws it: what it is, and
+    /// how far in.
+    static func line(_ line: FolderLine) -> [String: Any] {
+        switch line {
+        case .folder(let folder, let depth):
+            ["folder": folder.name, "folded": folder.folded, "depth": depth]
+        case .tab(let tab, let depth, _):
+            ["tab": short(tab), "depth": depth]
+        }
     }
 
     /// The address field, wherever it is in the window.

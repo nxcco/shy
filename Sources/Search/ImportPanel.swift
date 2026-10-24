@@ -159,13 +159,12 @@ struct ImportPanel: View {
     }
 
     /// What Arc's side of the import will do: the pages Arc keeps loose
-    /// become rows under the pins and the ones it filed stay tabs in a group
-    /// of that folder's name, so that neither the keeping nor the folder is
-    /// lost.
+    /// become rows under the pins and the ones it filed rows in folders of
+    /// the same names, so that neither the keeping nor the folder is lost.
     private func arcDetail(_ arc: (spaces: Int, pinned: Int)) -> String {
         let spaces = arc.spaces == 1 ? "1 space" : "\(arc.spaces) spaces"
         let head = "\(spaces), \(arc.pinned) pinned — each a space here, the favourites as pins"
-        return head + ", its pinned pages as rows under them, and the ones it filed in a folder as tabs in a group of that name"
+        return head + ", its pinned pages as rows under them, and the ones it filed in folders of the same names"
     }
 
     /// Safari, and browsers on this Mac with nothing where their data should

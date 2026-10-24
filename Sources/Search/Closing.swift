@@ -6,11 +6,11 @@ import Foundation
 // haven't looked at for twelve hours (or a day, a week, a month: Settings ›
 // Tabs) closes the way ⌘W would close it: ⇧⌘T and History › Recently Closed
 // bring it back while it is recent, and History has its page for good. What
-// stays is what you said to keep: a pinned tab, a tab you named, a tab in a
-// group, or a site explicitly kept awake from its card.
+// stays is what you said to keep: a pinned tab, in a folder or not, a tab you
+// named, or a site explicitly kept awake from its card.
 //
 // The time counts from when you last left the tab, or let go of it (unpinned,
-// ungrouped, unnamed: Tab.letGo), and goes on counting while Search is quit:
+// unnamed: Tab.letGo), and goes on counting while Search is quit:
 // the session file carries both (Session.Entry.touched, .letGo).
 // Without that, yesterday's tabs would come back each morning as if just
 // looked at, and a browser quit every night would never close a thing.
@@ -39,7 +39,6 @@ extension Browser {
         if visibleTabIDs.contains(tab.id) { return "on screen" }
         if tab.pin != nil { return "pinned" }
         if tab.name != nil { return "named" }
-        if tab.groupID != nil { return "in a group" }
         if tab.shy { return "private" }
         if tab.bench { return "a bench tab" }
         // Holds nothing and costs nothing; closing the last one would close

@@ -554,7 +554,7 @@ struct SettingsPanel: View {
                 }
             }
             Card {
-                Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first; a link from a group stays in it.") {
+                Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first.") {
                     Picker("New tab position", selection: $prefs.newTabPlace) {
                         Text("After current").tag(NewTabPlace.next)
                         Text(prefs.sidebar ? "Top" : "Leftmost").tag(NewTabPlace.top)
@@ -577,7 +577,7 @@ struct SettingsPanel: View {
                     Switch(on: $prefs.popupWindows)
                 }
                 Rule()
-                Line("Start with a fresh window", "Each time Search opens, your pinned tabs, tab groups and named tabs are there and last time's other tabs aren't.") {
+                Line("Start with a fresh window", "Each time Search opens, your pinned tabs, folders and named tabs are there and last time's other tabs aren't.") {
                     Switch(on: $prefs.startsFresh)
                 }
             }
@@ -593,7 +593,7 @@ struct SettingsPanel: View {
                     .fixedSize()
                 }
                 Rule()
-                Line("Close tabs you leave alone", "Counted from when you last left the tab, while Search is quit too. Pin a tab, name it or put it in a group to keep it; private tabs, sound, calls and anything typed stay. ⇧⌘T and History bring one back.") {
+                Line("Close tabs you leave alone", "Counted from when you last left the tab, while Search is quit too. Pin a tab, put it in a folder or name it to keep it; private tabs, sound, calls and anything typed stay. ⇧⌘T and History bring one back.") {
                     Picker("", selection: $prefs.tabLife) {
                         ForEach(TabLife.allCases) { life in
                             Text(life.title).tag(life)

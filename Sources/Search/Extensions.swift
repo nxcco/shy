@@ -1837,8 +1837,18 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
 
     func close(for context: WKWebExtensionContext) async throws {
         try checkAccess(context)
-        guard let tab else { return }
-        browser?.close(tab)
+        guard let tab, let browser else { return }
+        // A tab in a folder is a pin, which ⌘W only puts down; an extension
+        // that closes one, as Claude in Chrome closes the tabs of the group
+        // it worked in, means it gone, as Chrome would have it. Its folder
+        // goes too once nothing is left in it (see Browser.dropIfEmpty).
+        if let folder = browser.folder(of: tab) {
+            browser.unpin(tab)
+            browser.close(tab)
+            browser.dropIfEmpty([folder.id])
+        } else {
+            browser.close(tab)
+        }
     }
 
     func takeSnapshot(using configuration: WKSnapshotConfiguration, for context: WKWebExtensionContext) async throws -> NSImage? {

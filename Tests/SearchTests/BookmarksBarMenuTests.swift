@@ -23,21 +23,6 @@ final class BookmarksBarMenuTests: XCTestCase {
         XCTAssertEqual(browser.editing, false)
     }
 
-    func testOpenAllInTabGroupNamesTheGroupAfterTheFolder() {
-        _ = NSApplication.shared
-        let browser = Browser(record: WindowRecord())
-        defer { browser.closeAll() }
-
-        let urls = (1...3).map { URL(string: "https://example.com/\($0)")! }
-        browser.openInTabGroup(urls, named: "Reading")
-        let group = try? XCTUnwrap(browser.tabGroups.first { $0.name == "Reading" })
-        XCTAssertNotNil(group)
-        XCTAssertNil(browser.editingGroupID, "A group named already doesn't wait for a name")
-        if let group {
-            XCTAssertEqual(browser.tabs(in: group.id).count, 3)
-        }
-    }
-
     func testOpenInSplitPairsWithThePageOnScreen() {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())

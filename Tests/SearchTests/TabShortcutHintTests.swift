@@ -10,7 +10,7 @@ final class TabShortcutHintTests: XCTestCase {
         super.setUp()
     }
 
-    func testNumbersFollowVisibleTabsIncludingPinsGroupsAndSplits() {
+    func testNumbersFollowVisibleTabsIncludingPinsFoldersAndSplits() throws {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
         defer { browser.closeAll() }
@@ -27,12 +27,13 @@ final class TabShortcutHintTests: XCTestCase {
         browser.pair(right, with: left, onLeft: false)
         XCTAssertNil(browser.tabShortcutNumbers[right.id])
         assertNumbers(browser)
-        let grouped = browser.tabs.filter { $0.pin == nil && $0.id != left.id && $0.id != right.id }.prefix(2)
-        let group = browser.addTabGroup(containing: grouped.first!)
-        browser.move(grouped.last!, toGroup: group)
+        let filed = browser.tabs.filter { $0.pin == nil && $0.id != left.id && $0.id != right.id }.prefix(2)
+        let folder = try XCTUnwrap(browser.newFolder(named: "Kept", editing: false))
+        defer { browser.deleteFolder(folder) }
+        for tab in filed { browser.move(tab, toFolder: folder) }
         browser.select(browser.tabs.last!)
-        browser.toggleTabGroup(group)
-        for tab in grouped { XCTAssertNil(browser.tabShortcutNumbers[tab.id]) }
+        browser.toggleFolder(folder)
+        for tab in filed { XCTAssertNil(browser.tabShortcutNumbers[tab.id]) }
         assertNumbers(browser)
         browser.move(browser.tabs.last!, to: 1)
         assertNumbers(browser)
@@ -43,9 +44,6 @@ final class TabShortcutHintTests: XCTestCase {
     func testCommandEventsAndFocusLoss() async throws {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
-        let prefs = browser.prefs
-        let saved = prefs.sidebar
-        prefs.sidebar = true
         for number in 1...11 {
             if number > 1 { browser.newTab() }
             browser.tabs.last?.restore(url: URL(string: "about:blank#\(number)")!, title: "Tab \(number)")
@@ -63,7 +61,6 @@ final class TabShortcutHintTests: XCTestCase {
             window.contentView = nil
             window.close()
             browser.closeAll()
-            prefs.sidebar = saved
         }
         try await settle()
         try await flags(.command, in: window)
@@ -78,59 +75,40 @@ final class TabShortcutHintTests: XCTestCase {
         browser.pin(tabs[4])
         defer { browser.unpin(tabs[4]) }
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
-        let splitGroup = browser.addTabGroup(containing: tabs[0])
-        let group = browser.addTabGroup(containing: tabs[2])
-        browser.move(tabs[3], toGroup: group)
-        XCTAssertNil(browser.tabShortcutNumbers[splitGroup], "An expanded heading has no number")
-        XCTAssertNil(browser.tabShortcutNumbers[group])
+        let folder = try XCTUnwrap(browser.newFolder(named: "Kept", editing: false))
+        defer { browser.deleteFolder(folder) }
+        browser.move(tabs[2], toFolder: folder)
+        browser.move(tabs[3], toFolder: folder)
+        XCTAssertNil(browser.tabShortcutNumbers[folder], "An open folder has no number")
         XCTAssertNotNil(browser.tabShortcutNumbers[tabs[2].id])
         XCTAssertNotNil(browser.tabShortcutNumbers[tabs[3].id])
         XCTAssertNil(browser.tabShortcutNumbers[tabs[1].id], "A split counts once")
         try press(try XCTUnwrap(browser.tabShortcutNumbers[tabs[3].id]), browser: browser, window: window)
         XCTAssertEqual(browser.activeID, tabs[3].id)
-        browser.select(tabs[1])
         browser.select(tabs.last!)
-        browser.toggleTabGroup(splitGroup)
-        browser.toggleTabGroup(group)
+        browser.toggleFolder(folder)
         tabs[2].touch(at: Date(timeIntervalSinceNow: -100))
         tabs[3].touch(at: Date(timeIntervalSinceNow: -10))
-        XCTAssertNotNil(browser.tabShortcutNumbers[splitGroup])
-        XCTAssertNotNil(browser.tabShortcutNumbers[group])
-        for tab in tabs.prefix(4) { XCTAssertNil(browser.tabShortcutNumbers[tab.id]) }
+        XCTAssertNotNil(browser.tabShortcutNumbers[folder])
+        for tab in tabs[2...3] { XCTAssertNil(browser.tabShortcutNumbers[tab.id]) }
         try press(1, browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs[4].id, "Pins keep their place before the groups")
-        browser.moveTabGroup(group, to: 0)
-        XCTAssertEqual(browser.tabShortcutNumbers[group], 2)
+        XCTAssertEqual(browser.activeID, tabs[4].id, "Pins in no folder keep their place before the folders")
+        XCTAssertEqual(browser.tabShortcutNumbers[folder], 2)
         try press(2, browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs[3].id, "A folded group selects its most recently used page")
-        XCTAssertTrue(browser.tabGroups.first { $0.id == group }?.collapsed == true)
+        XCTAssertEqual(browser.activeID, tabs[3].id, "A folded folder selects its most recently used page")
+        XCTAssertTrue(browser.folders.first { $0.id == folder }?.folded == true)
         XCTAssertNil(browser.tabShortcutNumbers[tabs[3].id], "The active member has no duplicate number")
         tabs[2].touch(at: Date(timeIntervalSinceNow: 10))
-        try press(try XCTUnwrap(browser.tabShortcutNumbers[group]), browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs[3].id, "An active folded group keeps its current page")
-        try press(try XCTUnwrap(browser.tabShortcutNumbers[splitGroup]), browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs[1].id, "A folded split restores its focused page")
-        XCTAssertTrue(browser.tabGroups.first { $0.id == splitGroup }?.collapsed == true)
-        XCTAssertNil(browser.tabShortcutNumbers[tabs[0].id])
-        XCTAssertNil(browser.tabShortcutNumbers[tabs[1].id])
+        try press(try XCTUnwrap(browser.tabShortcutNumbers[folder]), browser: browser, window: window)
+        XCTAssertEqual(browser.activeID, tabs[3].id, "An active folded folder keeps its current page")
         try press(9, browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs.last?.id, "Command 9 counts folded groups as one target")
-        browser.toggleTabGroup(group)
-        XCTAssertNil(browser.tabShortcutNumbers[group])
+        XCTAssertEqual(browser.activeID, tabs.last?.id, "Command 9 counts a folded folder as one target")
+        browser.toggleFolder(folder)
+        XCTAssertNil(browser.tabShortcutNumbers[folder])
         XCTAssertNotNil(browser.tabShortcutNumbers[tabs[2].id])
         try press(try XCTUnwrap(browser.tabShortcutNumbers[tabs[2].id]), browser: browser, window: window)
         XCTAssertEqual(browser.activeID, tabs[2].id)
-        XCTAssertFalse(browser.tabGroups.first { $0.id == group }?.collapsed == true)
         assertNumbers(browser)
-        for tab in browser.tabs where tab.pin == nil && browser.group(of: tab) == nil {
-            browser.move(tab, toGroup: splitGroup)
-        }
-        browser.toggleTabGroup(splitGroup)
-        tabs.last?.touch(at: Date(timeIntervalSinceNow: 20))
-        XCTAssertEqual(browser.tabShortcutTargets.last?.id, splitGroup)
-        try press(9, browser: browser, window: window)
-        XCTAssertEqual(browser.activeID, tabs.last?.id, "Command 9 can select a folded heading at the end")
-        XCTAssertTrue(browser.tabGroups.first { $0.id == splitGroup }?.collapsed == true)
         try await flags([], in: window)
         XCTAssertFalse(browser.commandHeld)
         try await flags(.command, in: window)
