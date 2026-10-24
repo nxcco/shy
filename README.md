@@ -18,9 +18,15 @@ Most browsers want something from you: a start page, a feed, an account, a sideb
 - **Quiet.** No toolbar, no start page, no telemetry, nothing that asks for attention.
 - **Helpful, if you ask.** Claude can browse in Shy for you, in private pages of its own, out of sight. It is off until you turn it on, and it never touches your tabs.
 
+## Its own line
+
+Shy is a fork of [Search](https://github.com/driceroland/Search), and follows a line of its own: keep the accidental complexity low, add no feature it doesn't need, and grow no more than necessary. When in doubt, it leaves something out. Stay shy.
+
+It is built with AI agents, and safety and security are among its first concerns. Shy is a thin layer over WebKit, the engine macOS already ships and Apple keeps patched, so the code that could be attacked is small, and the hardest parts — running pages, isolating sites, the network — are WebKit's. What Shy adds is kept to that same standard: nothing listens on the network, what an agent may do is narrow and off by default, and every change is reviewed for what it opens up.
+
 ## Tabs, kept tidy
 
-- **A row or a column.** Tabs across the top or down the side. `⇧⌘S` switches; `⌘S` folds the column away until the pointer reaches the edge.
+- **A column.** Tabs down the side of the window, left or right. `⌘S` folds it away until the pointer reaches the edge.
 - **Pins, as in Arc.** Squares for the sites you live in, rows under them for pages you keep, and a line with Clear above the tabs that come and go. A pin stays on its site: a link elsewhere opens over it, and `⌘W` or a relaunch takes it back to the page it was pinned at. Press a pin's `⌘` number again to go back to where you were.
 - **Groups.** Right-click a tab › New Tab Group. Click a group's heading to fold it.
 - **Spaces.** Separate sets of tabs for separate parts of your life. Switch with `⌃1`–`⌃9`, two fingers sideways over the tabs, or a click on the space's icon, which opens a small drawer of your spaces: click to go, drag to reorder, `+` to add. Right-click the icon to rename it, give it an icon or a downloads folder, move it to another profile, or delete it.
@@ -42,7 +48,7 @@ Most browsers want something from you: a start page, a feed, an account, a sideb
 
 ## Claude, low-key
 
-Turn on **Settings › General › Let Claude open pages**, copy the command it shows, and run it once:
+Turn on **Settings › Agents › Let Claude open pages**, copy the command it shows, and run it once:
 
 ```
 claude mcp add search -- /Applications/Search.app/Contents/MacOS/search-mcp
@@ -53,7 +59,7 @@ Claude Code can then open web pages in Shy, read them, take pictures of them, cl
 - They are private pages out of sight, never your tabs. Each has its own store, forgotten when it closes, with none of your cookies, sign-ins, passwords or extensions.
 - They open http and https and nothing else: no files on your Mac, no downloads, no pop-up windows, no camera, microphone or location.
 - No network port is opened. Claude's side talks to Shy over a socket in Shy's folder that only your user can reach, and the switch only counts if you turned it on in Settings.
-- Settings shows how many pages Claude has open, with a button to close them all.
+- Settings › Agents shows how many pages Claude has open, with a button to close them all, and has a switch for each thing it may do: open pages, read them, take pictures, click, type.
 
 There is no assistant pane, no chat button, and no AI anywhere you didn't ask for it.
 
@@ -83,7 +89,7 @@ A **private tab** (`⇧⌘N`) has its own cookie jar and leaves nothing behind. 
 | | |
 |---|---|
 | `⌘L` address · `⌘K` find a tab · `⌘T` new tab · `⌘W` close · `⇧⌘T` reopen | `⌘[` `⌘]` back, forward · `⇧⌘[` `⇧⌘]` previous, next tab · `⌘1`–`⌘9` jump |
-| `⇧⌘S` tabs on top or at the side · `⌘S` fold the column · `⌃1`–`⌃9` spaces | `⇧⌘R` reading mode · `⇧⌘P` float the video · `⇧⌘H` hide something |
+| `⌘S` fold the column · `⌃1`–`⌃9` spaces | `⇧⌘R` reading mode · `⇧⌘P` float the video · `⇧⌘H` hide something |
 | `⌥⌘N` split the page · `⌃⌘←` `⌃⌘→` between the two | `⌘F` find · `⌘Y` history · `⇧⌘J` downloads · `⌘,` settings |
 
 Shortcuts can be changed in Settings › Shortcuts. `esc` puts away whatever is open.
