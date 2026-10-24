@@ -211,8 +211,18 @@ final class ScreenPermissionTests: XCTestCase {
             XCTAssertNil(browser.tab(for: tab.web))
             var reply: WKPermissionDecision?
             browser.askedForCapture(tab.web, origin: frame.securityOrigin, frame: frame, type: .camera) { reply = $0 }
-            XCTAssertEqual(reply, shy ? .deny : .grant, shy ? "private" : "ordinary")
-            XCTAssertNil(browser.asking)
+            if !shy {
+                XCTAssertEqual(reply, .grant, "ordinary: its profile's answer")
+                continue
+            }
+            XCTAssertNotEqual(reply, .grant, "private: never the space's answer")
+            // Asked, and allowed: nothing of it is kept.
+            Store.settings.removeObject(forKey: key)
+            browser.cancelCapture()
+            browser.askedForCapture(tab.web, origin: frame.securityOrigin, frame: frame, type: .camera) { _ in }
+            try await Task.sleep(nanoseconds: 550_000_000)
+            browser.allowCapture()
+            XCTAssertNil(Store.settings.object(forKey: key))
         }
     }
 
