@@ -263,10 +263,22 @@ if [ "$DEV" = 1 ]; then
 fi
 
 # Signing. A Developer ID certificate, when there is one, with the hardened
-# runtime Gatekeeper insists on for anything notarised; otherwise ad-hoc,
-# which is enough for the app to run on the machine that built it.
+# runtime Gatekeeper insists on for anything notarised; otherwise "Shy
+# Local", a certificate of your own made on this Mac (see install.sh), which
+# keeps the app the same app from build to build — the keychain's passwords
+# and the camera's yes stay with it; otherwise ad-hoc, which is enough for
+# the app to run on the machine that built it, as a new app every build.
 IDENTITY="${SHY_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
   | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)}"
+if [ -z "$IDENTITY" ] && security find-identity -p codesigning 2>/dev/null | grep -q '"Shy Local"'; then
+  IDENTITY="Shy Local"
+fi
+# Apple's timestamp is for what Apple will check, a Developer ID's; a
+# certificate of your own is only ever checked here.
+case "$IDENTITY" in
+  "Developer ID Application:"*) STAMP="--timestamp" ;;
+  *) STAMP="--timestamp=none" ;;
+esac
 # Passkeys need an entitlement Apple grants to browsers on request, and a
 # Developer ID provisioning profile that carries it. With the profile next to
 # this script, both go in; without it, the app is signed as before, because
@@ -286,9 +298,9 @@ fi
 # around it, without --deep, which would have given it the app's.
 HELPER="$APP/Contents/MacOS/shy-mcp"
 if [ -n "$IDENTITY" ]; then
-  codesign --force --timestamp --options runtime --identifier io.github.nxcco.shy.mcp \
+  codesign --force "$STAMP" --options runtime --identifier io.github.nxcco.shy.mcp \
     --sign "$IDENTITY" "$HELPER"
-  codesign --force --timestamp --options runtime \
+  codesign --force "$STAMP" --options runtime \
     --entitlements "$ENTITLEMENTS" \
     --sign "$IDENTITY" "$APP"
   echo "signed as: $IDENTITY"
@@ -335,7 +347,7 @@ else
   rm -rf "$STAGE"
 fi
 rm -rf "$ART"
-[ -n "$IDENTITY" ] && codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+[ -n "$IDENTITY" ] && codesign --force "$STAMP" --sign "$IDENTITY" "$DMG"
 echo "packed: $DMG"
 
 # The ZIP: the same app, for wherever a disk image is the wrong shape.
@@ -347,7 +359,10 @@ echo "packed: $ZIP"
 
 # Notarisation: Apple looks both over. The ticket is stapled to the image,
 # so it opens on a Mac that has never seen this app and is offline.
-[ -z "$IDENTITY" ] && { echo "can't ship without a Developer ID certificate" >&2; exit 1; }
+case "$IDENTITY" in
+  "Developer ID Application:"*) ;;
+  *) echo "can't ship without a Developer ID certificate (Shy Local is for this Mac)" >&2; exit 1 ;;
+esac
 for FILE in "$DMG" "$ZIP"; do
   xcrun notarytool submit "$FILE" --keychain-profile "${SHY_NOTARY_PROFILE:-shy}" --wait
 done
