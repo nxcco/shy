@@ -49,6 +49,17 @@ enum PanelSites {
         guard let scheme = url?.scheme?.lowercased() else { return false }
         return scheme == "https" || scheme == "http"
     }
+
+    /// The site's front door: its scheme, host and port, nothing after.
+    static func origin(of url: URL) -> URL? {
+        guard allowed(url), let host = url.host(), !host.isEmpty else { return nil }
+        var parts = URLComponents()
+        parts.scheme = url.scheme?.lowercased()
+        parts.host = host
+        parts.port = url.port
+        parts.path = "/"
+        return parts.url
+    }
 }
 
 extension Preferences {
@@ -129,15 +140,33 @@ extension Browser {
         SidePanelPages.shared.loadSite(url, profile: profile, in: self)
         sidePanel = .site(url: url, profile: profile)
         sidePanelShown = true
-        prefs.panelSite = url.absoluteString
+        // The site, not the page: one setting for every profile, kept after
+        // a profile goes, so a document's address in one is never loaded in
+        // another by Show Side Panel.
+        prefs.panelSite = PanelSites.origin(of: url)?.absoluteString ?? ""
         return true
+    }
+
+    /// A page the panel's site sends to a tab: in a space signed in as the
+    /// panel is, gone to first, never the space on screen's whoever it is
+    /// signed in as — that would carry one profile's address, a chat's or a
+    /// document's, into another's sign-ins.
+    fileprivate func openFromPanel(_ url: URL, signedInAs profile: UUID) {
+        if profile != profileID {
+            guard let space = spaces.first(where: { $0.profileID == profile }) else {
+                return announce("No space in \(Profiles.shared.profile(profile).name) to open it in")
+            }
+            switchSpace(to: space.id)
+        }
+        open(url, foreground: true)
     }
 
     /// View › Side Panel › Show Side Panel: the site last there, or Claude,
     /// and closing whatever is there.
     func toggleSitePanel() {
         if sidePanelShown { return closeSidePanel() }
-        let last = URL(string: prefs.panelSite).flatMap { PanelSites.allowed($0) ? $0 : nil }
+        // Its site only, a whole address kept by an earlier version too.
+        let last = URL(string: prefs.panelSite).flatMap(PanelSites.origin(of:))
         showSiteInPanel(last ?? PanelSites.offered[0].url)
     }
 
@@ -150,10 +179,10 @@ extension Browser {
 
     /// The site in the panel, as a tab of its own, and the panel closed.
     func sitePanelToTab() {
-        guard case .site(let first, _) = sidePanel else { return }
+        guard case .site(let first, let profile) = sidePanel else { return }
         let url = SidePanelPages.shared.siteArrived(in: self) ?? first
         closeSidePanel()
-        open(url, foreground: true)
+        openFromPanel(url, signedInAs: profile)
     }
 
     /// Closed: an extension's page is let go, as Chrome does.
@@ -397,8 +426,9 @@ private final class SitePanelDelegate: NSObject, ObservableObject, WKNavigationD
     /// A link to a new window: a tab, after a click in the panel.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if PanelSites.allowed(navigationAction.request.url), let url = navigationAction.request.url {
-            browser?.open(url, foreground: true)
+        if PanelSites.allowed(navigationAction.request.url), let url = navigationAction.request.url,
+           let browser, case .site(_, let profile) = browser.sidePanel {
+            browser.openFromPanel(url, signedInAs: profile)
         }
         return nil
     }
@@ -612,6 +642,14 @@ private struct SiteLine: View {
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            // Signed in as another profile than the space on screen's: said,
+            // since typing into it is typing as that profile.
+            if case .site(_, let profile) = browser.sidePanel, profile != browser.profileID {
+                Text(Profiles.shared.profile(profile).name)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
             Door(icon: "arrow.up.forward.square", help: "Open in a Tab") { browser.sitePanelToTab() }
             Door(icon: "xmark", help: "Close") { browser.closeSidePanel() }
