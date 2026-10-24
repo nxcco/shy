@@ -257,14 +257,10 @@ final class Bench {
             }
             else if request["off"] as? Bool == true { browser.unpin(tab) }
             else if request["home"] as? Bool == true { browser.goHome(tab) }
-            // "everywhere": Keep in Every Space (true) or Only in This Space
             // (false), as the pin's menu does.
-            else if let everywhere = request["everywhere"] as? Bool, tab.pin != nil {
-                if everywhere { browser.shareEverywhere(tab) } else { browser.keepHere(tab) }
-            }
             else if let listed = request["listed"] as? Bool, tab.pin != nil { browser.setListed(tab, listed) }
             else { browser.pin(tab, listed: request["listed"] as? Bool ?? false) }
-            answer(["pin": tab.pin ?? "", "listed": tab.listed, "everywhere": tab.everywhere, "pinned": browser.pinnedCount, "home": tab.home?.absoluteString ?? "",
+            answer(["pin": tab.pin ?? "", "listed": tab.listed, "pinned": browser.pinnedCount, "home": tab.home?.absoluteString ?? "",
                     "address": tab.address?.absoluteString ?? "", "editingLetter": browser.editingPin == tab.id,
                     "taken": taken.map { $0 as Any } ?? NSNull()])
 
@@ -3503,9 +3499,7 @@ final class Bench {
             // What ⇧⌘T would bring back, as its menu item says it.
             "reopenTitle": browser.reopenTitle,
             "ghosts": browser.ghosts.count,
-            // The pins every space shows (Pins.shared), and which cookie
-            // store each pin's tab signs in with.
-            "everywhere": browser.tabs.filter { $0.pin != nil && $0.everywhere }.map { Bench.short($0) },
+            // Which cookie store each pin's tab signs in with.
             "pinStores": Dictionary(uniqueKeysWithValues: browser.tabs.filter { $0.pin != nil }
                 .map { (Bench.short($0), $0.store.identifier?.uuidString ?? "default") }),
             // What pages of the pair asked, oldest first (see PaneQuestion).

@@ -706,9 +706,6 @@ final class Tab: ObservableObject, Identifiable {
     var home: URL?
     /// For a pin, which of the pins it is, in every window (see Pins.swift).
     var pinID: UUID?
-    /// For a pin, one every space shows (see Pins.shared). Set when the row
-    /// is built; pins.json, not the session, says which pins these are.
-    var everywhere = false
     /// For a pin, the site a link from it was just peeked at, and when: the
     /// page's own script sending the pin there after all is turned away
     /// (see Browser.peek).

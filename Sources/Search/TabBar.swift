@@ -1219,13 +1219,9 @@ struct TabMenu: View {
             } else {
                 Button("Change Letter") { browser.editLetter(tab) }
             }
-            Button(tab.everywhere ? "Only in This Space" : "Keep in Every Space") {
-                if tab.everywhere { browser.keepHere(tab) } else { browser.shareEverywhere(tab) }
-            }
             Button("Unpin") { browser.unpin(tab) }
         }
-        // A shared pin is in every space already: nowhere to move it.
-        if !tab.bench, !tab.everywhere,
+        if !tab.bench,
            tab.address.flatMap({ Browser.extensionHost(of: $0) }) == nil {
             Menu("Move to Space") {
                 ForEach(browser.spaces.filter { $0.id != browser.spaceID }) { space in
