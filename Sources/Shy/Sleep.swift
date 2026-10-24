@@ -58,10 +58,10 @@ enum SleepPace: String, CaseIterable, Identifiable {
     /// What the line in Settings says under the choice.
     var detail: String {
         switch self {
-        case .never: return "Tabs keep their pages however long they are left alone."
-        case .later: return "A tab left alone two hours lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
-        case .normal: return "A tab left alone half an hour lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
-        case .sooner: return "A tab left alone ten minutes lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
+        case .never: return "Tabs stay loaded"
+        case .later: return "After 2 hours. Pinned tabs and tabs with sound or typing stay awake"
+        case .normal: return "After 30 minutes. Pinned tabs and tabs with sound or typing stay awake"
+        case .sooner: return "After 10 minutes. Pinned tabs and tabs with sound or typing stay awake"
         }
     }
 

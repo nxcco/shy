@@ -208,10 +208,10 @@ struct SettingsPanel: View {
 
     private var general: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Card {
+            group("Shy on this Mac") {
                 Line(
-                    "Open links from other apps",
-                    isDefault ? "Shy is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
+                    "Default browser",
+                    isDefault ? "Links from other apps open in Shy" : "Links from other apps open in another browser"
                 ) {
                     if isDefault {
                         Image(systemName: "checkmark")
@@ -228,17 +228,26 @@ struct SettingsPanel: View {
                     }
                 }
                 Rule()
-                // Coming from another browser, now or any time later: the same
-                // sheet as File › Bring Things Over… and the Welcome's.
-                Line("Bring things over", "Bookmarks, history, passwords and extensions from another browser on this Mac, or from a file it exported") {
-                    Pill("Bring Things Over…") { browser.lead(to: InternalPage(.importing)) }
+                Line("Open links from other apps in a mini window", "Read and close it, or move it into a tab with ⌘O") {
+                    Switch(on: $prefs.littleLinks)
                 }
                 Rule()
+                // Coming from another browser, now or any time later: the same
+                // sheet as File › Bring Things Over….
+                Line("Import from another browser", "Bookmarks, history, passwords and extensions") {
+                    Pill("Import…") { browser.lead(to: InternalPage(.importing)) }
+                }
+                Rule()
+                Line("Confirm before quitting with ⌘Q") {
+                    Switch(on: $prefs.confirmsQuit)
+                }
+            }
+            group("Search and the address field") {
                 // What ⌘T opens to, and the way back after an extension took
                 // it. Only there while an extension offers a page; it brings
                 // its own hairline.
                 HomePageLine()
-                Line("Search with", searchDetail) {
+                Line("Search engine", searchDetail) {
                     Picker("", selection: $prefs.engine) {
                         ForEach(Engine.allCases) { engine in
                             Text(engine.title).tag(engine)
@@ -247,10 +256,6 @@ struct SettingsPanel: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize()
-                }
-                Rule()
-                Line("Suggestions from your search engine", suggestDetail) {
-                    Switch(on: $prefs.engineSuggests)
                 }
                 if prefs.engine == .custom {
                     ZStack(alignment: .leading) {
@@ -268,6 +273,14 @@ struct SettingsPanel: View {
                     .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                     .padding(.horizontal, 14)
                     .padding(.bottom, 11)
+                }
+                Rule()
+                Line("Search suggestions", suggestDetail) {
+                    Switch(on: $prefs.engineSuggests)
+                }
+                Rule()
+                Line("Open new tabs in a floating field", "⌘T shows the address field over the current page, as in Arc") {
+                    Switch(on: $prefs.floatingNewTab)
                 }
                 Rule()
                 Line("Site shortcuts", keywordDetail) {
@@ -331,67 +344,55 @@ struct SettingsPanel: View {
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
                 }
-                Rule()
-                Line("Confirm before quitting", "Ask before ⌘Q or Quit Shy closes the browser") {
-                    Switch(on: $prefs.confirmsQuit)
-                }
             }
-            Card {
-                Line("Appearance", "Light, dark, or whatever the Mac is doing — pages follow it too") {
+            group("Appearance") {
+                Line("Appearance") {
                     Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.look)
                 }
                 // Only where it can do something: in Light, nothing is darkened.
                 if prefs.look != .light {
                     Rule()
-                    Line("Darken pages that stay light", "Sites with a dark look of their own already follow it; the rest are darkened too. ⇧⌘D for the site you're on, ⌥⇧⌘D to pause everywhere") {
+                    Line("Darken sites without a dark mode", "⇧⌘D for the current site, ⌥⇧⌘D to pause everywhere") {
                         Switch(on: $prefs.darkensPages)
                     }
                 }
                 Rule()
-                Line("Page zoom", "Where every site starts. ⌘+ and ⌘− are still remembered for each site.") {
+                Line("Default page zoom", "⌘+ and ⌘− still set each site's own") {
                     // The number itself takes it back to 100%.
                     Steps(stops: Preferences.zooms, value: $prefs.pageZoom, home: 1) { "\(Int(($0 * 100).rounded()))%" }
                 }
-                Rule()
-                Line("Correct spelling as you type", "macOS's autocorrect inside pages — the one that capitalises for you") {
+            }
+            group("Typing and scrolling") {
+                Line("Autocorrect spelling in pages") {
                     Switch(on: $prefs.autocorrect)
                 }
                 Rule()
-                Line("Scroll with the middle button", "Click the wheel on a page, then move the mouse up or down to scroll, as on Windows. Click again to stop") {
+                Line("Autoscroll with the middle mouse button", "Click the wheel, then move the mouse to scroll") {
                     Switch(on: $prefs.autoScroll)
                 }
-                Rule()
-                Line("Pages at 120 Hz", "Animations and scrolling in pages at up to 120 frames a second on a screen that can, instead of 60 as in Safari. Uses more battery, so On power keeps it to when the Mac is plugged in") {
-                    Segmented(options: FastPages.allCases.map { ($0, $0.title) }, selection: $prefs.fastPages)
-                }
-                Rule()
-                Line("Reduce animations in Low Power Mode", "Quicker, simpler motion while the Mac is saving power or running hot") {
-                    Switch(on: $prefs.lightMotion)
-                }
             }
-            Card {
-                Line("Open links from other apps in a small window", "To read and close, or keep with Open in Shy (⌘O)") {
-                    Switch(on: $prefs.littleLinks)
-                }
-                Rule()
-                Line("New tab in a floating field", "⌘T raises the address field over the page you're on, as in Arc. Return opens what you typed in a new tab; Escape, ⌘W or a click outside puts it away and leaves the page as it was") {
-                    Switch(on: $prefs.floatingNewTab)
-                }
-                Rule()
-                Line("Read the site's own Markdown", "When a page has a Markdown copy, Reading mode (⇧⌘R) shows that instead of working the article out. Most docs sites publish one") {
+            group("Reading") {
+                Line("Reading mode uses a site's own Markdown", "When the site publishes one, as most docs sites do") {
                     Switch(on: $prefs.readsTwins)
                 }
                 Rule()
-                Line("Reading mode follows light and dark", "In a dark window the article is light on dark. A small switch in its corner makes an article light, dark or as the window is, and is kept for the next one") {
+                Line("Reading mode follows dark mode") {
                     Switch(on: $prefs.readerFollowsLook)
                 }
+                if PageTranslator.available {
+                    Rule()
+                    Line("Translate pages", "On this Mac, by macOS. Right-click › Translate Page") {
+                        Switch(on: $prefs.translatesPages)
+                    }
+                    if prefs.translatesPages { TranslateLanguageList(prefs: prefs) }
+                }
             }
-            Card {
-                Line("The floating video", "Shy's own window floats a video without a click and keeps its page alive in it. Picture in picture is macOS's, the one Safari uses, with the system's controls") {
+            group("Video") {
+                Line("Floating video player", prefs.floatStyle == .shy ? "Keeps the video's page running" : "macOS's own player, with its controls") {
                     Segmented(options: FloatStyle.allCases.map { ($0, $0.title) }, selection: $prefs.floatStyle)
                 }
                 Rule()
-                Line("Float a playing video by itself", prefs.floatWhen.detail) {
+                Line("Float playing videos automatically", prefs.floatWhen.detail) {
                     Picker("", selection: $prefs.floatWhen) {
                         ForEach(FloatWhen.allCases) { when in
                             Text(when.title).tag(when)
@@ -402,22 +403,31 @@ struct SettingsPanel: View {
                     .fixedSize()
                 }
                 Rule()
-                Line("Videos wait for a click", "Videos don't start by themselves, even without sound; they play when you press play. Tabs already open follow from their next page, or once reloaded") {
+                Line("Block autoplay", "Muted videos too. Open tabs follow once reloaded") {
                     Switch(on: $prefs.waitsForPlay)
                 }
                 Rule()
-                Line("Press Esc twice to leave full screen", "As in Arc: the first press shows a reminder and leaves the video as it is; a second within two seconds leaves its full screen. Holding Escape down counts as one press") {
+                Line("Press Esc twice to exit full screen", "The first press only shows a reminder") {
                     Switch(on: $prefs.escapeTwice)
                 }
             }
-            if PageTranslator.available {
-                Card {
-                        Line("Translate pages on this Mac", "Translate Page in a page's right-click menu, into your Mac's language. Done by macOS itself, on this Mac: nothing is sent anywhere. Each language is downloaded once, the first time") {
-                            Switch(on: $prefs.translatesPages)
-                        }
-                        if prefs.translatesPages { TranslateLanguageList(prefs: prefs) }
+            group("Performance") {
+                Line("Pages at 120 Hz", "Smoother scrolling, more battery. On power: only while plugged in") {
+                    Segmented(options: FastPages.allCases.map { ($0, $0.title) }, selection: $prefs.fastPages)
+                }
+                Rule()
+                Line("Reduce motion in Low Power Mode") {
+                    Switch(on: $prefs.lightMotion)
                 }
             }
+        }
+    }
+
+    /// A named card, so a long page reads as a few things.
+    private func group<Content: View>(_ title: String, @ViewBuilder _ content: @escaping () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Caption(title)
+            Card(content: content)
         }
     }
 
@@ -427,14 +437,14 @@ struct SettingsPanel: View {
     /// (Agent.swift), and what each of its calls may do; and the bench.
     private var agents: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Card {
-                Line("Let agents open pages", "An AI agent connected through MCP — Claude Code, Cursor, Codex or any other — can open web pages, read them, take pictures of them, click and type, in private pages of its own, out of sight. Never your tabs, your sign-ins or your passwords") {
+            group("AI agents") {
+                Line("Let AI agents browse", "Through MCP, in hidden private pages. Never your tabs, sign-ins or passwords") {
                     Switch(on: $prefs.agent)
                 }
                 if prefs.agent { AgentLines(agent: .shared) }
             }
             if prefs.agent {
-                Card {
+                group("What agents may do") {
                     ForEach(Array(Agent.Ability.allCases.enumerated()), id: \.element) { index, ability in
                         if index > 0 { Rule() }
                         Line(ability.title, ability.detail) {
@@ -448,8 +458,8 @@ struct SettingsPanel: View {
                     }
                 }
             }
-            Card {
-                Line("Let a script drive Shy", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
+            group("Testing") {
+                Line("Let scripts control Shy", "A local socket for ./bench. Its tabs carry a flask and never take focus") {
                     Switch(on: $prefs.bench)
                 }
             }
@@ -465,7 +475,7 @@ struct SettingsPanel: View {
 
     private var keywordDetail: String {
         guard let draft else {
-            return "A word before your search goes straight to that site, whatever engine you've picked — \"yt cats\" to YouTube"
+            return "Type a word first to search one site: \"yt cats\" searches YouTube"
         }
         if draft.keyword.isEmpty, draft.template.isEmpty {
             return "A word, then the site's search address with %s where the words go"
@@ -486,59 +496,59 @@ struct SettingsPanel: View {
     private var suggestDetail: String {
         let name = prefs.engine.name(custom: prefs.customEngine)
         guard EngineSuggest.endpoint(for: prefs.engine) != nil else {
-            return "Your engine's suggestions under the address field. A custom engine has none to give, so nothing is sent"
+            return "A custom engine has none to offer, so nothing is sent"
         }
-        return "What you type in the address field is sent to \(name) as you type, and its suggestions show under it. Never from a private tab, and never an address"
+        return "Sends what you type to \(name) as you type. Never addresses, never from private tabs"
     }
 
-    private var searchDetail: String {
-        guard prefs.engine == .custom else { return "Where words that aren't an address go" }
+    private var searchDetail: String? {
+        guard prefs.engine == .custom else { return nil }
         guard Engine.accepts(prefs.customEngine) else {
-            return "An http or https address with %s where the words go. Until then, Google"
+            return "An http or https address with %s for the words. Until then, Google"
         }
-        return "Words go to \(prefs.engine.name(custom: prefs.customEngine))"
+        return "Searches go to \(prefs.engine.name(custom: prefs.customEngine))"
     }
 
     // MARK: - tabs
 
     private var tabs: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Card {
-                Line("Sidebar position", "Tabs down the \(prefs.sidePosition.rawValue) edge of the window. Pull its edge to make it wider; double-click the edge to reset.") {
+            group("Sidebar") {
+                Line("Sidebar position", "Drag its edge to resize, double-click to reset") {
                     Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
                 }
                 Rule()
-                Line("Hide the sidebar until the pointer reaches the edge", "The page takes the whole window; push against its \(prefs.sidePosition.rawValue) edge for the tabs. ⌘S keeps them out.") {
+                Line("Auto-hide the sidebar", "Push the pointer against the \(prefs.sidePosition.rawValue) edge to show it. ⌘S toggles") {
                     Switch(on: $prefs.sideHides)
                 }
                 Rule()
-                Line("The page as a card", "A little room around the page, with rounded corners. Off, the page reaches the window's edges") {
+                Line("Show the page as a card", "Rounded corners and a small margin") {
                     Switch(on: Binding(
                         get: { prefs.cards },
                         set: { on in withAnimation(Motion.glide) { prefs.cards = on } }
                     ))
                 }
                 Rule()
-                Line("Roomier tabs", "Taller rows and larger titles in the sidebar") {
+                Line("Larger tabs") {
                     Switch(on: Binding(
                         get: { prefs.roomyTabs },
                         set: { on in withAnimation(Motion.glide) { prefs.roomyTabs = on } }
                     ))
                 }
                 Rule()
-                Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {
+                Line("Reading progress on the current tab", "Fills with grey as you scroll down") {
                     Switch(on: $prefs.showsReading)
                 }
                 Rule()
-                Line("Show the address on the tab you're on", "Its site in place of its title, so you can see where you are without a click; the title comes back under the pointer. Look-alike names in other alphabets show as they really are, and plain http says Not secure. Off, the tab you're on still says so for those two") {
+                Line("Show the site instead of the title on the current tab", "Hover to see the title. Look-alike and insecure sites are flagged either way") {
                     Switch(on: Binding(
                         get: { prefs.showsAddress },
                         set: { on in withAnimation(Motion.glide) { prefs.showsAddress = on } }
                     ))
                 }
             }
-            Card {
-                Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first.") {
+            group("Opening tabs") {
+                Line("Where new tabs open", "After current: links open next to their tab, ⌘T at the bottom") {
                     Picker("New tab position", selection: $prefs.newTabPlace) {
                         Text("After current").tag(NewTabPlace.next)
                         Text("Top").tag(NewTabPlace.top)
@@ -549,24 +559,24 @@ struct SettingsPanel: View {
                     .fixedSize()
                 }
                 Rule()
-                Line("Leave a new tab when the last tab closes", "Close the last tab that isn't pinned and a new tab takes its place, ready for an address. Otherwise you land on a pinned tab.") {
+                Line("Open a new tab when you close the last one", "Otherwise you land on a pinned tab") {
                     Switch(on: $prefs.newTabAfterLast)
                 }
                 Rule()
-                Line("Load background tabs when you go to them", "A link opened behind the page, with ⌘-click or the middle button, or a batch of links from another app, waits until you go to its tab. ⇧⌘-click still takes you there at once.") {
+                Line("Load background tabs only when you open them", "Links opened with ⌘-click, the middle button or from other apps") {
                     Switch(on: $prefs.lazyTabs)
                 }
                 Rule()
-                Line("Open sized pop-ups in small windows", "A website asking for a window at its own size gets one, instead of a tab. Pop-up blocking still applies") {
+                Line("Open sized pop-ups as windows", "When a site asks for a window of its own size. Blocking still applies") {
                     Switch(on: $prefs.popupWindows)
                 }
                 Rule()
-                Line("Start with a fresh window", "Each time Shy opens, your pinned tabs, folders and named tabs are there and last time's other tabs aren't.") {
+                Line("Start with only pinned tabs", "Pins, folders and named tabs stay. Last session's other tabs don't") {
                     Switch(on: $prefs.startsFresh)
                 }
             }
-            Card {
-                Line("Sleep tabs you aren't using", prefs.sleepPace.detail) {
+            group("Idle tabs") {
+                Line("Put idle tabs to sleep", prefs.sleepPace.detail) {
                     Picker("", selection: $prefs.sleepPace) {
                         ForEach(SleepPace.allCases) { pace in
                             Text(pace.title).tag(pace)
@@ -577,7 +587,7 @@ struct SettingsPanel: View {
                     .fixedSize()
                 }
                 Rule()
-                Line("Close tabs you leave alone", "Counted from when you last left the tab, while Shy is quit too. Pin a tab, put it in a folder or name it to keep it; private tabs, sound, calls and anything typed stay. ⇧⌘T and History bring one back.") {
+                Line("Close idle tabs", "Pinned, foldered and named tabs stay. ⇧⌘T brings one back") {
                     Picker("", selection: $prefs.tabLife) {
                         ForEach(TabLife.allCases) { life in
                             Text(life.title).tag(life)
@@ -598,13 +608,13 @@ struct SettingsPanel: View {
         if #available(macOS 15.4, *), let name = Extensions.shared.passwordSavingTakenBy {
             return "\(name) does the saving — it asked Shy not to offer"
         }
-        return "Asked once per site, never again for a site you refuse"
+        return "Once per site, never again where you say no"
     }
 
     private var passwords: some View {
         VStack(alignment: .leading, spacing: 18) {
             Card {
-                Line("Your passwords", "In the macOS keychain, shown with Touch ID") {
+                Line("Saved passwords", "Kept in the macOS keychain, opened with Touch ID") {
                     Pill("Open…") { browser.lead(to: InternalPage(.passwords)) }
                 }
                 Rule()
@@ -612,7 +622,7 @@ struct SettingsPanel: View {
                     Switch(on: $prefs.savesPasswords)
                 }
                 Rule()
-                Line("Fill in sign-ins", "Click a sign-in box and the accounts kept for the site hang from it") {
+                Line("Autofill sign-ins") {
                     Switch(on: $prefs.fillsPasswords)
                 }
                 Rule()
@@ -622,13 +632,13 @@ struct SettingsPanel: View {
                         ? "Needs an Apple entitlement this build doesn't have — off keeps sites to the password"
                         : Passkeys.access == .denied
                         ? "macOS was told no — System Settings › Privacy & Security › Passkeys Access for Web Browsers"
-                        : "Touch ID or an iCloud passkey, on sites that offer one"
+                        : "Touch ID or iCloud Keychain, where sites support them"
                 ) {
                     Switch(on: $prefs.passkeys)
                 }
                 if !Vault.never.isEmpty {
                     Rule()
-                    Line("Sites never asked", "\(Vault.never.count) sites told to stop offering") {
+                    Line("Sites you told never to save", Vault.never.count == 1 ? "1 site" : "\(Vault.never.count) sites") {
                         Pill("Forget") {
                             Vault.never = []
                             browser.announce("Every site can ask again")
@@ -638,7 +648,7 @@ struct SettingsPanel: View {
             }
             ApplePasswordsCard(prefs: prefs)
             Card {
-                Line("Bring yours in", "From another browser on this Mac — nothing leaves it") {
+                Line("Import passwords", "From another browser on this Mac") {
                     Pill("Import…") { browser.lead(to: InternalPage(.importing)) }
                 }
             }
@@ -653,11 +663,11 @@ struct SettingsPanel: View {
                 Pill("Change…") { chooseFolder() }
             }
             Rule()
-            Line("Ask where to save each file") {
+            Line("Ask where to save each download") {
                 Switch(on: $prefs.asksWhereToSave)
             }
             Rule()
-            Line("Always show the downloads button", "Beside the other buttons, even with nothing downloading. Off, it shows only while a file comes in") {
+            Line("Always show the downloads button", "Otherwise only while something downloads") {
                 Switch(on: $prefs.alwaysShowsDownloads)
             }
         }
@@ -667,8 +677,8 @@ struct SettingsPanel: View {
 
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Card {
-                Line("Block ads and trackers", shield.trouble ?? "Third parties whose only job is to watch") {
+            group("Tracking") {
+                Line("Block ads and trackers", shield.trouble) {
                     Switch(on: $prefs.shielded)
                 }
                 if let trouble = shield.trouble {
@@ -680,7 +690,7 @@ struct SettingsPanel: View {
                 // Not from a private tab: its site would be written down.
                 if let host = browser.hereHost, prefs.shielded, shield.trouble == nil, browser.active?.shy != true {
                     Rule()
-                    Line("Block on \(host)", "Turn off here if the site breaks — the page reloads") {
+                    Line("Block on \(host)", "Turn off if the site breaks. The page reloads") {
                         Switch(on: Binding(
                             get: { !Shield.shared.isPaused(on: host, in: browser.active?.profile ?? browser.profileID) },
                             set: { on in
@@ -691,22 +701,23 @@ struct SettingsPanel: View {
                     }
                 }
                 Rule()
-                Line("Prevent cross-site tracking", "As in Safari. Off, sites you rarely open keep their sign-ins, and trackers inside other sites can follow you across them again, as in Chrome. Private tabs keep it on") {
+                Line("Prevent cross-site tracking", "As in Safari. Off, rarely visited sites stay signed in, but trackers can follow you") {
                     Switch(on: Binding(get: { !prefs.keepsSignIns }, set: { prefs.keepsSignIns = !$0 }))
                 }
-                Rule()
-                Line("Camera, microphone, location and notifications", "What each site was allowed or refused, and the sites whose videos don't float") {
-                    Pill("Forget choices") { browser.forgetCaptureChoices() }
+            }
+            group("Site permissions") {
+                Line("Camera, microphone, location and notifications", "Forget what each site was allowed or refused") {
+                    Pill("Reset") { browser.forgetCaptureChoices() }
                 }
                 Rule()
-                Line("Let sites ask to send notifications", "A site asks on a card over its page, and only one you allow reaches your Mac's notifications. Private tabs are never asked") {
+                Line("Let sites ask to send notifications", "Private tabs never ask") {
                     Switch(on: $prefs.siteNotifications)
                 }
                 NotificationSites(profile: browser.profileID)
                 PopupSiteList(prefs: prefs, profile: browser.profileID)
             }
-            Card {
-                Line("History", "Every address you have been to") {
+            group("Clear browsing data") {
+                Line("History") {
                     Pill("Clear") { browser.clearHistory() }
                 }
                 Rule()
@@ -714,7 +725,7 @@ struct SettingsPanel: View {
                     Pill("Sign out of everything") { browser.clearSites() }
                 }
                 Rule()
-                Line("Cache", "Only what was fetched to draw pages") {
+                Line("Cache", "Copies of pages kept to load them faster") {
                     Pill("Clear") { browser.clearCache() }
                 }
             }
@@ -742,15 +753,15 @@ struct SettingsPanel: View {
             .padding(.bottom, 2)
 
             Card {
-                Line("Updates", "Shy doesn't look for updates on its own: it asks no server anything. A new version is one you build or download yourself") {
+                Line("Updates", "Shy never checks for updates. Install new versions yourself") {
                     EmptyView()
                 }
                 Rule()
-                Line("Found something wrong?", "Opens a new issue on Shy's repository, with the version already in it") {
+                Line("Report a problem", "Opens a GitHub issue with your version filled in") {
                     Pill("Send Feedback") { Links.writeFeedback() }
                 }
                 Rule()
-                Line("What's new", "Every version's notes, newest first") {
+                Line("What's new") {
                     Pill("What's New…") { browser.lead(to: InternalPage(.notes)) }
                 }
             }
@@ -991,8 +1002,9 @@ private struct NotificationSites: View {
     }
 }
 
-/// How an agent reaches its pages: the MCP server to give it, and Claude
-/// Code's command as one example; and the pages open now.
+/// How an agent reaches its pages: a prompt that has the agent set Shy up
+/// itself, the MCP server for doing it by hand, and Claude Code's command;
+/// and the pages open now.
 private struct AgentLines: View {
     @ObservedObject var agent: Agent
 
@@ -1001,18 +1013,39 @@ private struct AgentLines: View {
     private var helper: String { Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/shy-mcp").path }
     private var command: String { "claude mcp add shy -- '\(helper.replacingOccurrences(of: "'", with: "'\\''"))'" }
 
+    /// For pasting into the agent itself, whichever it is: what Shy is,
+    /// where its server is, how to add it, and to check it took.
+    private var prompt: String {
+        """
+        Add Shy, my web browser, as an MCP server for yourself.
+
+        Shy's MCP server is a stdio executable with no arguments:
+        \(helper)
+
+        Register it under the name "shy". In Claude Code, run:
+        \(command)
+        In any other MCP client, add a stdio server with that path as its command, in the client's own MCP configuration.
+
+        Then check it connects by listing its tools. With them you can open web pages, read their text, take screenshots, click and type, in private pages of your own that never touch my tabs, sign-ins or passwords.
+        """
+    }
+
     var body: some View {
         Rule()
-        Line("Connect an agent", "Give your MCP client this as a stdio server: \(helper)") {
-            Pill("Copy") { copy(helper) }
+        Line("Set up an agent", "Paste this prompt into your agent and it adds Shy itself") {
+            Pill("Copy Prompt", filled: true) { copy(prompt) }
         }
         Rule()
-        Line("Claude Code, for one", command) {
+        Line("MCP server", helper) {
+            Pill("Copy Path") { copy(helper) }
+        }
+        Rule()
+        Line("Claude Code command", command) {
             Pill("Copy") { copy(command) }
         }
         if !agent.pages.isEmpty {
             Rule()
-            Line("Agents' pages", agent.pages.count == 1 ? "1 open" : "\(agent.pages.count) open") {
+            Line("Open agent pages", agent.pages.count == 1 ? "1 page" : "\(agent.pages.count) pages") {
                 Pill("Close All") { agent.closeAll() }
             }
         }

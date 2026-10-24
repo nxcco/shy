@@ -49,9 +49,9 @@ enum FloatWhen: String, CaseIterable, Identifiable {
     /// What the line in Settings says under the choice.
     var detail: String {
         switch self {
-        case .never: return "A video floats only when you ask: ⇧⌘P, or View › Float Video"
-        case .tabs: return "A video playing on YouTube and the like comes out into its floating window when you go to another tab, and back when you return"
-        case .tabsOrApps: return "As with tabs, and also when another app comes to the front, back into its tab when you return"
+        case .never: return "Only when you press ⇧⌘P"
+        case .tabs: return "When you switch to another tab"
+        case .tabsOrApps: return "When you switch to another tab or app"
         }
     }
 

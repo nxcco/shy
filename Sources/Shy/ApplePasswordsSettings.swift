@@ -11,8 +11,8 @@ struct ApplePasswordsCard: View {
 
     var body: some View {
         Card {
-            Line("Passwords from Apple's Passwords app",
-                 "Accounts saved in the Passwords app, under the sign-in box. Unofficial: Shy talks to the helper Apple made for its Chrome extension, as that extension. Never in private tabs.") {
+            Line("Use Apple's Passwords app",
+                 "Its accounts under sign-in boxes. Unofficial, through Apple's Chrome helper. Not in private tabs") {
                 Switch(on: $prefs.applePasswords)
             }
             if prefs.applePasswords {
@@ -29,7 +29,7 @@ struct ApplePasswordsCard: View {
     @ViewBuilder private var pairing: some View {
         switch apple.state {
         case .idle:
-            Line(apple.trouble ?? "Not connected", "Your Mac shows a code, and you type it here. Once per launch of Shy, and only when you first want an account: under a sign-in box, Connect Apple Passwords… asks for it there.") {
+            Line(apple.trouble ?? "Not connected", "Once per launch: your Mac shows a code to type here") {
                 Pill("Connect…") { Task { await apple.connect() } }
             }
         case .starting:
@@ -58,7 +58,7 @@ struct ApplePasswordsCard: View {
                 }
             }
         case .paired:
-            Line("Connected", "Until Shy quits. Accounts show under sign-in boxes, marked Apple Passwords; macOS may ask for Touch ID before one is filled.") {
+            Line("Connected", "Until Shy quits. macOS may ask for Touch ID before filling") {
                 Pill("Disconnect") { apple.disconnect() }
             }
         }

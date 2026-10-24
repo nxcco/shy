@@ -61,18 +61,18 @@ final class Agent: NSObject, ObservableObject {
             switch self {
             case .open: return "Open pages"
             case .read: return "Read a page's text"
-            case .picture: return "Take pictures of pages"
+            case .picture: return "Take screenshots"
             case .click: return "Click"
             case .type: return "Type into fields"
             }
         }
         var detail: String {
             switch self {
-            case .open: return "Open http and https addresses, and go to another in a page it has open"
-            case .read: return "The page's title, address and visible words"
-            case .picture: return "What the page shows, as an image"
-            case .click: return "A button, link or label, picked by a selector or its words"
-            case .type: return "Into a field or an editable part of the page"
+            case .open: return "Only http and https addresses"
+            case .read: return "Title, address and visible text"
+            case .picture: return "Of what the page shows"
+            case .click: return "Buttons, links and labels"
+            case .type: return "Into fields and editable text"
             }
         }
     }
