@@ -15,12 +15,12 @@ final class KeepAwakeTests: XCTestCase {
     override func setUp() {
         _ = NSApplication.shared
         browser = Browser(record: WindowRecord())
-        browser.prefs.awakeSites = []
+        browser.prefs.setAwakeSites([], in: browser.profileID)
     }
 
     override func tearDown() {
         browser.closeAll()
-        browser.prefs.awakeSites = []
+        browser.prefs.setAwakeSites([], in: browser.profileID)
         browser.prefs.tabLife = .never
         browser = nil
     }
@@ -41,9 +41,9 @@ final class KeepAwakeTests: XCTestCase {
         XCTAssertFalse(browser.keepsAwake(tab("https://sub.example.com")))
         XCTAssertFalse(browser.keepsAwake(tab("https://example.company")))
         XCTAssertFalse(browser.keepsAwake(tab("file:///example.com")))
-        XCTAssertEqual(Preferences().awakeSites, ["example.com"])
+        XCTAssertEqual(Preferences().awakeSites(in: browser.profileID), ["example.com"])
         browser.keepAwake(false, for: page)
-        XCTAssertTrue(Preferences().awakeSites.isEmpty)
+        XCTAssertTrue(Preferences().awakeSites(in: browser.profileID).isEmpty)
     }
 
     func testPrivateChoicesNeverReadOrWriteNormalChoices() {
@@ -56,7 +56,7 @@ final class KeepAwakeTests: XCTestCase {
         privatePage.setAddressOptimistically(URL(string: "https://other.example")!)
         XCTAssertFalse(browser.keepsAwake(privatePage))
         browser.keepAwake(true, for: privatePage)
-        XCTAssertEqual(Preferences().awakeSites, ["example.com"])
+        XCTAssertEqual(Preferences().awakeSites(in: browser.profileID), ["example.com"])
         XCTAssertNil(privatePage.built, "Checking an exception must not load a page")
     }
 

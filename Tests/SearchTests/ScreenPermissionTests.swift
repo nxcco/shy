@@ -36,7 +36,7 @@ final class ScreenPermissionTests: XCTestCase {
         XCTAssertFalse(tab.shy)
         XCTAssertTrue(tab.web.configuration.websiteDataStore.isPersistent)
         XCTAssertEqual(tab.web.url?.host, frame.securityOrigin.host)
-        XCTAssertNil(SiteNotifications.choices["https://screen.example"])
+        XCTAssertNil(SiteNotifications.choices(in: browser.profileID)["https://screen.example"])
         var screen: [Int] = []
         ask(browser, tab, frame) { screen.append($0) }
         for type: WKMediaCaptureType in [.camera, .microphone, .cameraAndMicrophone] {
