@@ -41,6 +41,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Changed
 
+- Shy doesn't look for updates: no request goes to any server, and the update switch and menu items are gone, until Shy has releases of its own. Settings › About says so; Send Feedback opens an issue on Shy's repository
 - In Settings › Profiles & Spaces a space can be dragged onto another profile, or moved with the menu beside it, and either way you're asked first. Its tabs reload signed in as the other profile with nothing of their old session; sign-ins the space had of its own are erased
 - One or two pinned squares share the column's width, as in Arc, instead of leaving empty places beside them. Settings is a little wider, so Profiles & Spaces fits
 - Keep in Every Space is gone. A pin you kept in every space stays in each of them, as that space's own pin

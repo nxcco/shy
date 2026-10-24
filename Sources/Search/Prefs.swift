@@ -464,16 +464,6 @@ final class Preferences: ObservableObject {
     @Published var escapeTwice: Bool {
         didSet { store.set(escapeTwice, forKey: "fullscreen.escapeTwice") }
     }
-    /// A newer build is fetched, checked and put in place on its own, as it
-    /// always was. Off, Search still looks every hour and says so, and waits
-    /// for Install in Settings (see Updater.installsOnItsOwn).
-    @Published var installsUpdates: Bool {
-        didSet {
-            store.set(installsUpdates, forKey: Updater.installKey)
-            // Switched back on with one waiting: it goes in now.
-            if installsUpdates { Updater.shared.install() }
-        }
-    }
     /// Pins behave as Arc's (see Tab.listed, Peek.swift): squares for the
     /// sites you live in, rows under them for pages you keep, a line with
     /// Clear above the tabs that come and go; a link to another site opens
@@ -633,7 +623,6 @@ final class Preferences: ObservableObject {
         waitsForPlay = store.bool(forKey: Preferences.waitsKey)
         translatesPages = store.bool(forKey: PageTranslator.key)
         translateAlways = Set(store.stringArray(forKey: PageTranslator.alwaysKey) ?? [])
-        installsUpdates = store.object(forKey: Updater.installKey) as? Bool ?? true
         peekClick = store.string(forKey: "links.peekClick").flatMap(PeekClick.init(rawValue:)) ?? .shift
         readsTwins = store.bool(forKey: "reader.twins")
         readerFollowsLook = store.bool(forKey: "reader.follows")
@@ -666,7 +655,7 @@ final class Preferences: ObservableObject {
         for key in ["tabs.groups", "splitView", "panel.sites", "tabs.keepAwake", "pins.shared",
                     "links.show", "swipe.history", "switcher.keys", "tabs.shortcuts", "float.flicks",
                     "commandbar", "search.sites", "spaces", "sidebar", "manner",
-                    "tabs.give", "bookmarks.bar", "links.peek", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
+                    "tabs.give", "bookmarks.bar", "links.peek", "update.install", "update.checked", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
             store.removeObject(forKey: key)
         }
         // Left behind by an assistant this browser no longer has.

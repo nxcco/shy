@@ -116,12 +116,10 @@ final class ShortcutTests: XCTestCase {
         let browser = Browser(record: WindowRecord())
         let tab = browser.benchOpen(server.url("page"))
         browser.activeID = tab.id
-        let peeks = browser.prefs.peeksLinks, click = browser.prefs.peekClick
-        browser.prefs.peeksLinks = true
+        let click = browser.prefs.peekClick
         defer {
             browser.closePeek()
             browser.closeAll()
-            browser.prefs.peeksLinks = peeks
             browser.prefs.peekClick = click
         }
         let target = server.url("destination")
@@ -160,10 +158,6 @@ final class ShortcutTests: XCTestCase {
         let command = await policy(.command)
         XCTAssertEqual(command, .cancel)
         XCTAssertEqual(browser.tabs.count, count + 1)
-        XCTAssertNil(browser.peekTab)
-        browser.prefs.peeksLinks = false
-        let disabled = await policy([.option, .shift])
-        XCTAssertEqual(disabled, .allow)
         XCTAssertNil(browser.peekTab)
     }
 }

@@ -13,7 +13,6 @@ struct SettingsPanel: View {
     var asked: String? = nil
     @Environment(\.asTab) private var asTab
 
-    @ObservedObject private var updater = Updater.shared
     @ObservedObject private var shield = Shield.shared
     @State private var isDefault = Links.isDefault
     /// A site shortcut being written, kept out of Preferences until it's saved.
@@ -747,10 +746,10 @@ struct SettingsPanel: View {
                     .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
                     .frame(height: 34)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Search")
+                    Text("Shy")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Palette.ink)
-                    Text("by Office Commun · version \(Updater.version)")
+                    Text("version \(Version.number), build \(Version.build) · a fork of Search by Office Commun")
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
                 }
@@ -758,13 +757,11 @@ struct SettingsPanel: View {
             .padding(.bottom, 2)
 
             Card {
-                Line(versionTitle, versionDetail) { versionControl }
-                Rule()
-                Line("Install updates on its own", "Off, Search still looks every hour and tells you, and installs only when you press Install") {
-                    Switch(on: $prefs.installsUpdates)
+                Line("Updates", "Shy doesn't look for updates on its own: it asks no server anything. A new version is one you build or download yourself") {
+                    EmptyView()
                 }
                 Rule()
-                Line("Found something wrong?", "Opens a draft with the version already in it") {
+                Line("Found something wrong?", "Opens a new issue on Shy's repository, with the version already in it") {
                     Pill("Send Feedback") { Links.writeFeedback() }
                 }
                 Rule()
@@ -786,8 +783,6 @@ struct SettingsPanel: View {
                 Rule()
                 Shortcut("⌃⇥  ⌘1–9", "Next tab, a tab by its place")
                 Rule()
-                Shortcut("⇧⌘S", "Tabs in a sidebar")
-                Rule()
                 Shortcut("⌘S", "Fold the sidebar away")
                 Rule()
                 Shortcut("⇧⌘R", "Reading mode")
@@ -798,55 +793,6 @@ struct SettingsPanel: View {
                 Rule()
                 Shortcut("⇧⌘⌫", "Clear browsing data")
             }
-        }
-    }
-
-    /// The version line follows the newer build from found to fetched to
-    /// in place; with none, it is simply this one.
-    private var versionTitle: String {
-        switch updater.stage {
-        case .none: return "Updates"
-        case .fetching(let next): return "Search \(next.version) is downloading…"
-        case .ready(let next): return "Search \(next.version) is ready"
-        case .offered(let next), .waiting(let next): return "Search \(next.version) is out"
-        }
-    }
-
-    private var versionDetail: String {
-        switch updater.stage {
-        case .none:
-            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every hour on its own" }
-                ?? "Checked every hour on its own"
-        case .fetching(let next):
-            return next.notes ?? "Quietly, in the background — nothing you have set is touched"
-        case .ready(let next):
-            return next.notes ?? "It's there the next time you open Search"
-        case .offered(let next):
-            return next.notes ?? "Open the disk image, the same as the first time"
-        case .waiting(let next):
-            return next.notes ?? "Checked and put in place when you press Install"
-        }
-    }
-
-    @ViewBuilder
-    private var versionControl: some View {
-        switch updater.stage {
-        case .none:
-            Pill(updater.checking ? "Checking…" : "Check now") {
-                updater.check { found in
-                    if found == nil { browser.announce("This is the latest one") }
-                }
-            }
-            .disabled(updater.checking)
-        case .fetching:
-            Ring(size: 12)
-        case .ready:
-            Pill("Relaunch now", filled: true) { updater.relaunch() }
-        case .offered:
-            Pill(updater.fetchingDisk ? "Downloading…" : "Download", filled: true) { updater.openDisk() }
-                .disabled(updater.fetchingDisk)
-        case .waiting:
-            Pill("Install", filled: true) { updater.install() }
         }
     }
 

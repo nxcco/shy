@@ -2660,21 +2660,6 @@ final class Bench {
                 answer(worked ? ["saved": file.path] : ["error": "page wasn't exported"])
             }
 
-        case "update":
-            // The updater, for a test run pointed at its own feed: `check`
-            // is the menu's Check for Updates…, `disk` the Download button.
-            guard Store.testing else { answer(["error": "update only works on a --test run"]); return }
-            let updater = Updater.shared
-            switch request["action"] as? String {
-            case "check": updater.checkByHand()
-            case "disk": updater.openDisk()
-            default: break
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                answer(["stage": String(describing: updater.stage), "checking": updater.checking,
-                        "disk": Updater.diskVerdict, "fetchingDisk": updater.fetchingDisk])
-            }
-
         case "consent":
             // The mark the Settings switch leaves (see Consent), in this test
             // world's own account: given, then granted or revoked if asked.

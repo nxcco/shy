@@ -72,7 +72,7 @@ enum WhatsNew {
     ]
 
     /// This version's card, when it has one.
-    static var current: Release? { releases.first { $0.version == Updater.version } }
+    static var current: Release? { releases.first { $0.version == Version.number } }
 
     /// Version strings in order: 1.0.10 after 1.0.9.
     static func older(_ one: String, than other: String) -> Bool {

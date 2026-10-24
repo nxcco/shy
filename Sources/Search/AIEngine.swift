@@ -5,7 +5,7 @@ import Foundation
 // engine, Engine/search-ai-engine.cpp), and nothing about the page leaves
 // the Mac. Neither the engine nor the model is in Search — a browser of a
 // few megabytes stays one — they are downloaded when you turn this on: the
-// engine as the signed feed offers it (Updater), the model from the one
+// engine as the signed feed offers it, the model from the one
 // address and the one file pinned below.
 //
 // Nothing downloaded is taken on trust:
@@ -214,7 +214,7 @@ final class AIEngine: ObservableObject {
             SecRequirementCreateWithString("identifier \"\(identifier)\"" as CFString, [], &made)
             requirement = made
         } else {
-            requirement = Updater.developerID(team: Updater.team, identifier: identifier)
+            requirement = Signer.developerID(team: Signer.team, identifier: identifier)
         }
         guard let requirement else { return false }
         let strict = SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckAllArchitectures)
@@ -392,7 +392,7 @@ final class AIEngine: ObservableObject {
         if Store.testing {
             SecRequirementCreateWithString("identifier \"\(identifier)\"" as CFString, [], &requirement)
         } else {
-            requirement = Updater.developerID(team: Updater.team, identifier: identifier)
+            requirement = Signer.developerID(team: Signer.team, identifier: identifier)
         }
         guard let requirement, SecCodeCheckValidity(code, [], requirement) == errSecSuccess else { return false }
         var staticCode: SecStaticCode?

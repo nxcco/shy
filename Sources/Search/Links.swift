@@ -329,18 +329,16 @@ final class Links: NSObject, NSApplicationDelegate {
         _ = NSApp.delegate?.applicationOpenUntitledFile?(NSApp)
     }
 
-    /// ⌘⇧F, the Help menu, and the About page all come here: a draft, in
-    /// Mail, that already knows what build this is. The person still reads
-    /// it and presses send themselves — nothing here sends anything.
+    /// ⌘⇧F, the Help menu, and the About page all come here: a new issue
+    /// on Shy's repository, that already knows what build this is. The
+    /// person still reads it and sends it themselves — nothing here sends
+    /// anything.
     static func writeFeedback() {
-        var text = URLComponents()
-        text.scheme = "mailto"
-        text.path = "hello@officecommun.com"
-        text.queryItems = [
-            URLQueryItem(name: "subject", value: "Search feedback — \(Updater.version) (\(Updater.build))"),
-            URLQueryItem(name: "body", value: "\n\n—\nSearch \(Updater.version), build \(Updater.build), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)"),
+        var text = URLComponents(string: "https://github.com/nxcco/shy/issues/new")
+        text?.queryItems = [
+            URLQueryItem(name: "body", value: "\n\n—\nShy \(Version.number), build \(Version.build), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)"),
         ]
-        guard let url = text.url else { return }
+        guard let url = text?.url else { return }
         NSWorkspace.shared.open(url)
     }
 
