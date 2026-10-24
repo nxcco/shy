@@ -98,13 +98,12 @@ final class SidebarPressTests: XCTestCase {
     func testEachSplitHalfFocusesOnPressWithoutEditingOnRelease() async throws {
         let browser = makeBrowser()
         let tabs = browser.tabs
-        browser.prefs.splitView = true
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
         browser.select(tabs[2])
         let window = makeWindow(browser)
         try await settle()
         for index in [0, 1] {
-            let point = NSPoint(x: 70, y: window.frame.height - Metrics.strip - 14 - CGFloat(index) * 28)
+            let point = NSPoint(x: 70, y: window.frame.height - Metrics.strip - Self.line - 14 - CGFloat(index) * 28)
             try await send(.leftMouseDown, at: point, in: window)
             XCTAssertEqual(browser.activeID, tabs[index].id)
             try await send(.leftMouseUp, at: point, in: window)
@@ -115,7 +114,6 @@ final class SidebarPressTests: XCTestCase {
     func testSplitPaddingClickAfterEarlierSelectionIsNotSuppressed() async throws {
         let browser = makeBrowser()
         let tabs = browser.tabs
-        browser.prefs.splitView = true
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
         browser.select(tabs[2])
         let window = makeWindow(browser)
@@ -290,16 +288,13 @@ final class SidebarPressTests: XCTestCase {
         activationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.prohibited)
         let prefs = Shared.prefs
-        let previous = (prefs.sidebar, prefs.usesTabGroups, prefs.splitView, prefs.listsPins, prefs.roomyTabs)
+        let previous = (prefs.sidebar, prefs.roomyTabs)
         restorePreferences = {
-            (prefs.sidebar, prefs.usesTabGroups, prefs.splitView, prefs.listsPins, prefs.roomyTabs) = previous
+            (prefs.sidebar, prefs.roomyTabs) = previous
         }
         let browser = Browser(record: WindowRecord())
         browsers.append(browser)
         browser.prefs.sidebar = true
-        browser.prefs.usesTabGroups = false
-        browser.prefs.splitView = false
-        browser.prefs.listsPins = false
         browser.prefs.roomyTabs = false
         for word in ["one", "two", "three"] {
             if browser.tabs.last?.isBlank == false { browser.newTab() }
@@ -332,8 +327,12 @@ final class SidebarPressTests: XCTestCase {
         NSPoint(x: 195 + CGFloat(index) * 185, y: Metrics.strip / 2)
     }
 
+    /// The rows start under the line with Clear, which the tabs down the
+    /// side always have above them: 18 + 2.
+    private static let line = KeepLine.height + 2
+
     private func rowPoint(_ index: Int, in window: NSWindow) -> NSPoint {
-        NSPoint(x: 70, y: window.frame.height - Metrics.strip - 14 - CGFloat(index) * 30)
+        NSPoint(x: 70, y: window.frame.height - Metrics.strip - Self.line - 14 - CGFloat(index) * 30)
     }
 
     private func settle() async throws {

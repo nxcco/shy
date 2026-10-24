@@ -10,29 +10,10 @@ final class TabShortcutHintTests: XCTestCase {
         super.setUp()
     }
 
-    func testDefaultAndPersistence() {
-        let saved = Store.settings.object(forKey: "tabs.shortcuts")
-        defer { Store.settings.set(saved, forKey: "tabs.shortcuts") }
-        Store.settings.removeObject(forKey: "tabs.shortcuts")
-        XCTAssertFalse(Preferences().showsTabShortcuts)
-        let prefs = Preferences()
-        prefs.showsTabShortcuts = true
-        XCTAssertTrue(Preferences().showsTabShortcuts)
-    }
-
     func testNumbersFollowVisibleTabsIncludingPinsGroupsAndSplits() {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
-        let prefs = browser.prefs
-        let saved = (prefs.showsTabShortcuts, prefs.usesTabGroups, prefs.splitView)
-        defer {
-            browser.closeAll()
-            prefs.showsTabShortcuts = saved.0
-            prefs.usesTabGroups = saved.1
-            prefs.splitView = saved.2
-        }
-        prefs.showsTabShortcuts = true
-        prefs.usesTabGroups = false
+        defer { browser.closeAll() }
         browser.commandHeld = true
         for count in 1...11 {
             if count > 1 { browser.newTab() }
@@ -42,12 +23,10 @@ final class TabShortcutHintTests: XCTestCase {
         let pinned = browser.tabs[3]
         browser.pin(pinned)
         defer { browser.unpin(pinned) }
-        prefs.splitView = true
         let left = browser.tabs[5], right = browser.tabs[6]
         browser.pair(right, with: left, onLeft: false)
         XCTAssertNil(browser.tabShortcutNumbers[right.id])
         assertNumbers(browser)
-        prefs.usesTabGroups = true
         let grouped = browser.tabs.filter { $0.pin == nil && $0.id != left.id && $0.id != right.id }.prefix(2)
         let group = browser.addTabGroup(containing: grouped.first!)
         browser.move(grouped.last!, toGroup: group)
@@ -59,20 +38,14 @@ final class TabShortcutHintTests: XCTestCase {
         assertNumbers(browser)
         browser.commandHeld = false
         XCTAssertTrue(browser.tabShortcutNumbers.isEmpty)
-        browser.commandHeld = true
-        prefs.showsTabShortcuts = false
-        XCTAssertTrue(browser.tabShortcutNumbers.isEmpty)
     }
 
     func testCommandEventsAndFocusLoss() async throws {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
         let prefs = browser.prefs
-        let saved = (prefs.showsTabShortcuts, prefs.sidebar, prefs.usesTabGroups, prefs.splitView)
-        prefs.showsTabShortcuts = true
+        let saved = prefs.sidebar
         prefs.sidebar = true
-        prefs.usesTabGroups = false
-        prefs.splitView = true
         for number in 1...11 {
             if number > 1 { browser.newTab() }
             browser.tabs.last?.restore(url: URL(string: "about:blank#\(number)")!, title: "Tab \(number)")
@@ -90,10 +63,7 @@ final class TabShortcutHintTests: XCTestCase {
             window.contentView = nil
             window.close()
             browser.closeAll()
-            prefs.showsTabShortcuts = saved.0
-            prefs.sidebar = saved.1
-            prefs.usesTabGroups = saved.2
-            prefs.splitView = saved.3
+            prefs.sidebar = saved
         }
         try await settle()
         try await flags(.command, in: window)
@@ -108,7 +78,6 @@ final class TabShortcutHintTests: XCTestCase {
         browser.pin(tabs[4])
         defer { browser.unpin(tabs[4]) }
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
-        prefs.usesTabGroups = true
         let splitGroup = browser.addTabGroup(containing: tabs[0])
         let group = browser.addTabGroup(containing: tabs[2])
         browser.move(tabs[3], toGroup: group)
@@ -169,11 +138,6 @@ final class TabShortcutHintTests: XCTestCase {
         XCTAssertFalse(browser.commandHeld)
         try await flags(.command, in: window)
         NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
-        XCTAssertFalse(browser.commandHeld)
-        try await flags(.command, in: window)
-        prefs.showsTabShortcuts = false
-        XCTAssertTrue(browser.tabShortcutNumbers.isEmpty)
-        try await flags(.command, in: window)
         XCTAssertFalse(browser.commandHeld)
     }
 

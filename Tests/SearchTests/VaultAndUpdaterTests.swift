@@ -46,13 +46,13 @@ final class VaultAndUpdaterTests: XCTestCase {
     }
 
     func testExportWithoutAPasswordColumnIsSkippedWhole() {
-        let result = Vault.take(csv: "url,username\nhttps://example.com,me\nhttps://example.org,you\n")
+        let result = Vault.take(csv: "url,username\nhttps://example.com,me\nhttps://example.org,you\n", in: Profile.personalID)
         XCTAssertEqual(result.kept, 0)
         XCTAssertEqual(result.skipped, 2)
     }
 
     func testEmptyExportKeepsAndSkipsNothing() {
-        let result = Vault.take(csv: "")
+        let result = Vault.take(csv: "", in: Profile.personalID)
         XCTAssertEqual(result.kept, 0)
         XCTAssertEqual(result.skipped, 0)
     }
@@ -65,7 +65,7 @@ final class VaultAndUpdaterTests: XCTestCase {
         an app,android://hash@com.vendor.app/,me,secret,
         too short,https://example.com
         """
-        let result = Vault.take(csv: csv)
+        let result = Vault.take(csv: csv, in: Profile.personalID)
         XCTAssertEqual(result.kept, 0)
         XCTAssertEqual(result.skipped, 4)
     }
@@ -74,14 +74,14 @@ final class VaultAndUpdaterTests: XCTestCase {
         // If the newline inside the quotes split the row, this would count
         // two skipped, not one.
         let csv = "url,username,password\nandroid://hash@com.vendor.app/,\"a \"\"quoted\"\"\nname\",secret\n"
-        let result = Vault.take(csv: csv)
+        let result = Vault.take(csv: csv, in: Profile.personalID)
         XCTAssertEqual(result.kept, 0)
         XCTAssertEqual(result.skipped, 1)
     }
 
     func testWindowsLineEndingsAndBlankLinesDoNotAddRows() {
         let csv = "url,username,password\r\nandroid://x@com.app/,me,secret\r\n\r\n"
-        XCTAssertEqual(Vault.take(csv: csv).skipped, 1)
+        XCTAssertEqual(Vault.take(csv: csv, in: Profile.personalID).skipped, 1)
     }
 
     private func release(minimum: String?) -> Updater.Release {

@@ -78,7 +78,6 @@ final class SidePanelPrivacyTests: XCTestCase {
     /// ordinary one. The panel is held back for the pair as it is for a tab.
     func testAPairOfPrivatePagesHoldsThePanelBack() {
         let browser = Browser(record: WindowRecord())
-        browser.prefs.splitView = true
         panelUp(in: browser)
         let first = page("one", shy: true), second = page("two", shy: true)
         browser.receive(first)
@@ -90,7 +89,6 @@ final class SidePanelPrivacyTests: XCTestCase {
 
     func testAPrivatePageIsNeverPairedWithAnOrdinaryOne() {
         let browser = Browser(record: WindowRecord())
-        browser.prefs.splitView = true
         let plain = page("plain"), shy = page("shy", shy: true)
         browser.receive(plain)
         browser.receive(shy)
@@ -101,7 +99,6 @@ final class SidePanelPrivacyTests: XCTestCase {
 
     func testAPairOfOrdinaryPagesKeepsThePanel() {
         let browser = Browser(record: WindowRecord())
-        browser.prefs.splitView = true
         panelUp(in: browser)
         let first = page("one"), second = page("two")
         browser.receive(first)

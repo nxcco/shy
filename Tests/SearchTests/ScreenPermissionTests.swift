@@ -187,7 +187,6 @@ final class ScreenPermissionTests: XCTestCase {
         XCTAssertEqual(before, Store.settings.dictionaryRepresentation().filter { $0.key.hasPrefix("capture.") } as NSDictionary)
         browser.newTab()
         let other = try XCTUnwrap(browser.active)
-        browser.prefs.splitView = true
         browser.pair(other, with: tab, onLeft: false)
         browser.select(tab)
         XCTAssertNotNil(browser.activeSplit)

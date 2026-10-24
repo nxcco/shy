@@ -13,13 +13,6 @@ final class TabGroupDropTests: XCTestCase {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         let browser = Browser(record: WindowRecord())
-        let grouped = browser.prefs.usesTabGroups
-        let split = browser.prefs.splitView
-        defer {
-            browser.prefs.usesTabGroups = grouped
-            browser.prefs.splitView = split
-        }
-        browser.prefs.usesTabGroups = true
         for number in 0..<6 {
             if number > 0 { browser.newTab() }
             browser.tabs.last?.restore(url: URL(string: "https://\(number).example/")!, title: "\(number)")
@@ -56,7 +49,6 @@ final class TabGroupDropTests: XCTestCase {
         XCTAssertFalse(browser.tabGroups[0].collapsed)
         XCTAssertEqual(browser.tabs.last?.id, tabs[3].id)
 
-        browser.prefs.splitView = true
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
         browser.move(tabs[0], toGroup: GroupDropTarget(group: group))
         XCTAssertEqual(Array(browser.tabs.suffix(2)).map(\.id), [tabs[0].id, tabs[1].id])

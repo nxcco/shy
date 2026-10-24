@@ -84,10 +84,9 @@ final class PinDragTests: XCTestCase {
         browser.pin(t[0]); browser.pin(t[1])
         t[0].everywhere = true
         browser.prefs.usesSpaces = true
-        browser.prefs.sharesPins = true
         XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 0), 1, "after the one every space shows")
         XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 9), 2)
-        browser.prefs.sharesPins = false
+        browser.prefs.usesSpaces = false
         XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 0), 0)
     }
 
@@ -111,7 +110,6 @@ final class PinDragTests: XCTestCase {
     func testAPairIsNotPinnedByADrag() {
         let browser = makeBrowser(count: 4)
         let t = browser.tabs
-        browser.prefs.splitView = true
         browser.pair(t[2], with: t[1], onLeft: false)
         XCTAssertFalse(browser.pinsByDrag(t[1]))
         XCTAssertFalse(browser.pinDropped(t[1], listed: false, at: 0))
@@ -132,8 +130,8 @@ final class PinDragTests: XCTestCase {
         try await settle()
         let page = t[3].built
         XCTAssertNotNil(page)
-        // The rows start under the grid: 34 + 10.
-        let start = point(x: 70, y: Metrics.strip + 44 + 14 + 30, in: window)
+        // The rows start under the grid and the line: 34 + 10, 18 + 2.
+        let start = point(x: 70, y: Metrics.strip + 44 + line + 14 + 30, in: window)
         // Between the two squares: the middle of three places.
         let room = browser.prefs.sideWidth - 20
         let middle = 10 + room / 2
@@ -158,7 +156,9 @@ final class PinDragTests: XCTestCase {
         let room = browser.prefs.sideWidth - 20
         let start = point(x: 10 + room / 6, y: Metrics.strip + 17, in: window)
         // Into the upper half of the second row (t[3]), as the rows stand
-        // once a line has opened for it above the first: 30 lower.
+        // once a line has opened for it above the first: 30 lower. The line
+        // with Clear over the rows (18 + 2) puts the hand on the lower half
+        // of t[2] instead: the same place to land.
         try await drag(from: start, through: [
             point(x: 10 + room / 6, y: Metrics.strip + 40, in: window),
             point(x: 80, y: Metrics.strip + 44 + 30 + 30 + 4, in: window),
@@ -184,7 +184,7 @@ final class PinDragTests: XCTestCase {
         XCTAssertNil(t[0].pin)
         XCTAssertEqual(browser.tabs.prefix(4).map(\.id), [t[1], t[2], t[0], t[3]].map(\.id))
         // And back up into the grid, first.
-        try await drag(from: point(x: 70, y: Metrics.strip + 44 + 14 + 30, in: window), through: [
+        try await drag(from: point(x: 70, y: Metrics.strip + 44 + line + 14 + 30, in: window), through: [
             point(x: 30, y: Metrics.strip + 30, in: window),
             point(x: 20, y: Metrics.strip + 17, in: window),
         ], in: window)
@@ -196,7 +196,7 @@ final class PinDragTests: XCTestCase {
         let t = browser.tabs
         let window = makeWindow(browser)
         try await settle()
-        try await drag(from: point(x: 70, y: Metrics.strip + 14 + 30, in: window), through: [
+        try await drag(from: point(x: 70, y: Metrics.strip + line + 14 + 30, in: window), through: [
             point(x: 70, y: Metrics.strip + 4, in: window),
             point(x: 70, y: Metrics.strip - 12, in: window),
             point(x: 70, y: Metrics.strip + 10, in: window),
@@ -213,9 +213,9 @@ final class PinDragTests: XCTestCase {
         let window = makeWindow(browser)
         try await settle()
         // A row carried down its own list.
-        try await drag(from: point(x: 70, y: Metrics.strip + 44 + 14, in: window), through: [
-            point(x: 70, y: Metrics.strip + 44 + 14 + 30, in: window),
-            point(x: 70, y: Metrics.strip + 44 + 14 + 62, in: window),
+        try await drag(from: point(x: 70, y: Metrics.strip + 44 + line + 14, in: window), through: [
+            point(x: 70, y: Metrics.strip + 44 + line + 14 + 30, in: window),
+            point(x: 70, y: Metrics.strip + 44 + line + 14 + 62, in: window),
         ], in: window)
         XCTAssertEqual(browser.tabs.map(\.id), [t[0], t[1], t[3], t[4], t[2]].map(\.id))
         XCTAssertEqual(browser.pinnedCount, 2)
@@ -230,7 +230,7 @@ final class PinDragTests: XCTestCase {
     }
 
     func testRowDraggedOntoThePinnedRows() async throws {
-        let browser = makeBrowser(count: 5, rows: true)
+        let browser = makeBrowser(count: 5)
         let t = browser.tabs
         browser.pin(t[0]); browser.pin(t[1], listed: true)
         browser.select(t[2])
@@ -258,7 +258,6 @@ final class PinDragTests: XCTestCase {
     func testAPairRowGetsNoPlaceInTheGrid() async throws {
         let browser = makeBrowser(count: 4)
         let t = browser.tabs
-        browser.prefs.splitView = true
         browser.pin(t[0])
         browser.pair(t[2], with: t[1], onLeft: false)
         browser.select(t[3])
@@ -276,25 +275,23 @@ final class PinDragTests: XCTestCase {
 
     // MARK: - helpers
 
-    private func makeBrowser(count: Int, rows: Bool = false) -> Browser {
+    /// The line with Clear over the tabs that come and go, which the tabs
+    /// down the side always have: 18 + 2.
+    private let line = KeepLine.height + 2
+
+    private func makeBrowser(count: Int) -> Browser {
         _ = NSApplication.shared
         activationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.prohibited)
         let prefs = Shared.prefs
-        let previous = (prefs.sidebar, prefs.usesTabGroups, prefs.splitView, prefs.listsPins, prefs.roomyTabs,
-                        prefs.usesSpaces, prefs.sharesPins)
+        let previous = (prefs.sidebar, prefs.roomyTabs, prefs.usesSpaces)
         restorePreferences = {
-            (prefs.sidebar, prefs.usesTabGroups, prefs.splitView, prefs.listsPins, prefs.roomyTabs,
-             prefs.usesSpaces, prefs.sharesPins) = previous
+            (prefs.sidebar, prefs.roomyTabs, prefs.usesSpaces) = previous
         }
         let browser = Browser(record: WindowRecord())
         browsers.append(browser)
         browser.prefs.sidebar = true
-        browser.prefs.usesTabGroups = false
-        browser.prefs.splitView = false
-        browser.prefs.listsPins = rows
         browser.prefs.roomyTabs = false
-        browser.prefs.sharesPins = false
         for word in ["one", "two", "three", "four", "five", "six"].prefix(count) {
             if browser.tabs.last?.isBlank == false { browser.newTab() }
             browser.tabs.last?.restore(url: URL(string: "about:blank#\(word)")!, title: word)
@@ -364,9 +361,9 @@ final class PinDragTests: XCTestCase {
         }
         let room = Shared.prefs.sideWidth - 20
         for (name, rows) in [("row-over-grid", false), ("pin-over-rows", false), ("row-over-pinned-rows", true), ("first-pin", false), ("pair-refused", false)] {
-            let browser = makeBrowser(count: 5, rows: rows)
+            let browser = makeBrowser(count: 5)
             let t = browser.tabs
-            if name == "pair-refused" { browser.prefs.splitView = true; browser.pair(t[3], with: t[2], onLeft: false) }
+            if name == "pair-refused" { browser.pair(t[3], with: t[2], onLeft: false) }
             if name != "first-pin" { browser.pin(t[0]); browser.pin(t[1], listed: rows) }
             browser.select(t[4])
             let window = makeWindow(browser)
@@ -374,7 +371,7 @@ final class PinDragTests: XCTestCase {
             var last: NSPoint
             switch name {
             case "row-over-grid", "pair-refused":
-                last = try await carry(from: point(x: 70, y: Metrics.strip + 44 + 14 + (name == "pair-refused" ? 0 : 30), in: window), through: [
+                last = try await carry(from: point(x: 70, y: Metrics.strip + 44 + line + 14 + (name == "pair-refused" ? 0 : 30), in: window), through: [
                     point(x: 10 + room / 2, y: Metrics.strip + 30, in: window), point(x: 10 + room / 2, y: Metrics.strip + 17, in: window)], in: window)
             case "pin-over-rows":
                 last = try await carry(from: point(x: 10 + room / 6, y: Metrics.strip + 17, in: window), through: [

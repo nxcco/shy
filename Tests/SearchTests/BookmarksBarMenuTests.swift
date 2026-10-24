@@ -26,16 +26,8 @@ final class BookmarksBarMenuTests: XCTestCase {
     func testOpenAllInTabGroupNamesTheGroupAfterTheFolder() {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
-        let prefs = browser.prefs
-        let saved = prefs.usesTabGroups
-        defer { browser.closeAll(); prefs.usesTabGroups = saved }
+        defer { browser.closeAll() }
 
-        prefs.usesTabGroups = false
-        let off = browser.tabs.count
-        browser.openInTabGroup([URL(string: "https://example.com/1")!], named: "Off")
-        XCTAssertEqual(browser.tabs.count, off, "With tab groups off, nothing opens")
-
-        prefs.usesTabGroups = true
         let urls = (1...3).map { URL(string: "https://example.com/\($0)")! }
         browser.openInTabGroup(urls, named: "Reading")
         let group = try? XCTUnwrap(browser.tabGroups.first { $0.name == "Reading" })
@@ -46,20 +38,12 @@ final class BookmarksBarMenuTests: XCTestCase {
         }
     }
 
-    func testOpenInSplitNeedsSplitView() {
+    func testOpenInSplitPairsWithThePageOnScreen() {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
-        let prefs = browser.prefs
-        let saved = prefs.splitView
-        defer { browser.closeAll(); prefs.splitView = saved }
+        defer { browser.closeAll() }
         browser.active?.restore(url: URL(string: "about:blank#left")!, title: "Left")
 
-        prefs.splitView = false
-        let off = browser.tabs.count
-        browser.openInSplit(URL(string: "https://example.com/off")!)
-        XCTAssertEqual(browser.tabs.count, off)
-
-        prefs.splitView = true
         browser.openInSplit(URL(string: "https://example.com/right")!)
         XCTAssertNotNil(browser.activeSplit, "The page opens paired with the one on screen")
     }

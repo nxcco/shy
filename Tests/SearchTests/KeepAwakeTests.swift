@@ -15,13 +15,11 @@ final class KeepAwakeTests: XCTestCase {
     override func setUp() {
         _ = NSApplication.shared
         browser = Browser(record: WindowRecord())
-        browser.prefs.keepsSitesAwake = false
         browser.prefs.awakeSites = []
     }
 
     override func tearDown() {
         browser.closeAll()
-        browser.prefs.keepsSitesAwake = false
         browser.prefs.awakeSites = []
         browser.prefs.tabLife = .never
         browser = nil
@@ -35,26 +33,20 @@ final class KeepAwakeTests: XCTestCase {
         return tab
     }
 
-    func testOptInExactHostsAndPersistence() {
+    func testExactHostsAndPersistence() {
         let page = tab("https://EXAMPLE.com:8443/path")
         browser.keepAwake(true, for: page)
-        XCTAssertFalse(browser.keepsAwake(page))
-        browser.prefs.keepsSitesAwake = true
         XCTAssertTrue(browser.keepsAwake(page))
         XCTAssertTrue(browser.keepsAwake(tab("http://example.com/other")))
         XCTAssertFalse(browser.keepsAwake(tab("https://sub.example.com")))
         XCTAssertFalse(browser.keepsAwake(tab("https://example.company")))
         XCTAssertFalse(browser.keepsAwake(tab("file:///example.com")))
         XCTAssertEqual(Preferences().awakeSites, ["example.com"])
-        browser.prefs.keepsSitesAwake = false
-        XCTAssertFalse(browser.keepsAwake(page))
-        XCTAssertEqual(browser.prefs.awakeSites, ["example.com"])
         browser.keepAwake(false, for: page)
         XCTAssertTrue(Preferences().awakeSites.isEmpty)
     }
 
     func testPrivateChoicesNeverReadOrWriteNormalChoices() {
-        browser.prefs.keepsSitesAwake = true
         browser.keepAwake(true, for: tab("https://example.com"))
         let privatePage = tab("https://example.com", privateMode: true)
         XCTAssertFalse(browser.keepsAwake(privatePage))
@@ -69,7 +61,6 @@ final class KeepAwakeTests: XCTestCase {
     }
 
     func testExceptionAddedDuringFormCheckPreventsDiscard() async {
-        browser.prefs.keepsSitesAwake = true
         let page = tab("https://example.com")
         browser.insert(page, at: browser.tabs.count)
         await withCheckedContinuation { continuation in
@@ -84,7 +75,6 @@ final class KeepAwakeTests: XCTestCase {
     }
 
     func testExceptionPreventsSleepAndAutomaticClosureButNotManualClose() async throws {
-        browser.prefs.keepsSitesAwake = true
         browser.prefs.tabLife = .halfDay
         let page = tab("https://example.com")
         _ = page.web

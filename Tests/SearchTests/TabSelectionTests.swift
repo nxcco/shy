@@ -36,7 +36,6 @@ final class TabSelectionTests: XCTestCase {
         NSApp.setActivationPolicy(.prohibited)
         let browser = makeBrowser()
         let tabs = browser.shownTabs
-        browser.prefs.splitView = true
         browser.pair(tabs[1], with: tabs[0], onLeft: false)
         browser.select(tabs[3])
         browser.extendTabSelection(to: tabs[0], modifiers: .command)
