@@ -1485,10 +1485,6 @@ final class Browser: NSObject, ObservableObject {
 
     // MARK: - pinning
 
-    /// The pinned tab whose letter is being typed over, in place. There is no
-    /// dialog: pinning happens at once, with a letter guessed from the address,
-    /// and that letter arrives selected so the next keystroke replaces it.
-    @Published var editingPin: Tab.ID?
 
     var pinnedCount: Int { tabs.filter { $0.pin != nil }.count }
 
@@ -1533,7 +1529,6 @@ final class Browser: NSObject, ObservableObject {
     func setListed(_ tab: Tab, _ listed: Bool) {
         guard tab.pin != nil, tab.listed != listed else { return }
         objectWillChange.send()
-        if editingPin == tab.id { editingPin = nil }
         tab.listed = listed
         tab.folder = nil
         settlePin(tab, first: listed)
@@ -1573,11 +1568,10 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// A double-click on the pin you are on: back to the page it was pinned
-    /// at, as a pin in Arc goes home (#141). Already there, the double-click
-    /// changes its letter, as it always did.
+    /// at, as a pin in Arc goes home (#141).
     func goHome(_ tab: Tab) {
         guard tab.pin != nil else { return }
-        guard let home = tab.home, !Browser.samePage(home, tab.address) else { return editLetter(tab) }
+        guard let home = tab.home, !Browser.samePage(home, tab.address) else { return }
         tab.go(to: home)
         rememberSession()
     }
@@ -1593,29 +1587,7 @@ final class Browser: NSObject, ObservableObject {
         return bare(one) == bare(other)
     }
 
-    /// Change Letter, or a double-click on the square itself.
-    func editLetter(_ tab: Tab) {
-        guard tab.pin != nil else { return }
-        editingPin = tab.id
-    }
-
-    /// Typed into the square. Empty leaves the letter as it was — a pinned tab
-    /// with nothing on it would be a blank square you could never identify.
-    func letter(_ typed: String, for tab: Tab) {
-        guard let first = typed.trimmingCharacters(in: .whitespacesAndNewlines).first else {
-            return
-        }
-        tab.pin = String(first).uppercased()
-    }
-
-    func endPinEdit() {
-        guard editingPin != nil else { return }
-        editingPin = nil
-        writeSession(now: true)
-    }
-
     func unpin(_ tab: Tab) {
-        if editingPin == tab.id { editingPin = nil }
         // The row is drawn again whether or not the tab moves. Unpinning the
         // only tab, or the last pin, leaves it where it is; `tabs` didn't
         // change, only the tab did, and the column went on drawing it as a

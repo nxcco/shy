@@ -238,7 +238,6 @@ extension Browser {
             pin(tab, listed: true)
             guard tab.pin != nil else { return false }
         }
-        if editingPin == tab.id { editingPin = nil }
         objectWillChange.send()
         tab.listed = true
         tab.folder = id

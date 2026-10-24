@@ -206,7 +206,7 @@ struct PeekBadge: View {
     var size: CGFloat = 16
 
     var body: some View {
-        Mark(icon: page.icon, letter: page.monogram, size: size * 0.7)
+        Mark(icon: page.icon, size: size * 0.7)
             .frame(width: size, height: size)
             .background(Palette.ground, in: RoundedRectangle(cornerRadius: size * 0.3, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 0.5))

@@ -526,10 +526,6 @@ struct SettingsPanel: View {
                     ))
                 }
                 Rule()
-                Line("Tabs show", "Beside the title, and on a pinned square") {
-                    Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
-                }
-                Rule()
                 Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {
                     Switch(on: $prefs.showsReading)
                 }

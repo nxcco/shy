@@ -8,21 +8,6 @@ import SwiftUI
 // redraw when one changes. Defaults are chosen so that a browser nobody has
 // configured behaves the way it always did.
 
-/// What a tab wears beside its title, and what a pinned one is reduced to: a
-/// letter, or the site's own icon.
-enum Glyph: String, CaseIterable, Identifiable {
-    case letters, icons
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .letters: return "Letters"
-        case .icons: return "Site icons"
-        }
-    }
-}
-
 /// Peek uses modified left clicks, leaving plain clicks and Control-click alone.
 enum PeekClick: String, CaseIterable {
     case shift, optionShift, optionCommand
@@ -190,9 +175,6 @@ final class Preferences: ObservableObject {
     /// and the column is white with its hairline, as before 1.0.5 (#607).
     @Published var cards: Bool {
         didSet { store.set(cards, forKey: "layout.cards") }
-    }
-    @Published var glyph: Glyph {
-        didSet { store.set(glyph.rawValue, forKey: "glyph") }
     }
     @Published var engine: Engine {
         didSet { store.set(engine.rawValue, forKey: "search.engine") }
@@ -542,7 +524,6 @@ final class Preferences: ObservableObject {
         let width = store.object(forKey: "sidebar.width") as? Double ?? Double(Metrics.side)
         sideWidth = min(Metrics.sideMax, max(Metrics.sideMin, CGFloat(width)))
         cards = store.object(forKey: "layout.cards") as? Bool ?? true
-        glyph = store.string(forKey: "glyph").flatMap(Glyph.init) ?? .letters
         engine = store.string(forKey: "search.engine").flatMap(Engine.init) ?? .standard
         customEngine = store.string(forKey: "search.custom") ?? ""
         keywords = store.data(forKey: "search.keywords")

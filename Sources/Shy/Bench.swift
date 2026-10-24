@@ -261,7 +261,7 @@ final class Bench {
             else if let listed = request["listed"] as? Bool, tab.pin != nil { browser.setListed(tab, listed) }
             else { browser.pin(tab, listed: request["listed"] as? Bool ?? false) }
             answer(["pin": tab.pin ?? "", "listed": tab.listed, "pinned": browser.pinnedCount, "home": tab.home?.absoluteString ?? "",
-                    "address": tab.address?.absoluteString ?? "", "editingLetter": browser.editingPin == tab.id,
+                    "address": tab.address?.absoluteString ?? "",
                     "taken": taken.map { $0 as Any } ?? NSNull()])
 
         case "select":

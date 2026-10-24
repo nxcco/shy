@@ -243,7 +243,7 @@ private struct OpenTabRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Mark(icon: tab.icon, letter: tab.monogram, size: 15)
+            Mark(icon: tab.icon, size: 15)
                 .frame(width: 15, height: 15)
             Text(tab.label.isEmpty ? "New Tab" : tab.label)
                 .font(.system(size: 12.5))

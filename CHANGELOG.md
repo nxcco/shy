@@ -45,6 +45,7 @@ of that app's releases, not of Shy's, which has no updater.
 
 ### Changed
 
+- Tabs and pins show only their site's icon, and a plain globe until there is one: no letters any more, and no Tabs show choice or Change Letter
 - Search is now Shy: its own name, bundle id and data, starting fresh.
 - The tab's right-click menu is in sections, as Safari's and Chrome's are: the tab itself (Rename, Duplicate, Site Information, Mute, Put to Sleep), its pin, where it lives (Move to Folder, Space, Window), how it is shown (Split View, Side Panel), copying it, and closing. A folder's menu opens or folds it first
 - A site in the side panel stays signed in as the profile it was opened in, whichever space you go to, instead of loading again in each space's: from a tab, the tab's profile; from View › Side Panel, the profile on screen

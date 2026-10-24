@@ -536,7 +536,7 @@ struct TabSwitcherOverlay: View {
                     .frame(width: width, height: height)
                     .clipped()
             } else {
-                Mark(icon: prefs.glyph == .icons ? tab.icon : nil, letter: tab.monogram, size: mark)
+                Mark(icon: tab.icon, size: mark)
             }
         }
         .frame(width: width, height: height)
@@ -567,8 +567,8 @@ struct TabSwitcherOverlay: View {
                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
 
                 HStack(spacing: 6) {
-                    if prefs.glyph == .icons, !tab.isBlank {
-                        Mark(icon: tab.icon, letter: tab.monogram, size: 13)
+                    if !tab.isBlank {
+                        Mark(icon: tab.icon, size: 13)
                     }
                     Text(caption)
                         .font(.system(size: 11.5))

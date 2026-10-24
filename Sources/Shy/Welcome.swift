@@ -143,12 +143,6 @@ struct WelcomePanel: View {
     private var hold: some View {
         VStack(alignment: .leading, spacing: 22) {
             heading("Tabs down the side.", "Pins at the top, the tabs you keep under them, the ones that come and go below. The grey slides to the tab you pick.")
-            HStack(spacing: 12) {
-                Text("Tabs wear")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Palette.muted)
-                Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
-            }
         }
     }
 

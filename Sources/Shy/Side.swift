@@ -980,19 +980,13 @@ private struct PinSquare: View {
 
     var body: some View {
         Group {
-            if browser.editingPin == tab.id {
-                PinField(browser: browser, tab: tab)
-            } else if let number = shortcutNumbers[tab.id] {
+            if let number = shortcutNumbers[tab.id] {
                 TabShortcutNumber(number: number)
             } else if tab.loading {
                 // Its page on the way, as a row's ring says.
                 Ring(size: scale * 11 / 34)
-            } else if prefs.glyph == .icons, let icon = tab.icon {
-                Mark(icon: icon, letter: tab.pin ?? "", size: scale * 16 / 34, dim: tab.asleep)
             } else {
-                Text(tab.pin ?? "")
-                    .font(.system(size: scale * 12 / 34, weight: .medium))
-                    .foregroundStyle((live ? Palette.ink : Palette.muted).opacity(tab.asleep ? 0.45 : 1))
+                Mark(icon: tab.icon, size: scale * 16 / 34, dim: tab.asleep)
             }
         }
         .frame(width: scale * 16 / 34, height: scale * 16 / 34)
@@ -1030,7 +1024,7 @@ private struct PinSquare: View {
         }
         .animation(Motion.quick, value: browser.peekFrom)
         .contentShape(RoundedRectangle(cornerRadius: scale * 9 / 34, style: .continuous))
-        .modifier(TabPress(enabled: browser.editingPin != tab.id, active: live, selected: $selectedOnPress) {
+        .modifier(TabPress(enabled: true, active: live, selected: $selectedOnPress) {
             browser.clearTabSelection()
             browser.select(tab)
         })
@@ -1092,8 +1086,8 @@ private struct SideRow: View {
                     TabAddressField(browser: browser)
                         .frame(height: 16)
                 } else {
-                    if prefs.glyph == .icons, !tab.isBlank {
-                        Mark(icon: tab.icon, letter: tab.monogram, size: prefs.roomyTabs ? 17 : 15)
+                    if !tab.isBlank {
+                        Mark(icon: tab.icon, size: prefs.roomyTabs ? 17 : 15)
                     }
                     if tab.bench {
                         // A script's tab, not yours.

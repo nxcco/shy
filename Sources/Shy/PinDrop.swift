@@ -193,7 +193,7 @@ struct PinGhost: View {
             .fill(greys.hover)
             .overlay { shape.strokeBorder(Palette.ink.opacity(0.16), lineWidth: 1) }
             .overlay {
-                Mark(icon: tab.icon, letter: tab.pin ?? tab.monogram, size: scale * 16 / 34)
+                Mark(icon: tab.icon, size: scale * 16 / 34)
                     .opacity(0.55)
             }
             .frame(width: width, height: height)
@@ -244,7 +244,7 @@ struct RowGhost: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         HStack(spacing: 8) {
-            Mark(icon: tab.icon, letter: tab.monogram, size: 15)
+            Mark(icon: tab.icon, size: 15)
             Text(tab.label)
                 .font(.system(size: size))
                 .lineLimit(1)

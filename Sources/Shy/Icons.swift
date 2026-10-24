@@ -650,10 +650,9 @@ final class Favicons {
 }
 
 /// What stands for a page when there is no room for its title: the site's
-/// icon if there is one, and a letter in a faint square until there is.
+/// icon, and a plain globe on a faint square until there is one.
 struct Mark: View {
     let icon: NSImage?
-    let letter: String
     var size: CGFloat = 16
     var dim = false
 
@@ -676,8 +675,8 @@ struct Mark: View {
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
             } else {
-                Text(letter)
-                    .font(.system(size: size * 0.56, weight: .medium))
+                Image(systemName: "globe")
+                    .font(.system(size: size * 0.56, weight: .regular))
                     .foregroundStyle(Palette.muted)
                     .frame(width: size, height: size)
                     .background(

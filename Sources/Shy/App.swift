@@ -115,14 +115,6 @@ struct ShyApp: App {
                 Button((browser.folded ? "Show Sidebar" : "Hide Sidebar")
                       ) { browser.toggleFold() }
                     .shortcut("view.fold")
-                Picker("Tabs Wear", selection: Binding(
-                    get: { browser.prefs.glyph },
-                    set: { browser.prefs.glyph = $0 }
-                )) {
-                    ForEach(Glyph.allCases) { glyph in
-                        Text(glyph.title).tag(glyph)
-                    }
-                }
                 Divider()
                 Button("Reload Page") { browser.reload() }
                     .shortcut("view.reload")
@@ -233,9 +225,6 @@ struct ShyApp: App {
                             .disabled(!tab.isWeb || tab.shy)
                     } else {
                         Button(tab.listed ? "Show Pin as Square" : "Show Pin as Row") { browser.setListed(tab, !tab.listed) }
-                        if !tab.listed {
-                            Button("Change Letter") { browser.editLetter(tab) }
-                        }
                         Button("Unpin Tab") { browser.unpin(tab) }
                     }
                 }

@@ -215,8 +215,7 @@ struct HistoryPanel: View {
 
         var body: some View {
             HStack(spacing: 12) {
-                Mark(icon: Favicons.of(profile).cached(for: trace.url),
-                     letter: trace.address.first.map { String($0).uppercased() } ?? "•", size: 16)
+                Mark(icon: Favicons.of(profile).cached(for: trace.url), size: 16)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trace.title.isEmpty ? Address.withoutWWW(trace.address) : trace.title)
                         .font(.system(size: 13))

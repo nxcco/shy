@@ -430,14 +430,12 @@ struct TabMenu: View {
                 .disabled(!tab.isWeb || tab.shy)
         } else {
             Button(tab.listed ? "Show as Square" : "Show as Row") { browser.setListed(tab, !tab.listed) }
-            // A row wears its title, not its letter; and a click on it is
-            // the address, so the way home a square's double-click is
-            // (Browser.goHome) is here instead, while it has wandered.
+            // A row's click is the address, so the way home a square's
+            // double-click is (Browser.goHome) is here instead, while it
+            // has wandered.
             if tab.listed {
                 Button("Back to Pinned Page") { browser.goHome(tab) }
                     .disabled(tab.home.map { Browser.samePage($0, tab.address) } ?? true)
-            } else {
-                Button("Change Letter") { browser.editLetter(tab) }
             }
             Button("Unpin") { browser.unpin(tab) }
         }
@@ -813,93 +811,3 @@ struct Ring: NSViewRepresentable {
 }
 
 
-/// The letter of a pinned tab, typed in the square itself.
-///
-/// A field of its own rather than SwiftUI's, for the same reason as the address
-/// in a tab: the system paints selected text as a solid block of accent colour,
-/// and over a thirty-point grey square that is the loudest thing on screen.
-struct PinField: NSViewRepresentable {
-    @ObservedObject var browser: Browser
-    @ObservedObject var tab: Tab
-
-    func makeCoordinator() -> Coordinator { Coordinator(browser: browser, tab: tab) }
-
-    func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField()
-        field.delegate = context.coordinator
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
-        field.alignment = .center
-        field.font = .systemFont(ofSize: 12, weight: .medium)
-        field.textColor = Palette.NS.ink
-        field.cell?.usesSingleLineMode = true
-        field.cell?.wraps = false
-        field.stringValue = tab.pin ?? ""
-        return field
-    }
-
-    func updateNSView(_ field: NSTextField, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.browser = browser
-        coordinator.tab = tab
-        if !coordinator.typing, field.stringValue != tab.pin ?? "" {
-            field.stringValue = tab.pin ?? ""
-        }
-        guard !coordinator.claimed else { return }
-        coordinator.claimed = true
-        DispatchQueue.main.async {
-            field.window?.makeFirstResponder(field)
-            guard let editor = field.currentEditor() as? NSTextView else { return }
-            editor.selectedTextAttributes = [
-                .backgroundColor: NSColor(Palette.ink.opacity(0.12)),
-                .foregroundColor: Palette.NS.ink,
-            ]
-            // The guessed letter arrives selected, so one keystroke replaces it
-            // and doing nothing keeps it.
-            editor.selectAll(nil)
-        }
-    }
-
-    final class Coordinator: NSObject, NSTextFieldDelegate {
-        var browser: Browser
-        var tab: Tab
-        var claimed = false
-        var typing = false
-
-        init(browser: Browser, tab: Tab) {
-            self.browser = browser
-            self.tab = tab
-        }
-
-        func controlTextDidChange(_ note: Notification) {
-            guard let field = note.object as? NSTextField else { return }
-            typing = true
-            browser.letter(field.stringValue, for: tab)
-            // One character only, and shown as it will be worn.
-            field.stringValue = tab.pin ?? ""
-            typing = false
-        }
-
-        func control(
-            _ control: NSControl,
-            textView: NSTextView,
-            doCommandBy command: Selector
-        ) -> Bool {
-            switch command {
-            case #selector(NSResponder.insertNewline(_:)),
-                 #selector(NSResponder.cancelOperation(_:)),
-                 #selector(NSResponder.insertTab(_:)):
-                browser.endPinEdit()
-                return true
-            default:
-                return false
-            }
-        }
-
-        func controlTextDidEndEditing(_ note: Notification) {
-            let browser = browser
-            DispatchQueue.main.async { browser.endPinEdit() }
-        }
-    }
-}

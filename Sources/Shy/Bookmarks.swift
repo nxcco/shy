@@ -910,7 +910,7 @@ struct BookmarkOutline: View {
                         .foregroundStyle(Palette.faint)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                         .frame(width: 10)
-                    Mark(icon: nil, letter: "", size: 15)
+                    Mark(icon: nil, size: 15)
                         .overlay(
                             Image(systemName: "folder.fill")
                                 .font(.system(size: 9))
@@ -918,7 +918,7 @@ struct BookmarkOutline: View {
                         )
                 } else {
                     if arrows { Spacer().frame(width: 10) }
-                    Mark(icon: Favicons.of(profile).cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
+                    Mark(icon: Favicons.of(profile).cached(for: node.address), size: 15)
                 }
                 // One without a name reads as its address, a shade lighter.
                 Text(node.label)
@@ -1391,10 +1391,10 @@ struct BookmarksPanel: View {
         var body: some View {
             HStack(spacing: 10) {
                 if node.isFolder {
-                    Mark(icon: nil, letter: "", size: 16)
+                    Mark(icon: nil, size: 16)
                         .overlay(Image(systemName: "folder.fill").font(.system(size: 9.5)).foregroundStyle(Palette.muted))
                 } else {
-                    Mark(icon: Favicons.of(profile).cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 16)
+                    Mark(icon: Favicons.of(profile).cached(for: node.address), size: 16)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(node.label)
@@ -1580,14 +1580,14 @@ final class BookmarkMenu: NSObject, NSMenuDelegate {
                 // The site's icon, as the bar wears it: a folder opened from
                 // the bar, or the Bookmarks menu, had none (idea 183). A site
                 // whose icon isn't kept yet (brought in, never visited) wears
-                // the bar's letter in its place, rather than nothing and its
+                // a plain globe in its place, rather than nothing and its
                 // title out of line with the others'.
                 if let icon = Favicons.of(browser?.profileID ?? Profile.personalID).cached(for: node.address) {
                     let small = icon.copy() as? NSImage ?? icon
                     small.size = NSSize(width: 16, height: 16)
                     item.image = small
                 } else {
-                    item.image = BookmarkMenu.letter(String((node.host ?? "•").prefix(1)).uppercased())
+                    item.image = BookmarkMenu.globe
                 }
             } else {
                 return nil
@@ -1597,21 +1597,12 @@ final class BookmarkMenu: NSObject, NSMenuDelegate {
         }
     }
 
-    /// The bar's Mark with no icon, for a menu: the letter, muted, on a
-    /// faint square, drawn as the menu draws so it follows light and dark.
-    private static func letter(_ letter: String) -> NSImage {
-        let size: CGFloat = 16
-        return NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            Palette.NS.ink.withAlphaComponent(0.06).setFill()
-            NSBezierPath(roundedRect: rect, xRadius: size * 0.22, yRadius: size * 0.22).fill()
-            let text = NSAttributedString(string: letter, attributes: [
-                .font: NSFont.systemFont(ofSize: size * 0.56, weight: .medium),
-                .foregroundColor: Palette.NS.muted,
-            ])
-            let drawn = text.size()
-            text.draw(at: NSPoint(x: rect.midX - drawn.width / 2, y: rect.midY - drawn.height / 2))
-            return true
-        }
+    /// Mark with no icon, for a menu: a globe, as the menu draws its own
+    /// symbols, so it follows light and dark.
+    private static var globe: NSImage? {
+        let image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        image?.size = NSSize(width: 16, height: 16)
+        return image
     }
 
     /// What a folder of the bar holds as its menu: every item, its folders
