@@ -50,15 +50,10 @@ struct AgentSection: View {
     private var header: some View {
         HStack(spacing: 7) {
             AgentMark(busy: agent.busy != nil)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Agent")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-                Text(status)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Palette.muted)
-                    .lineLimit(1)
-            }
+            Text("Agent")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Palette.ink)
+                .help(status)
             Spacer(minLength: 4)
             Door(icon: agent.folded ? "chevron.down" : "chevron.up", help: agent.folded ? "Show pages" : "Fold") {
                 withAnimation(Motion.settle) { agent.folded.toggle() }
@@ -116,18 +111,12 @@ private struct AgentRow: View {
                     .foregroundStyle(page.live != nil ? Palette.ink : Palette.muted)
                     .frame(width: 16, height: 16)
             }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(page.title.isEmpty ? (page.address?.host() ?? "Loading…") : page.title)
-                    .font(.system(size: prefs.sideTitle))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                if let line = line {
-                    Text(line)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Palette.muted)
-                        .lineLimit(1)
-                }
-            }
+            Text(page.title.isEmpty ? (page.address?.host() ?? "Loading…") : page.title)
+                .font(.system(size: prefs.sideTitle))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .opacity(page.acting != nil ? 0.6 : 1)
+                .help(line ?? "")
             Spacer(minLength: 0)
             if hovering {
                 Image(systemName: "xmark")
