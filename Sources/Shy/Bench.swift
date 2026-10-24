@@ -205,6 +205,35 @@ final class Bench {
             tab.go(to: url)
             answer(describe(tab))
 
+        case "handover":
+            // A tab's sign-in handed to the agent's session as the card's
+            // Hand Over would (see HandoverCard), without the card. Only on
+            // a SHY_PROBE run.
+            guard Store.testing else { answer(["error": "handover only works on a --test run"]); return }
+            guard let tab = find(request, in: browser) else { answer(missing(request)); return }
+            Agent.offer(tab) { url, cookies in
+                if let why = Agent.shared.handOver(url, cookies: cookies, acts: request["acts"] as? Bool ?? false,
+                                                   asks: request["asks"] as? Bool ?? true,
+                                                   minutes: request["minutes"] as? Int ?? 30) {
+                    answer(["error": why])
+                } else {
+                    answer(["cookies": cookies.count, "page": Agent.shared.pages.last?.id ?? ""])
+                }
+            }
+
+        case "approve":
+            // The oldest question in the Agent folder answered, yes or no.
+            guard Store.testing else { answer(["error": "approve only works on a --test run"]); return }
+            guard let first = Agent.shared.pending.first else { answer(["error": "nothing is waiting"]); return }
+            Agent.shared.answer(first, request["yes"] as? Bool ?? false)
+            answer(["answered": first.what])
+
+        case "agentpage":
+            // An agent page's handover and steps, as the folder shows them.
+            guard let page = Agent.shared.page(request["id"] as? String) else { answer(["error": "no such agent page"]); return }
+            answer(["over": page.handover?.over ?? "", "live": page.live != nil,
+                    "steps": page.steps.map(\.what), "pending": Agent.shared.pending.map(\.what)])
+
         case "close":
             if (request["id"] as? String) == "all" {
                 let mine = browser.tabs.filter { $0.bench }
@@ -3012,7 +3041,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate",
+                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage",
             ]])
         }
     }

@@ -26,9 +26,26 @@ seen = []
 
 
 class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        seen.append("POST " + self.path)
+        body = b"<!doctype html><title>Sent</title>SENT"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         seen.append(self.path)
-        if self.path == "/form":
+        cookie = None
+        if self.path == "/login":
+            body, kind, cookie = b"<!doctype html><title>Signed in</title>SIGNED IN", "text/html", "sid=secret; Path=/"
+        elif self.path == "/me":
+            body = b"""<!doctype html><title>Me</title><p id=c></p>
+<form method=post action=/send><button id=send>Send</button></form>
+<script>document.getElementById('c').textContent = 'cookie:' + document.cookie</script>"""
+            kind = "text/html"
+        elif self.path == "/form":
             body = b"""<!doctype html><title>Form</title>
 <p id=out>untouched</p>
 <input id=name oninput="document.getElementById('out').textContent = 'typed ' + this.value">
@@ -47,6 +64,8 @@ class H(BaseHTTPRequestHandler):
             body, kind = b"<!doctype html><title>Hello</title>HELLO AGENT", "text/html"
         self.send_response(200)
         self.send_header("Content-Type", kind)
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -104,7 +123,7 @@ def main():
         t.ok("initialize answers with tools", "tools" in init["result"]["capabilities"], init)
         mcp.send("notifications/initialized", notify=True)
         names = [x["name"] for x in mcp.send("tools/list")["result"]["tools"]]
-        t.ok("eight tools", names == ["shy_open", "shy_text", "shy_shot", "shy_click", "shy_type", "shy_go", "shy_wait", "shy_close"], names)
+        t.ok("nine tools", names == ["shy_open", "shy_text", "shy_shot", "shy_click", "shy_type", "shy_go", "shy_wait", "shy_list", "shy_close"], names)
 
         opened = mcp.tool("shy_open", url=f"{base}/hello")
         pid = page_id(opened)
@@ -152,6 +171,54 @@ def main():
         t.ok("close all", "Closed 8" in words(closed), closed)
         gone = mcp.tool("shy_text", tab_id=pid)
         t.ok("a closed page is gone", gone.get("isError") is True, gone)
+
+        # A handover: your tab signed in, a copy of its cookies in a page of
+        # the agent's own, read-only, locked to its site.
+        mine = sv.cmd({"do": "open", "url": f"{base}/login"})["id"]
+        sv.cmd({"do": "wait", "id": mine}); time.sleep(0.5)
+        sv.cmd({"do": "go", "id": mine, "url": f"{base}/me"}); sv.cmd({"do": "wait", "id": mine}); time.sleep(0.5)
+        handed = sv.cmd({"do": "handover", "id": mine, "acts": False})
+        t.ok("the handover copies the site's cookie", handed["cookies"] == 1, handed)
+        hid = handed["page"]
+        mcp.tool("shy_wait", tab_id=hid, seconds=5)
+        listed = words(mcp.tool("shy_list"))
+        t.ok("shy_list shows it handed over, read-only", hid in listed and "read-only" in listed, listed)
+        t.ok("the agent's page is signed in", "cookie:sid=secret" in words(mcp.tool("shy_text", tab_id=hid)))
+        refused = mcp.tool("shy_click", tab_id=hid, selector="#send")
+        t.ok("read-only: a click is refused", refused.get("isError") is True and "read-only" in words(refused), refused)
+        t.ok("read-only: nothing was sent", not any(x.startswith("POST") for x in seen), seen)
+        other = base.replace("127.0.0.1", "localhost")
+        mcp.tool("shy_go", tab_id=hid, url=f"{other}/me")
+        state = sv.cmd({"do": "agentpage", "id": hid})
+        t.ok("leaving the site removes the sign-in", not state["live"] and "left" in state["over"], state)
+        t.ok("and the other site gets no cookie", "cookie:sid" not in words(mcp.tool("shy_text", tab_id=hid)))
+        mcp.tool("shy_go", tab_id=hid, url=f"{base}/me")
+        t.ok("back on the site, it is signed out", "cookie:sid" not in words(mcp.tool("shy_text", tab_id=hid)))
+        t.ok("your tab is still signed in", "cookie:sid=secret" in sv.cmd({"do": "text", "id": mine})["text"])
+
+        # Acting, asked about: the click waits for a yes, and so does the
+        # form it sends.
+        acting = sv.cmd({"do": "handover", "id": mine, "acts": True, "asks": True})["page"]
+        mcp.tool("shy_wait", tab_id=acting, seconds=5)
+        answers = []
+        def approve():
+            for _ in range(2):
+                for _ in range(40):
+                    time.sleep(0.25)
+                    try:
+                        answers.append(sv.cmd({"do": "approve", "yes": True})["answered"]); break
+                    except RuntimeError:
+                        pass
+        helper = threading.Thread(target=approve); helper.start()
+        clicked = mcp.tool("shy_click", tab_id=acting, selector="#send")
+        helper.join(25)
+        time.sleep(1)
+        t.ok("the click was asked about, then made", clicked.get("isError") is not True and answers and "Click" in answers[0], (clicked, answers))
+        t.ok("the form it sent was asked about too", len(answers) == 2 and "form" in answers[1], answers)
+        t.ok("the form reached the site", "POST /send" in seen, seen)
+        steps = sv.cmd({"do": "agentpage", "id": acting})["steps"]
+        t.ok("every step is written down", any("handed over" in x for x in steps) and any("Click" in x for x in steps), steps)
+        mcp.tool("shy_close", tab_id="all")
 
     finally:
         if mcp:

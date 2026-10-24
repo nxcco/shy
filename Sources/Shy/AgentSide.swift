@@ -1,0 +1,400 @@
+import SwiftUI
+import WebKit
+
+// What you see of an agent's session (Agent.swift): its folder at the top of
+// the column, in every space; its page in the window when you pick one, to
+// watch and never to drive; and the card that hands one of your tabs over.
+// All of it in the agent's own violet, which nothing of yours ever wears.
+
+/// The Agent folder: the session's pages, its questions for you, and the
+/// one button that ends it. Not in any space or profile, so it stays where
+/// it is as you go from one to another; not there at all with no session.
+struct AgentSection: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var prefs: Preferences
+    @ObservedObject var agent: Agent
+
+    var body: some View {
+        if !agent.pages.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                header
+                ForEach(agent.pending) { approval in
+                    ApprovalRow(agent: agent, approval: approval)
+                }
+                if !agent.folded {
+                    ForEach(agent.pages) { page in
+                        AgentRow(browser: browser, prefs: prefs, agent: agent, page: page)
+                    }
+                }
+            }
+            .padding(4)
+            .background(Palette.agent.opacity(0.09), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(Palette.agent.opacity(0.35), lineWidth: 1)
+            )
+            .padding(.bottom, 10)
+            .transition(.opacity)
+        }
+    }
+
+    /// Its height as drawn, rounded up, for the column's sums (SideBar.rowsEnd).
+    static func height(_ agent: Agent, row: CGFloat) -> CGFloat {
+        guard !agent.pages.isEmpty else { return 0 }
+        let rows = agent.folded ? 0 : CGFloat(agent.pages.count) * (row + 2)
+        return 8 + 30 + rows + CGFloat(agent.pending.count) * 74 + 10 + 4
+    }
+
+    private var header: some View {
+        HStack(spacing: 7) {
+            AgentMark(busy: agent.busy != nil)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Agent")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.agent)
+                Text(status)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Door(icon: agent.folded ? "chevron.down" : "chevron.up", help: agent.folded ? "Show pages" : "Fold") {
+                withAnimation(Motion.settle) { agent.folded.toggle() }
+            }
+            Door(icon: "stop.circle", help: "End the session: close every agent page and forget what they hold") {
+                withAnimation(Motion.settle) { agent.closeAll() }
+            }
+        }
+        .padding(.leading, 6)
+        .frame(height: 30)
+    }
+
+    private var status: String {
+        let who = agent.client ?? "An agent"
+        if let busy = agent.busy { return "\(who) · \(busy.doing)" }
+        return agent.pages.count == 1 ? "\(who) · 1 page" : "\(who) · \(agent.pages.count) pages"
+    }
+}
+
+/// The agent's sign, everywhere it shows: its folder, its rows, its page.
+/// It breathes while the agent is acting.
+struct AgentMark: View {
+    var busy = false
+    var size: CGFloat = 12
+    @State private var breathing = false
+
+    var body: some View {
+        Image(systemName: "cursorarrow.rays")
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(Palette.agent)
+            .opacity(busy && breathing ? 0.35 : 1)
+            .animation(busy ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true) : .default, value: breathing)
+            .onAppear { breathing = busy }
+            .onChange(of: busy) { _, now in breathing = now }
+    }
+}
+
+/// One page of the session: its title, whose sign-in it holds if any, and
+/// what the agent is doing to it.
+private struct AgentRow: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var prefs: Preferences
+    @ObservedObject var agent: Agent
+    @ObservedObject var page: Agent.Page
+    @State private var hovering = false
+
+    private var shown: Bool { browser.watchingAgent == page.id }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: page.handover == nil ? "globe" : "key.fill")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(page.live != nil ? Palette.agent : Palette.muted)
+                    .frame(width: 16, height: 16)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(page.title.isEmpty ? (page.address?.host() ?? "Loading…") : page.title)
+                    .font(.system(size: prefs.sideTitle))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                if let line = line {
+                    Text(line)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(page.acting != nil ? Palette.agent : Palette.muted)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            if hovering {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Palette.muted)
+                    .frame(width: 15, height: 15)
+                    .background(Palette.ink.opacity(0.07), in: Circle())
+                    .contentShape(Circle())
+                    .onTapGesture { withAnimation(Motion.settle) { agent.close(page) } }
+                    .help("Close this page")
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(height: prefs.sideRow)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(shown ? Palette.agent.opacity(0.18) : hovering ? Palette.agent.opacity(0.08) : .clear)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture { browser.watchAgent(page.id) }
+    }
+
+    private var line: String? {
+        if let acting = page.acting { return acting.prefix(1).uppercased() + acting.dropFirst() + "…" }
+        if let handover = page.handover {
+            return handover.over == nil ? "Signed in to \(handover.site)" : "Sign-in removed"
+        }
+        return nil
+    }
+}
+
+/// A click, typing or form on a page with your sign-in in it, waiting for
+/// your yes.
+private struct ApprovalRow: View {
+    @ObservedObject var agent: Agent
+    let approval: Agent.Approval
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Allow on \(approval.site)?")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(Palette.ink)
+            Text(approval.what)
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.muted)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                Spacer(minLength: 0)
+                Pill("Deny") { agent.answer(approval, false) }
+                Pill("Allow", filled: true, tint: Palette.agent) { agent.answer(approval, true) }
+            }
+        }
+        .padding(8)
+        .background(Palette.ground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.agent.opacity(0.5), lineWidth: 1))
+    }
+}
+
+/// An agent's page in the window, over yours: framed in violet, with a bar
+/// that says whose it is and what it holds, the steps taken on it, and no
+/// way for a click or a key of yours to reach it. Scrolling still does.
+struct AgentStage: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var agent: Agent
+    var corner: CGFloat = 0
+    @State private var showingSteps = false
+
+    var body: some View {
+        if let page = agent.page(browser.watchingAgent) {
+            Watched(browser: browser, agent: agent, page: page, corner: corner, showingSteps: $showingSteps)
+                .onDisappear { agent.reroom() }
+        }
+    }
+
+    private struct Watched: View {
+        @ObservedObject var browser: Browser
+        @ObservedObject var agent: Agent
+        @ObservedObject var page: Agent.Page
+        let corner: CGFloat
+        @Binding var showingSteps: Bool
+
+        var body: some View {
+            VStack(spacing: 0) {
+                bar
+                ZStack(alignment: .topTrailing) {
+                    WebStage(page: page.web)
+                    Glass(page: page.web)
+                    if showingSteps { steps }
+                }
+            }
+            .background(Palette.ground)
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .strokeBorder(Palette.agent, lineWidth: page.acting != nil ? 3 : 2)
+            )
+            .animation(Motion.quick, value: page.acting != nil)
+        }
+
+        private var bar: some View {
+            HStack(spacing: 8) {
+                AgentMark(busy: page.acting != nil)
+                Text(says)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                if let acting = page.acting {
+                    Text(acting)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Palette.agent)
+                }
+                Spacer(minLength: 8)
+                if let handover = page.live {
+                    Pill("Take Back Sign-In") { agent.end(page, "you took it back") }
+                        .help("Ends at \(handover.ends.formatted(date: .omitted, time: .shortened)) on its own")
+                }
+                Pill(showingSteps ? "Hide Steps" : "Steps (\(page.steps.count))") { showingSteps.toggle() }
+                Pill("Back to Your Tabs") { browser.watchAgent(nil) }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(Palette.agent.opacity(0.12))
+        }
+
+        private var says: String {
+            guard let handover = page.handover else { return "Agent page — not signed in as you" }
+            if let over = handover.over { return "Agent page — your sign-in to \(handover.site) was removed: \(over)" }
+            let how = handover.acts ? (handover.asks ? "asks before each click" : "can click and type") : "read only"
+            return "Agent page — signed in to \(handover.site) as you, \(how), until \(handover.ends.formatted(date: .omitted, time: .shortened))"
+        }
+
+        private var steps: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(page.steps.reversed()) { step in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(step.at.formatted(date: .omitted, time: .standard))
+                                .font(.system(size: 10.5).monospacedDigit())
+                                .foregroundStyle(Palette.muted)
+                            Text(step.what)
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Palette.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(12)
+            }
+            .frame(width: 340)
+            .frame(maxHeight: 360)
+            .background(Palette.ground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+            .padding(10)
+        }
+    }
+}
+
+/// Over an agent's page: takes every click, key and gesture, so nothing of
+/// yours lands on a page the agent is driving, and hands the wheel on, so
+/// you can still look down it.
+private struct Glass: NSViewRepresentable {
+    let page: WKWebView
+
+    func makeNSView(context: Context) -> Pane { Pane() }
+    func updateNSView(_ view: Pane, context: Context) { view.page = page }
+
+    final class Pane: NSView {
+        weak var page: WKWebView?
+        override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
+        override func scrollWheel(with event: NSEvent) { page?.scrollWheel(with: event) }
+        override func mouseDown(with event: NSEvent) {}
+        override func rightMouseDown(with event: NSEvent) {}
+        override func otherMouseDown(with event: NSEvent) {}
+        override func magnify(with event: NSEvent) {}
+        override var acceptsFirstResponder: Bool { false }
+        override func menu(for event: NSEvent) -> NSMenu? { nil }
+    }
+}
+
+/// Right-click › Hand Over to Agent…: what would be copied, said plainly,
+/// and how far the agent may go with it. Read-only and asking are where it
+/// starts; nothing is copied until Hand Over is pressed.
+struct HandoverCard: View {
+    @ObservedObject var browser: Browser
+    let tab: Tab
+
+    @State private var found: (url: URL, cookies: [HTTPCookie])?
+    @State private var acts = false
+    @State private var asks = true
+    @State private var minutes = 30
+    @State private var trouble: String?
+
+    private var host: String { found?.url.host() ?? tab.address?.host() ?? "this site" }
+    private var site: String { Vault.registrable(host) }
+
+    var body: some View {
+        Plate("Hand over to the agent", width: 460, close: { browser.handingOver = nil }) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 10) {
+                    AgentMark(size: 16)
+                    Text(lead)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Card {
+                    Line("What the agent may do") {
+                        Segmented(options: [(false, "Read only"), (true, "Read and act")], selection: $acts)
+                    }
+                    if acts {
+                        Rule()
+                        Line("Ask me before each click, typing and form", "Strongly recommended with your sign-in") {
+                            Switch(on: $asks)
+                        }
+                    }
+                    Rule()
+                    Line("For") {
+                        Picker("", selection: $minutes) {
+                            Text("15 minutes").tag(15)
+                            Text("30 minutes").tag(30)
+                            Text("1 hour").tag(60)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                    }
+                }
+                Text("The copy is deleted when the time is up, when its page leaves \(site), when you take it back, or when the session ends. Your tab stays yours, untouched. The site may count it as a sign-in until then.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let trouble {
+                    Text(trouble)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Palette.unsafe)
+                }
+            }
+        } foot: {
+            HStack {
+                Spacer()
+                Pill("Cancel") { browser.handingOver = nil }
+                Pill("Hand Over", filled: true, tint: Palette.agent) { handOver() }
+                    .disabled(found == nil)
+                    .opacity(found == nil ? 0.4 : 1)
+            }
+        }
+        .onAppear {
+            Agent.offer(tab) { url, cookies in found = (url, cookies) }
+        }
+    }
+
+    private var lead: String {
+        guard let found else { return "Looking at what \(host) keeps…" }
+        let count = found.cookies.count
+        let what = count == 0
+            ? "\(host) keeps no sign-in in cookies, so the agent would arrive signed out"
+            : "a copy of your sign-in to \(host): \(count) cookie\(count == 1 ? "" : "s")"
+        return "The agent gets \(what), in a page of its own. Nothing else from this profile: no other site, no history, no passwords."
+    }
+
+    private func handOver() {
+        guard let found else { return }
+        if let why = Agent.shared.handOver(found.url, cookies: found.cookies, acts: acts, asks: acts && asks, minutes: minutes) {
+            trouble = why
+            return
+        }
+        browser.handingOver = nil
+        browser.announce("Handed over \(host) to the agent")
+    }
+}

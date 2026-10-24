@@ -32,7 +32,7 @@ let tabID: [String: Any] = ["type": "string", "description": "A page's id, from 
 
 let tools: [Tool] = [
     Tool(name: "shy_open", call: "open",
-         description: "Open an http or https address in a new private page of Shy's, out of sight. Waits up to 15 s for it to load. Returns the page's id, address and title. At most 8 pages at once.",
+         description: "Open an http or https address in a new private page in Shy's Agent folder, where the person can watch it. It holds none of their sign-ins. Waits up to 15 s for it to load. Returns the page's id, address and title. At most 8 pages at once.",
          properties: ["url": ["type": "string", "description": "An http:// or https:// address."]], required: ["url"]),
     Tool(name: "shy_text", call: "text",
          description: "The page's title, address and visible text (up to 100,000 characters). " + untrusted,
@@ -58,6 +58,9 @@ let tools: [Tool] = [
          description: "Wait until the page has finished loading, at most the seconds given (10 unless said, 30 at most).",
          properties: ["tab_id": tabID, "seconds": ["type": "number", "description": "How long to wait at most."]],
          required: ["tab_id"]),
+    Tool(name: "shy_list", call: "list",
+         description: "The pages in Shy's Agent folder: those you opened, and those the person handed over to you with a copy of their sign-in to one site. A handed-over page says whether you may only read it or also act, and is locked to its site: leaving the site removes the sign-in. Handovers come only from the person; you can't ask Shy for one.",
+         properties: [:], required: []),
     Tool(name: "shy_close", call: "close",
          description: "Close a page, or every one with \"all\".",
          properties: ["tab_id": ["type": "string", "description": "A page's id, or \"all\"."]], required: ["tab_id"]),
@@ -121,9 +124,13 @@ func text(_ words: String, error: Bool = false) -> [String: Any] {
     return result
 }
 
+/// What the agent called itself in `initialize`, for the Agent folder.
+var client: String?
+
 func call(_ name: String, _ arguments: [String: Any]) -> [String: Any] {
     guard let tool = tools.first(where: { $0.name == name }) else { return text("No tool \(name).", error: true) }
     var request: [String: Any] = ["do": tool.call]
+    if let client { request["client"] = client }
     if let id = arguments["tab_id"] as? String { request["id"] = id }
     for key in ["url", "selector", "text", "seconds"] where arguments[key] != nil { request[key] = arguments[key] }
     let (answer, trouble) = ask(request)
@@ -141,6 +148,14 @@ func call(_ name: String, _ arguments: [String: Any]) -> [String: Any] {
         return text("Done.")
     case "close":
         return text("Closed \(answer["closed"] as? Int ?? 0).")
+    case "list":
+        let pages = answer["pages"] as? [[String: Any]] ?? []
+        guard !pages.isEmpty else { return text("No pages open.") }
+        return text(pages.map { page in
+            var line = "tab_id: \(page["id"] as? String ?? "")\nurl: \(page["url"] as? String ?? "")\ntitle: \(page["title"] as? String ?? "")"
+            if let handed = page["handedOver"] as? String { line += "\nhanded over: \(handed)" }
+            return line
+        }.joined(separator: "\n\n"))
     default:
         let id = answer["id"] as? String ?? ""
         let loading = answer["loading"] as? Bool == true ? "\nstill loading" : ""
@@ -156,11 +171,13 @@ func respond(_ message: [String: Any]) -> [String: Any]? {
     let params = message["params"] as? [String: Any] ?? [:]
     switch method {
     case "initialize":
+        let info = params["clientInfo"] as? [String: Any]
+        client = (info?["title"] as? String) ?? (info?["name"] as? String)
         reply["result"] = [
             "protocolVersion": params["protocolVersion"] as? String ?? "2025-06-18",
             "capabilities": ["tools": ["listChanged": false]],
             "serverInfo": ["name": "shy", "version": "1.0"],
-            "instructions": "Private web pages in the Shy browser on this Mac, out of sight: open, read, picture, click, type. " + untrusted,
+            "instructions": "Private web pages in the Shy browser on this Mac, in its Agent folder where the person can watch: open, read, picture, click, type. Pages you open hold none of the person's sign-ins; shy_list shows any page they handed over to you. " + untrusted,
         ] as [String: Any]
     case "ping":
         reply["result"] = [String: Any]()

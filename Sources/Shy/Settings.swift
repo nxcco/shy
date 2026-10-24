@@ -438,7 +438,7 @@ struct SettingsPanel: View {
     private var agents: some View {
         VStack(alignment: .leading, spacing: 18) {
             group("AI agents") {
-                Line("Let AI agents browse", "Through MCP, in hidden private pages. Never your tabs, sign-ins or passwords") {
+                Line("Let AI agents browse", "Through MCP, in private pages in the Agent folder you can watch. Never your tabs or passwords") {
                     Switch(on: $prefs.agent)
                 }
                 if prefs.agent { AgentLines(agent: .shared) }
@@ -995,7 +995,7 @@ private struct NotificationSites: View {
 }
 
 /// How an agent reaches its pages: a prompt that has the agent set Shy up
-/// itself, the MCP server for doing it by hand, and Claude Code's command;
+/// itself, whichever agent it is, or the MCP server for doing it by hand;
 /// and the pages open now.
 private struct AgentLines: View {
     @ObservedObject var agent: Agent
@@ -1003,7 +1003,6 @@ private struct AgentLines: View {
     /// shy-mcp, beside the app's own binary, wherever the app is: what
     /// any MCP client is told to run, over standard input and output.
     private var helper: String { Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/shy-mcp").path }
-    private var command: String { "claude mcp add shy -- '\(helper.replacingOccurrences(of: "'", with: "'\\''"))'" }
 
     /// For pasting into the agent itself, whichever it is: what Shy is,
     /// where its server is, how to add it, and to check it took.
@@ -1014,11 +1013,9 @@ private struct AgentLines: View {
         Shy's MCP server is a stdio executable with no arguments:
         \(helper)
 
-        Register it under the name "shy". In Claude Code, run:
-        \(command)
-        In any other MCP client, add a stdio server with that path as its command, in the client's own MCP configuration.
+        Register it under the name "shy" the way you add MCP servers: your own command for it, or your MCP configuration, with that path as the command.
 
-        Then check it connects by listing its tools. With them you can open web pages, read their text, take screenshots, click and type, in private pages of your own that never touch my tabs, sign-ins or passwords.
+        Then check it connects by listing its tools. With them you can open web pages, read their text, take screenshots, click and type, in private pages of your own that I can watch in Shy's Agent folder and that never touch my tabs or passwords. If I hand you one of my sign-ins, it shows up in shy_list.
         """
     }
 
@@ -1030,10 +1027,6 @@ private struct AgentLines: View {
         Rule()
         Line("MCP server", helper) {
             Pill("Copy Path") { copy(helper) }
-        }
-        Rule()
-        Line("Claude Code command", command) {
-            Pill("Copy") { copy(command) }
         }
         if !agent.pages.isEmpty {
             Rule()

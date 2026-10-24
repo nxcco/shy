@@ -53,6 +53,11 @@ final class Browser: NSObject, ObservableObject {
     @Published private(set) var splits: [TabSplit] = []
     /// The folder whose name is being typed, in place (see FolderRow).
     @Published var editingFolderID: UUID?
+    /// An agent's page shown over the tabs' in this window, to watch (see
+    /// AgentSide.swift). Going to any tab puts it away.
+    @Published private(set) var watchingAgent: String?
+    /// The tab whose sign-in is being offered to the agent (HandoverCard).
+    @Published var handingOver: Tab?
     @Published var activeID: Tab.ID? {
         didSet {
             // The tab just left is the tab just looked at. Whether a tab has
@@ -63,6 +68,7 @@ final class Browser: NSObject, ObservableObject {
                 DispatchQueue.main.async { held.forEach { $0.present() } }
             }
             guard oldValue != activeID else { return }
+            if watchingAgent != nil { watchAgent(nil) }
             if displayTab?.id == oldValue { cancelDisplay() }
             clearTabSelection()
             // What was found belongs to the page just left; the words typed
@@ -3162,7 +3168,14 @@ final class Browser: NSObject, ObservableObject {
         if activeID == tab.id { activeID = page.id; editing = false }
     }
 
+    /// An agent's page on show in this window, or none.
+    func watchAgent(_ id: String?) {
+        watchingAgent = id
+        if id == nil { Agent.shared.reroom() }
+    }
+
     func select(_ tab: Tab, floatPrevious: Bool = true) {
+        if watchingAgent != nil { watchAgent(nil) }
         if let pair = split(for: tab), activeSplit?.id == pair.id, activeID != tab.id {
             focusPane(tab)
             return

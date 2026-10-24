@@ -457,7 +457,11 @@ struct ContentView: View {
     /// The page area: the stage that holds the page, or the two side by side
     /// (see SplitView.swift).
     private var stage: some View {
-        SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
+        ZStack {
+            SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
+            // An agent's page, over yours, while you watch it.
+            AgentStage(browser: browser, agent: .shared, corner: cards ? Metrics.cardRadius : 0)
+        }
     }
 
     /// What the column and the strip take from the page right now: animated
@@ -587,6 +591,9 @@ struct ContentView: View {
     private var panels: some View {
         if browser.tuning {
             sheet { SettingsPanel(browser: browser, prefs: browser.prefs) } close: { browser.tuning = false }
+        }
+        if let tab = browser.handingOver {
+            sheet { HandoverCard(browser: browser, tab: tab) } close: { browser.handingOver = nil }
         }
         // What's new, once after an update (see WhatsNew.swift). Every
         // version's notes are a tab.

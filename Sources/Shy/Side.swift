@@ -16,6 +16,8 @@ struct SideBar: View {
     private var greys: Greys { onFrame ? .frame : .white }
 
     @Namespace private var pill
+    /// The agent's session: its folder sits under the pins in every space.
+    @ObservedObject private var agent = Agent.shared
 
     @State private var landing = false
     /// The width the column had when the edge was picked up.
@@ -219,6 +221,7 @@ struct SideBar: View {
                             // over them, not under.
                             .zIndex(carriedPin ? 1 : 0)
                     }
+                    AgentSection(browser: browser, prefs: prefs, agent: agent)
                     // A row too long for the window scrolls between the pins
                     // and the foot, rather than running under the lights at one
                     // end and the foot at the other. While it fits it stays a
@@ -381,7 +384,7 @@ struct SideBar: View {
     private var rowsEnd: CGFloat {
         let pins = browser.squarePins.count
         let pinBlock = pins == 0 ? 0 : (pinCells(pins).map(\.maxY).max() ?? 0) + 10
-        return Metrics.strip + pinBlock + rowsHeight
+        return Metrics.strip + pinBlock + AgentSection.height(agent, row: rowHeight) + rowsHeight
     }
 
     /// The pinned rows, the loose tabs and the row that makes another, added

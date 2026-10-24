@@ -413,6 +413,12 @@ struct TabMenu: View {
         }
         .disabled(tab.isBlank || tab.address == nil || tab.pin != nil)
         Button(tab.muted ? "Unmute Tab" : "Mute Tab") { tab.toggleMute() }
+        // A copy of this site's sign-in for the agent's session, after a
+        // card that says what goes (see HandoverCard). Never a private tab's.
+        if Shared.prefs.agent, Agent.shared.running {
+            Button("Hand Over to Agent…") { browser.handingOver = tab }
+                .disabled(tab.shy || Agent.web(tab.address?.absoluteString) == nil)
+        }
         // Its page let go of now, as it would be after half an hour unseen:
         // the row keeps its title and picture, and it loads again when gone
         // to. Not the tab on screen, nor one that has to stay awake (#310).

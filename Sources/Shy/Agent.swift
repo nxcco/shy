@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import WebKit
 
 // Agents' pages: what an AI agent on this Mac — any MCP client: Claude
@@ -23,8 +24,17 @@ import WebKit
 // - no script of the agent's own: it reads the page's text, takes a picture
 //   of it, clicks and types into what a selector names, nothing else.
 //
-// The pages live in a window of their own off every screen, so a picture of
-// one is a picture of something, and never take a window from you.
+// Together they are the agent's session: the Agent folder at the top of the
+// column, in every space, shows them (AgentSide.swift), and a page picked
+// there is shown in the window, to watch and never to drive. Off show, they
+// live in a window of their own off every screen, so a picture of one is a
+// picture of something, and never take a window from you.
+//
+// The one way anything of yours gets in is a handover (see `handOver`), and
+// only from your right-click: a copy of one site's sign-in, in a page of
+// the session's own, locked to that site, for a time you chose, read-only
+// unless you said otherwise, every click asked about unless you said
+// otherwise, and every step written down.
 
 @MainActor
 final class Agent: NSObject, ObservableObject {
@@ -39,8 +49,14 @@ final class Agent: NSObject, ObservableObject {
 
     private var server: LocalSocket?
     private(set) var running = false
-    /// Its pages, newest last, for Settings to count and close.
+    /// Its pages, newest last: the Agent folder's rows.
     @Published private(set) var pages: [Page] = []
+    /// What the agent last called itself (MCP's clientInfo, from shy-mcp).
+    @Published private(set) var client: String?
+    /// Questions for you: a click or typing on a handed-over page, waiting.
+    @Published private(set) var pending: [Approval] = []
+    /// The folder shown as its header alone.
+    @Published var folded = false
     private var room: NSWindow?
 
     /// What can be taken away from agents in Settings › Agents, and the
@@ -88,14 +104,71 @@ final class Agent: NSObject, ObservableObject {
     /// own scripts, which can neither see nor change them.
     private static let world = WKContentWorld.world(name: "shy-agent")
 
-    final class Page {
+    /// One of your tabs' sign-ins, copied into a page of the session's own.
+    struct Handover {
+        /// The site it is locked to: the registrable domain, "google.com".
+        let site: String
+        /// The page's host when it was handed over, "mail.google.com".
+        let host: String
+        let cookies: Int
+        /// Clicks and typing allowed at all; read-only otherwise.
+        let acts: Bool
+        /// Each click and each typing asked about first.
+        let asks: Bool
+        let ends: Date
+        /// Why the copied sign-in is gone, once it is.
+        var over: String?
+    }
+
+    /// One step an agent took on a page, for you to look back over.
+    struct Step: Identifiable {
+        let id = UUID()
+        let at = Date()
+        let what: String
+    }
+
+    /// A click or typing on a handed-over page, waiting for your yes.
+    struct Approval: Identifiable {
+        var id = UUID()
+        let page: String
+        let site: String
+        let what: String
+        let reply: (Bool) -> Void
+    }
+
+    @MainActor
+    final class Page: ObservableObject, Identifiable {
         let id: String
         let web: WKWebView
         /// When an agent last asked anything of it (see `tidy`).
         var used = Date()
+        @Published var title = ""
+        @Published var address: URL?
+        /// What the agent is doing to it right now, in a word: "clicking".
+        @Published var acting: String?
+        @Published var steps: [Step] = []
+        @Published var handover: Handover?
+        private var watching: [NSKeyValueObservation] = []
+
         init(id: String, web: WKWebView) {
             self.id = id
             self.web = web
+            watching = [
+                web.observe(\.title, options: [.new]) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.title = self?.web.title ?? "" }
+                },
+                web.observe(\.url, options: [.new]) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.address = self?.web.url }
+                },
+            ]
+        }
+
+        /// Its handover, while the copied sign-in is still in it.
+        var live: Handover? { handover.flatMap { $0.over == nil ? $0 : nil } }
+
+        func note(_ what: String) {
+            steps.append(Step(what: what))
+            if steps.count > 200 { steps.removeFirst(steps.count - 200) }
         }
     }
 
@@ -103,6 +176,15 @@ final class Agent: NSObject, ObservableObject {
     /// it runs, it runs from your Mac.
     static let idle: TimeInterval = 10 * 60
     private var tidying: Timer?
+
+    /// What each call is doing, as the folder says it.
+    private static let doing = ["open": "opening", "go": "going", "text": "reading", "shot": "looking",
+                                "click": "clicking", "type": "typing", "wait": "waiting"]
+
+    /// The page being acted on, and what to, for the folder's header.
+    var busy: (page: Page, doing: String)? {
+        pages.last { $0.acting != nil }.map { ($0, $0.acting ?? "") }
+    }
 
     // MARK: - starting and stopping
 
@@ -121,8 +203,10 @@ final class Agent: NSObject, ObservableObject {
 
     private func tidy() {
         let stale = pages.filter { Date().timeIntervalSince($0.used) > Agent.idle }
-        stale.forEach(drop)
-        pages.removeAll { page in stale.contains { $0 === page } }
+        stale.forEach(close)
+        for page in pages {
+            if let handover = page.live, handover.ends <= Date() { end(page, "its time was up") }
+        }
     }
 
     func stop() {
@@ -135,9 +219,25 @@ final class Agent: NSObject, ObservableObject {
         closeAll()
     }
 
+    /// The session over: every page closed, and with each its store.
     func closeAll() {
         pages.forEach(drop)
         pages = []
+        pending.forEach { $0.reply(false) }
+        pending = []
+        client = nil
+    }
+
+    func close(_ page: Page) {
+        pending.filter { $0.page == page.id }.forEach { $0.reply(false) }
+        pending.removeAll { $0.page == page.id }
+        drop(page)
+        pages.removeAll { $0 === page }
+        if pages.isEmpty { client = nil }
+    }
+
+    func page(_ id: String?) -> Page? {
+        id.flatMap { id in pages.first { $0.id == id } }
     }
 
     // MARK: - the calls
@@ -145,9 +245,11 @@ final class Agent: NSObject, ObservableObject {
     private func handle(_ request: [String: Any], _ given: @escaping ([String: Any]) -> Void) {
         // One answer, and always one, however a page behaves.
         var answered = false
+        var acted: Page?
         let answer: ([String: Any]) -> Void = { reply in
             guard !answered else { return }
             answered = true
+            acted?.acting = nil
             given(reply)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 45) { answer(["error": "no answer within 45 s"]) }
@@ -155,6 +257,10 @@ final class Agent: NSObject, ObservableObject {
         let verb = request["do"] as? String ?? ""
         guard Agent.allowed.contains(verb) else {
             return answer(["error": "“\(verb)” is turned off in Shy's Settings › Agents"])
+        }
+        if let name = request["client"] as? String {
+            let plain = String(name.filter { $0.isLetter || $0.isNumber || " -_.".contains($0) }.prefix(40))
+            if !plain.isEmpty, client != plain { client = plain }
         }
         // What shy-mcp offers the agent: only what is allowed now.
         if verb == "tools" {
@@ -166,6 +272,9 @@ final class Agent: NSObject, ObservableObject {
                 return answer(["error": "\(Agent.most) pages are open — close one first"])
             }
             let page = make()
+            acted = page
+            page.acting = "opening"
+            page.note("Opened \(url.host() ?? url.absoluteString)")
             page.web.load(URLRequest(url: url))
             return settle(page, within: 15, answer)
         }
@@ -177,13 +286,19 @@ final class Agent: NSObject, ObservableObject {
             closeAll()
             return answer(["closed": count])
         }
-        guard let page = (request["id"] as? String).flatMap({ id in pages.first { $0.id == id } }) else {
+        guard let page = page(request["id"] as? String) else {
             return answer(["error": "no page “\(request["id"] as? String ?? "")” — open one, or list them"])
         }
         page.used = Date()
+        drawn(page)
+        if let words = Agent.doing[verb] {
+            acted = page
+            page.acting = words
+        }
         switch verb {
         case "go":
             guard let url = Agent.web(request["url"]) else { return answer(["error": "go needs an http or https address"]) }
+            page.note("Went to \(url.host() ?? "")\(url.path())")
             page.web.load(URLRequest(url: url))
             settle(page, within: 15, answer)
 
@@ -192,6 +307,7 @@ final class Agent: NSObject, ObservableObject {
             settle(page, within: seconds, answer)
 
         case "text":
+            page.note("Read the page")
             run(Agent.reading, on: page) { value, trouble in
                 if let trouble { return answer(["error": trouble]) }
                 guard var text = value as? String else { return answer(["error": "the page has no text to read"]) }
@@ -204,6 +320,7 @@ final class Agent: NSObject, ObservableObject {
             }
 
         case "shot":
+            page.note("Took a screenshot")
             let shot = WKSnapshotConfiguration()
             shot.afterScreenUpdates = true
             page.web.takeSnapshot(with: shot) { image, _ in
@@ -221,19 +338,47 @@ final class Agent: NSObject, ObservableObject {
             }
             let text = request["text"] as? String ?? ""
             guard verb == "click" || text.count <= 10_000 else { return answer(["error": "that is a lot to type"]) }
-            run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value, trouble in
-                let said = trouble ?? value as? String ?? "the page didn't answer"
-                answer(said == "ok" ? ["ok": true] : ["error": said])
+            let what = verb == "click"
+                ? "Click \(Agent.quoted(selector))"
+                : "Type \(Agent.quoted(text)) into \(Agent.quoted(selector))"
+            let act = {
+                page.note(what)
+                self.run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value, trouble in
+                    let said = trouble ?? value as? String ?? "the page didn't answer"
+                    answer(said == "ok" ? ["ok": true] : ["error": said])
+                }
+            }
+            // A page with your sign-in in it: only what you allowed, and
+            // asked about first unless you said not to.
+            guard let handover = page.live else { return act() }
+            guard handover.acts else {
+                page.note("Refused: \(what) (read only)")
+                return answer(["error": "this page was handed over read-only: the person allowed reading, not clicking or typing"])
+            }
+            guard handover.asks else { return act() }
+            page.acting = "waiting for you"
+            ask(page, handover, what) { yes in
+                guard yes else {
+                    page.note("You refused: \(what)")
+                    return answer(["error": "the person said no to this"])
+                }
+                page.acting = verb == "click" ? "clicking" : "typing"
+                act()
             }
 
         case "close":
-            drop(page)
-            pages.removeAll { $0 === page }
+            close(page)
             answer(["closed": 1])
 
         default:
             answer(["error": "unknown call “\(verb)”"])
         }
+    }
+
+    /// Short enough for a line in the folder, and plainly someone's words.
+    static func quoted(_ text: String) -> String {
+        let flat = text.replacingOccurrences(of: "\n", with: " ")
+        return "“" + (flat.count > 60 ? String(flat.prefix(59)) + "…" : flat) + "”"
     }
 
     /// An http or https address with a host, and nothing else: no file on
@@ -248,7 +393,14 @@ final class Agent: NSObject, ObservableObject {
     }
 
     private func describe(_ page: Page) -> [String: Any] {
-        ["id": page.id, "url": page.web.url?.absoluteString ?? "", "title": page.web.title ?? "", "loading": page.web.isLoading]
+        var said: [String: Any] = ["id": page.id, "url": page.web.url?.absoluteString ?? "", "title": page.web.title ?? "",
+                                   "loading": page.web.isLoading]
+        if let handover = page.handover {
+            said["handedOver"] = handover.over == nil
+                ? (handover.acts ? (handover.asks ? "signed in to \(handover.site); each click and typing is asked about" : "signed in to \(handover.site)") : "signed in to \(handover.site), read-only")
+                : "the sign-in to \(handover.site) was taken back: \(handover.over ?? "")"
+        }
+        return said
     }
 
     /// Answered once the page has stopped loading, or when the time is up.
@@ -281,6 +433,90 @@ final class Agent: NSObject, ObservableObject {
         unsafeBitCast(imp, to: Call.self)(page.web, call, script as NSString, arguments as NSDictionary, nil, Agent.world, false, done)
     }
 
+    // MARK: - asking you
+
+    /// Waits for your yes in the folder; no answer in 40 seconds is a no.
+    private func ask(_ page: Page, _ handover: Handover, _ what: String, _ reply: @escaping (Bool) -> Void) {
+        var replied = false
+        let id = UUID()
+        let once: (Bool) -> Void = { [weak self] yes in
+            guard !replied else { return }
+            replied = true
+            self?.pending.removeAll { $0.id == id }
+            reply(yes)
+        }
+        pending.append(Approval(id: id, page: page.id, site: handover.site, what: what, reply: once))
+        NSApp.requestUserAttention(.informationalRequest)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 40) { once(false) }
+    }
+
+    func answer(_ approval: Approval, _ yes: Bool) {
+        approval.reply(yes)
+    }
+
+    // MARK: - handing over
+
+    /// The cookies a page of `host` is sent: those set for it, and for a
+    /// domain it is under. Nothing for a sibling or a parent's other
+    /// children, and nothing past its date.
+    static func sent(_ cookie: HTTPCookie, to host: String) -> Bool {
+        if let expires = cookie.expiresDate, expires <= Date() { return false }
+        let domain = cookie.domain.lowercased()
+        if domain.hasPrefix(".") {
+            let bare = String(domain.dropFirst())
+            return host == bare || host.hasSuffix("." + bare)
+        }
+        return host == domain
+    }
+
+    /// What a handover of this tab would copy: its address, and the
+    /// cookies its page is sent.
+    static func offer(_ tab: Tab, _ found: @escaping (URL, [HTTPCookie]) -> Void) {
+        guard let url = Agent.web(tab.address?.absoluteString), let host = url.host()?.lowercased() else { return }
+        tab.store.httpCookieStore.getAllCookies { all in
+            MainActor.assumeIsolated { found(url, all.filter { sent($0, to: host) }) }
+        }
+    }
+
+    /// A page of the session's own, with a copy of `cookies` and nothing
+    /// else of yours, at `url`. Nil, with why, when there's no room.
+    @discardableResult
+    func handOver(_ url: URL, cookies: [HTTPCookie], acts: Bool, asks: Bool, minutes: Int) -> String? {
+        guard running else { return "Agents are off in Settings › Agents" }
+        guard pages.count < Agent.most else { return "The agent has \(Agent.most) pages open — close one first" }
+        guard let host = url.host()?.lowercased() else { return "Not a page on the web" }
+        let page = make()
+        page.handover = Handover(site: Vault.registrable(host), host: host, cookies: cookies.count,
+                                 acts: acts, asks: asks, ends: Date().addingTimeInterval(TimeInterval(minutes * 60)))
+        page.note("You handed over \(host): \(cookies.count) cookies, \(acts ? (asks ? "asking before each click" : "clicks allowed") : "read only"), \(minutes) min")
+        let store = page.web.configuration.websiteDataStore.httpCookieStore
+        let group = DispatchGroup()
+        for cookie in cookies {
+            group.enter()
+            store.setCookie(cookie) { group.leave() }
+        }
+        group.notify(queue: .main) {
+            page.web.load(URLRequest(url: url))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(minutes * 60)) { [weak self, weak page] in
+            guard let self, let page, page.live != nil else { return }
+            self.end(page, "its time was up")
+        }
+        return nil
+    }
+
+    /// The copied sign-in deleted: the page stays, signed out.
+    func end(_ page: Page, _ why: String, then: (() -> Void)? = nil) {
+        guard page.live != nil else { then?(); return }
+        page.handover?.over = why
+        page.note("Sign-in removed: \(why)")
+        pending.filter { $0.page == page.id }.forEach { $0.reply(false) }
+        let store = page.web.configuration.websiteDataStore
+        store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
+            MainActor.assumeIsolated { then?() }
+        }
+    }
+
     // MARK: - the pages
 
     private func make() -> Page {
@@ -309,11 +545,30 @@ final class Agent: NSObject, ObservableObject {
         return page
     }
 
+    /// Back in the room off screen, when no window is showing it: a page
+    /// out of every window draws nothing to take a picture of.
+    func drawn(_ page: Page) {
+        guard page.web.window == nil else { return }
+        let window = room ?? makeRoom()
+        page.web.frame = window.contentView?.bounds ?? page.web.frame
+        window.contentView?.addSubview(page.web)
+    }
+
+    /// Every page out of every window put back in the room, a turn after a
+    /// window stopped showing one.
+    func reroom() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.pages.forEach(self.drawn)
+        }
+    }
+
     private func drop(_ page: Page) {
         page.web.stopLoading()
         page.web.navigationDelegate = nil
         page.web.uiDelegate = nil
         page.web.removeFromSuperview()
+        page.acting = nil
     }
 
     private func makeRoom() -> NSWindow {
@@ -401,7 +656,28 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
         guard allowed.contains(scheme), scheme != "about" || url.absoluteString == "about:blank" || !main else {
             return decisionHandler(.cancel)
         }
-        decisionHandler(.allow)
+        // A page with your sign-in in it stays on its site. Leaving it, the
+        // copy is deleted before the request goes, so it can't be carried
+        // anywhere else; the page goes on, signed out.
+        guard main, let page = pages.first(where: { $0.web === webView }), let handover = page.live,
+              ["http", "https"].contains(scheme)
+        else { return decisionHandler(.allow) }
+        let host = url.host()?.lowercased() ?? ""
+        guard Vault.registrable(host) == handover.site else {
+            return end(page, "the page left \(handover.site) for \(host)") { decisionHandler(.allow) }
+        }
+        // A form sent with your sign-in: never on a read-only handover, and
+        // asked about first unless you said not to.
+        guard action.request.httpMethod?.uppercased() == "POST" else { return decisionHandler(.allow) }
+        guard handover.acts else {
+            page.note("Blocked a form sent to \(host) (read only)")
+            return decisionHandler(.cancel)
+        }
+        guard handover.asks else { return decisionHandler(.allow) }
+        ask(page, handover, "Send a form to \(host)\(url.path())") { yes in
+            page.note(yes ? "You allowed a form sent to \(host)" : "You refused a form sent to \(host)")
+            decisionHandler(yes ? .allow : .cancel)
+        }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse,
@@ -468,7 +744,6 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
     /// A page whose process went away is closed rather than left blank.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         guard let page = pages.first(where: { $0.web === webView }) else { return }
-        drop(page)
-        pages.removeAll { $0 === page }
+        close(page)
     }
 }
