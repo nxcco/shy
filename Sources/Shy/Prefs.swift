@@ -438,40 +438,6 @@ final class Preferences: ObservableObject {
     @Published var escapeTwice: Bool {
         didSet { store.set(escapeTwice, forKey: "fullscreen.escapeTwice") }
     }
-    /// The AI add-on: summaries of the page and questions about it (see
-    /// AIAssist). Off unless asked for; nothing is sent until you ask.
-    @Published var ai: Bool {
-        didSet {
-            // Never on in a build without it (AI.shipped); a test run's
-            // bench may still turn it on to exercise the code.
-            if ai, !AI.shipped, !Store.testing { ai = false; return }
-            store.set(ai, forKey: "ai")
-        }
-    }
-    /// Where its answers come from. None until you choose.
-    @Published var aiProvider: AIProvider? {
-        didSet { store.set(aiProvider?.rawValue, forKey: "ai.provider") }
-    }
-    /// The model asked for at each provider, where it isn't the default.
-    @Published private(set) var aiModels: [String: String] {
-        didSet { store.set(aiModels, forKey: "ai.models") }
-    }
-
-    func aiModel(for provider: AIProvider) -> String {
-        let chosen = (aiModels[provider.rawValue] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return chosen.isEmpty ? provider.defaultModel : chosen
-    }
-
-    /// A model's name, and nothing that isn't one: no spaces, no key pasted
-    /// into the wrong field (which would go out in a request).
-    func setAIModel(_ model: String, for provider: AIProvider) {
-        let name = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        let looksLikeKey = ["sk-", "AIza", "AQ.", "gsk_", "hf_"].contains { name.hasPrefix($0) } || name.count > 100
-        guard name.isEmpty || (!looksLikeKey && name.range(of: #"^[A-Za-z0-9._:/@\-]+$"#, options: .regularExpression) != nil)
-        else { return }
-        aiModels[provider.rawValue] = name
-    }
-
     /// ⌘T raises the field over the page you are on, as in Arc, and a tab is
     /// only made once Return sends it somewhere. Escape, ⌘W or a click
     /// outside puts the field away and leaves you where you were. Off unless
@@ -573,9 +539,6 @@ final class Preferences: ObservableObject {
         // Anyone who already has a session was here before the flag
         // existed.
         welcomed = store.bool(forKey: "welcomed") || store.object(forKey: "glyph") != nil
-        ai = AI.shipped && store.bool(forKey: "ai")
-        aiProvider = store.string(forKey: "ai.provider").flatMap(AIProvider.init(rawValue:))
-        aiModels = store.dictionary(forKey: "ai.models") as? [String: String] ?? [:]
         floatingNewTab = store.bool(forKey: "newtab.floating")
         floatWhen = FloatWhen.chosen(store)
         panelSite = store.string(forKey: "panel.site") ?? ""
@@ -619,8 +582,9 @@ final class Preferences: ObservableObject {
                     "tabs.give", "bookmarks.bar", "links.peek", "toolbar.left", "update.install", "update.checked", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
             store.removeObject(forKey: key)
         }
-        // Left behind by an assistant this browser no longer has.
-        for key in ["mind.model", "mind.effort", "mind.acting", "mind.width", "mind.open"] {
+        // Left behind by an assistant, and an AI add-on, this browser no
+        // longer has.
+        for key in ["mind.model", "mind.effort", "mind.acting", "mind.width", "mind.open", "ai", "ai.provider", "ai.models"] {
             store.removeObject(forKey: key)
         }
     }

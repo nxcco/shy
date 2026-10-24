@@ -20,7 +20,7 @@ struct SettingsPanel: View {
     @State private var page: Page = Page(rawValue: Store.settings.string(forKey: "settings.page") ?? "") ?? .general
 
     enum Page: String, CaseIterable, Identifiable {
-        case general, tabs, profiles, shortcuts, extensions, passwords, downloads, privacy, agents, ai, about
+        case general, tabs, profiles, shortcuts, extensions, passwords, downloads, privacy, agents, about
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -33,7 +33,6 @@ struct SettingsPanel: View {
             case .downloads: return "Downloads"
             case .privacy: return "Privacy"
             case .agents: return "Agents"
-            case .ai: return "AI"
             case .about: return "About"
             }
         }
@@ -48,7 +47,6 @@ struct SettingsPanel: View {
             case .downloads: return "arrow.down.circle"
             case .privacy: return "hand.raised"
             case .agents: return "cursorarrow.rays"
-            case .ai: return "sparkles"
             case .about: return "info.circle"
             }
         }
@@ -84,7 +82,7 @@ struct SettingsPanel: View {
     }
 
     private func follow(_ asked: String?) {
-        guard let asked, let wanted = Page(rawValue: asked), wanted != .ai || AI.shipped, wanted != page else { return }
+        guard let asked, let wanted = Page(rawValue: asked), wanted != page else { return }
         page = wanted
     }
 
@@ -115,7 +113,7 @@ struct SettingsPanel: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
-            ForEach(Page.allCases.filter { $0 != .ai || AI.shipped }) { item in
+            ForEach(Page.allCases) { item in
                 PageRow(page: item, on: page == item) { page = item }
             }
             Spacer(minLength: 0)
@@ -188,7 +186,6 @@ struct SettingsPanel: View {
                     case .downloads: downloads
                     case .agents: agents
                     case .privacy: privacy
-                    case .ai: if AI.shipped { AISettings(browser: browser, prefs: prefs) }
                     case .about: about
                     }
                 }

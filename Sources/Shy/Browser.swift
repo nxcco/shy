@@ -377,8 +377,6 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - looking for something on the page
 
     @Published var finding = false
-    /// The AI panel's conversation about the page, while it is open.
-    @Published var assisting: Assistant?
     /// The side panel, beside the page (see SidePanel.swift): up or
     /// not, and what is in it.
     @Published var sidePanelShown = false
@@ -386,8 +384,7 @@ final class Browser: NSObject, ObservableObject {
     /// The Settings page it opens on next.
     var settingsPage: SettingsPanel.Page {
         get {
-            let page = SettingsPanel.Page(rawValue: Store.settings.string(forKey: "settings.page") ?? "") ?? .general
-            return page == .ai && !AI.shipped ? .general : page
+            SettingsPanel.Page(rawValue: Store.settings.string(forKey: "settings.page") ?? "") ?? .general
         }
         set { Store.settings.set(newValue.rawValue, forKey: "settings.page") }
     }
@@ -3220,8 +3217,6 @@ final class Browser: NSObject, ObservableObject {
         // Back on a tab with the caret still in a box, the list may come again.
         looked = nil
         guard tab.id != activeID else { return }
-        // The AI panel is about the page it was opened on.
-        if assisting != nil { closeAssistant() }
         // An extension's panel opened for one tab goes and comes with it.
         sidePanelFollows(tab)
         // Coming back to the tab whose video is out brings it home first, so
@@ -5363,8 +5358,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // An extension's OAuth sign-in coming back: the address is the
         // answer, handed to the extension, and never loaded.
         if ExtensionAuth.intercept(url, browser: self, from: webView)
-            || ExtensionAuth.handOver(url, mainFrame: action.targetFrame?.isMainFrame == true, browser: self, from: webView)
-            || AISignIn.intercept(url, mainFrame: action.targetFrame?.isMainFrame == true, in: tab(for: webView), browser: self) {
+            || ExtensionAuth.handOver(url, mainFrame: action.targetFrame?.isMainFrame == true, browser: self, from: webView) {
             decisionHandler(.cancel)
             return
         }

@@ -151,16 +151,6 @@ struct ShyApp: App {
                     ))
                     .shortcut("view.duskPause")
                 }
-                // The AI add-on's, only once it is on (Settings › AI).
-                if browser.prefs.ai {
-                    Divider()
-                    Button("Summarize Page") { browser.summarizePage() }
-                        .shortcut("view.summarize")
-                        .disabled(!(browser.active?.isWeb ?? false))
-                    Button("Ask About This Page…") { browser.askAboutPage() }
-                        .shortcut("view.ask")
-                        .disabled(!(browser.active?.isWeb ?? false))
-                }
                 Divider()
                 Button("Hide Elements…") { browser.toggleHiding() }
                     .shortcut("view.hide")
@@ -1214,10 +1204,6 @@ struct ContentView: View {
                 browser.dropChoice()
                 return true
             }
-            if browser.assisting != nil {
-                browser.closeAssistant()
-                return true
-            }
             if browser.veiling {
                 browser.toggleHiding()
                 return true
@@ -1315,7 +1301,6 @@ struct ContentView: View {
         if ShortcutStore.shared.anyChanged, let combo = KeyCombo(event: event) {
             if let command = ShortcutStore.shared.customCommand(on: combo) {
                 if command.section == .spaces { return false }
-                if Command.ai.contains(command.id), !browser.prefs.ai { return false }
                 if Command.dusk.contains(command.id), !browser.prefs.darkensPages { return false }
                 command.run(browser)
                 return true

@@ -31,10 +31,7 @@ enum WhatsNew {
 
     /// Every switch worth meeting, oldest last. The card shows this
     /// version's, and the older ones still off.
-    static let toggles: [Toggle] = (AI.shipped ? [
-        Toggle(title: "AI on pages", detail: "Summarize a page or ask about it. Choose where it runs in Settings › AI.",
-               since: "1.0.5", get: { $0.ai }, set: { $0.ai = $1 }),
-    ] : []) + [
+    static let toggles: [Toggle] = [
         Toggle(title: "Suggestions from your search engine", detail: "Searches suggested as you type. What you type is sent to your engine; never from a private tab.",
                since: "1.0.6", get: { $0.engineSuggests }, set: { $0.engineSuggests = $1 }),
         Toggle(title: "Darken light pages", detail: "While Shy is dark, pages with no dark look of their own are darkened.",
