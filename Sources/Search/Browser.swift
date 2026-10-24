@@ -1163,13 +1163,15 @@ final class Browser: NSObject, ObservableObject {
     /// The other browser's history, into this one's. Off the main thread for
     /// the reading; the merge itself is a moment.
     func takePlaces(from source: ImportSource, profile: String? = nil, then done: @escaping (Int) -> Void) {
+        // The profile on screen when it was asked for.
+        let history = self.history
         DispatchQueue.global(qos: .userInitiated).async {
             let places = source.places(profile: profile)
             DispatchQueue.main.async {
                 for place in places {
-                    self.history.take(place.url, title: place.title, count: place.count, last: place.last)
+                    history.take(place.url, title: place.title, count: place.count, last: place.last)
                 }
-                self.history.settle()
+                history.settle()
                 ImportRecords.note(source.name, places: places.count)
                 done(places.count)
             }
@@ -1208,6 +1210,7 @@ final class Browser: NSObject, ObservableObject {
     func takeFile(_ url: URL) async -> FileTake {
         // The profile on screen when it was asked for, wherever the window goes meanwhile.
         let profile = profileID
+        let bookmarks = self.bookmarks, history = self.history
         guard !Browser.fileImportTerminating, fileImport == nil else { return FileTake(said: "An import is already running", bookmarks: 0, already: 0, places: 0, kept: 0, skipped: 0, cancelled: false) }
         let id = UUID()
         fileImport = FileImportJob(id: id, filename: url.lastPathComponent, message: "Reading…")
@@ -3847,9 +3850,11 @@ final class Browser: NSObject, ObservableObject {
         objectWillChange.send()
     }
 
-    /// The profile of the space a tab is in: the one on screen, or a row
-    /// parked behind it.
+    /// The profile a tab's page is signed in as: read from its store, so a
+    /// page in a small window, a peek or the side panel answers for itself
+    /// whatever the window shows now; for a private tab, the space it is in.
     func profile(of tab: Tab) -> UUID {
+        if let owner = Profiles.owner(of: tab.store) { return owner }
         if tabs.contains(where: { $0 === tab }) { return profileID }
         let space = parked.first { $0.value.tabs.contains { $0 === tab } }?.key
         return space.flatMap { id in spaces.first { $0.id == id } }?.profileID ?? profileID
@@ -5154,7 +5159,8 @@ final class Browser: NSObject, ObservableObject {
                 // A translated title is the page's in your words, not its own:
                 // history keeps the page's (Translate.swift).
                 guard let tab, !tab.shy, tab.translator == nil, let url = tab.address else { return }
-                self?.history.retitle(url, title)
+                guard let self else { return }
+                Profiles.history(profile(of: tab)).retitle(url, title)
             }
             .store(in: &bag)
     }

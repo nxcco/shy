@@ -50,11 +50,18 @@ final class Agent: NSObject, ObservableObject {
     final class Page {
         let id: String
         let web: WKWebView
+        /// When Claude last asked anything of it (see `tidy`).
+        var used = Date()
         init(id: String, web: WKWebView) {
             self.id = id
             self.web = web
         }
     }
+
+    /// A page Claude hasn't asked anything of for this long is closed: what
+    /// it runs, it runs from your Mac.
+    static let idle: TimeInterval = 10 * 60
+    private var tidying: Timer?
 
     // MARK: - starting and stopping
 
@@ -66,12 +73,23 @@ final class Agent: NSObject, ObservableObject {
         guard server.start() else { return }
         self.server = server
         running = true
+        tidying = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            MainActor.assumeIsolated { Agent.shared.tidy() }
+        }
+    }
+
+    private func tidy() {
+        let stale = pages.filter { Date().timeIntervalSince($0.used) > Agent.idle }
+        stale.forEach(drop)
+        pages.removeAll { page in stale.contains { $0 === page } }
     }
 
     func stop() {
         guard running else { return }
         server?.stop()
         server = nil
+        tidying?.invalidate()
+        tidying = nil
         running = false
         closeAll()
     }
@@ -114,6 +132,7 @@ final class Agent: NSObject, ObservableObject {
         guard let page = (request["id"] as? String).flatMap({ id in pages.first { $0.id == id } }) else {
             return answer(["error": "no page “\(request["id"] as? String ?? "")” — open one, or list them"])
         }
+        page.used = Date()
         switch verb {
         case "go":
             guard let url = Agent.web(request["url"]) else { return answer(["error": "go needs an http or https address"]) }
@@ -125,7 +144,8 @@ final class Agent: NSObject, ObservableObject {
             settle(page, within: seconds, answer)
 
         case "text":
-            run(Agent.reading, on: page) { value in
+            run(Agent.reading, on: page) { value, trouble in
+                if let trouble { return answer(["error": trouble]) }
                 guard var text = value as? String else { return answer(["error": "the page has no text to read"]) }
                 var cut = false
                 if text.count > Agent.longest { text = String(text.prefix(Agent.longest)); cut = true }
@@ -153,8 +173,8 @@ final class Agent: NSObject, ObservableObject {
             }
             let text = request["text"] as? String ?? ""
             guard verb == "click" || text.count <= 10_000 else { return answer(["error": "that is a lot to type"]) }
-            run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value in
-                let said = value as? String ?? "the page didn't answer"
+            run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value, trouble in
+                let said = trouble ?? value as? String ?? "the page didn't answer"
                 answer(said == "ok" ? ["ok": true] : ["error": said])
             }
 
@@ -195,15 +215,22 @@ final class Agent: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { look() }
     }
 
-    private func run(_ script: String, on page: Page, _ arguments: [String: Any] = [:], then: @escaping (Any?) -> Void) {
-        page.web.callAsyncJavaScript(script, arguments: arguments, in: nil, in: Agent.world) { result in
-            MainActor.assumeIsolated {
-                switch result {
-                case .success(let value): then(value)
-                case .failure(let error): then(error.localizedDescription)
-                }
-            }
+    /// Run without a user gesture. WebKit's public way runs a script as
+    /// though the page had been clicked, and a click Claude makes would then
+    /// let the page do what only a person's click allows: write to your
+    /// clipboard, play sound, open a system sheet. WebKit's own variant
+    /// without one is asked for by name; without it nothing is run.
+    private func run(_ script: String, on page: Page, _ arguments: [String: Any] = [:], then: @escaping (Any?, String?) -> Void) {
+        typealias Done = @convention(block) (Any?, NSError?) -> Void
+        typealias Call = @convention(c) (AnyObject, Selector, NSString, NSDictionary, WKFrameInfo?, WKContentWorld, ObjCBool, Done) -> Void
+        let call = NSSelectorFromString("_callAsyncJavaScript:arguments:inFrame:inContentWorld:withUserGesture:completionHandler:")
+        guard page.web.responds(to: call), let imp = page.web.method(for: call) else {
+            return then(nil, "this version of macOS can't act on a page without a click of its own")
         }
+        let done: Done = { value, error in
+            MainActor.assumeIsolated { then(value, error?.localizedDescription) }
+        }
+        unsafeBitCast(imp, to: Call.self)(page.web, call, script as NSString, arguments as NSDictionary, nil, Agent.world, false, done)
     }
 
     // MARK: - the pages
@@ -222,6 +249,12 @@ final class Agent: NSObject, ObservableObject {
         web.navigationDelegate = self
         web.uiDelegate = self
         web.autoresizingMask = [.width, .height]
+        // Never a sound on your speakers from a page you can't see.
+        let mute = NSSelectorFromString("_setPageMuted:")
+        if web.responds(to: mute), let imp = web.method(for: mute) {
+            typealias Muting = @convention(c) (AnyObject, Selector, UInt) -> Void
+            unsafeBitCast(imp, to: Muting.self)(web, mute, 1)
+        }
         window.contentView?.addSubview(web)
         let page = Page(id: String(UUID().uuidString.prefix(8)).lowercased(), web: web)
         pages.append(page)

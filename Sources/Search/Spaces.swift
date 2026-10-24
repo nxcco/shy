@@ -113,6 +113,11 @@ enum Spaces {
 
     @MainActor static func profile(of id: UUID) -> UUID { owners[id] ?? Profile.personalID }
 
+    /// The space whose own store this is, for one with sign-ins of its own.
+    @MainActor static func space(owning store: WKWebsiteDataStore) -> UUID? {
+        stores.first { $0.value === store }?.key
+    }
+
     /// A space's store: its profile's, unless it has sign-ins of its own.
     @MainActor static func store(for id: UUID) -> WKWebsiteDataStore {
         if id == Space.firstID || sharing.contains(id) { return Profiles.store(profile(of: id)) }

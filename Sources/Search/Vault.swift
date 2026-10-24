@@ -188,12 +188,17 @@ enum Vault {
         // Ours only. Server and account alone also match what other apps
         // keep for the same site — git's token for github.com under your
         // username — and an update would write this password over it.
-        let identity: [String: Any] = [
+        var identity: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
             kSecAttrAccount as String: user,
             kSecAttrLabel as String: label(profile),
         ]
+        // The keychain tells two items apart by server, account and the like,
+        // not by label: another profile's for the same account would make
+        // this one a duplicate. The profile's id, in a field that is part of
+        // that key, keeps them apart. Personal's items have none, as before.
+        if profile != Profile.personalID { identity[kSecAttrSecurityDomain as String] = profile.uuidString }
         // A web form's, which also keeps ours apart from another app's item
         // in the keychain's eyes: one for the same server, account and
         // protocol — git's — makes adding ours fail as a duplicate.

@@ -84,6 +84,14 @@ final class Profiles: ObservableObject {
         return made
     }
 
+    /// Whose store this is: a profile's, or a space's own (in that space's
+    /// profile). Nil for one of neither, a private tab's.
+    static func owner(of store: WKWebsiteDataStore) -> UUID? {
+        if store === Store.websites { return Profile.personalID }
+        if let id = stores.first(where: { $0.value === store })?.key { return id }
+        return Spaces.space(owning: store).map(Spaces.profile(of:))
+    }
+
     /// The profile stores made so far, Personal's aside.
     static var madeStores: [WKWebsiteDataStore] { Array(stores.values) }
 
@@ -137,10 +145,17 @@ final class Profiles: ObservableObject {
         guard id != Profile.personalID, list.contains(where: { $0.id == id }) else { return }
         // Its spaces to Personal first, so that their tabs leave its store
         // before it is emptied (see Browser's Spaces.changed).
+        // One with sign-ins of its own loses them too: what the profile
+        // held goes, all of it.
         let all = Spaces.read()
         Spaces.write(all.map { space in
             var space = space
-            if space.profile == id { space.profile = nil }
+            guard space.profile == id else { return space }
+            space.profile = nil
+            if space.sharesSignIns != true {
+                Spaces.erase(space.id)
+                space.sharesSignIns = true
+            }
             return space
         })
         list.removeAll { $0.id == id }

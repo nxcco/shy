@@ -225,7 +225,6 @@ struct TabBar: View {
             let shown = pins + groups.flatMap(\.tabs) + loose
             let each = width(in: strip, tabs: shown, splits: row.splits)
             let line = TabBar.showsPinLine(shown, groups: groups.count)
-            let firstLoose = shown.firstIndex { $0.pin == nil }
             HStack(spacing: Metrics.tabGap) {
                 ForEach(pins) { tab in
                     rowItem(tab, in: row.tabs, splits: row.splits, activeID: row.active,

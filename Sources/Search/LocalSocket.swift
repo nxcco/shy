@@ -85,6 +85,10 @@ final class LocalSocket {
             close(fd)
             return
         }
+        // A client gone before its answer is written is a failed write, not
+        // a SIGPIPE that ends the app.
+        var one: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         let client = Client(fd: fd, decorate: decorate) { [weak self] request, answer in
             self?.handle(request, answer)
         } gone: { [weak self] fd in
@@ -154,10 +158,12 @@ final class LocalSocket {
             out.append(0x0A)
             out.withUnsafeBytes { raw in
                 var sent = 0
+                // A reader that stops reading gets two seconds, not the app.
+                var patience = 1000
                 while sent < raw.count {
                     let n = write(fd, raw.baseAddress! + sent, raw.count - sent)
                     if n <= 0 {
-                        if errno == EAGAIN { usleep(2000); continue }
+                        if errno == EAGAIN, patience > 0 { patience -= 1; usleep(2000); continue }
                         break
                     }
                     sent += n
