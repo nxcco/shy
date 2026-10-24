@@ -1239,16 +1239,9 @@ private struct SideRow: View {
     @ViewBuilder
     private var ground: some View {
         if live {
-            ZStack(alignment: .leading) {
-                Rectangle().fill(greys.wash)
-                if prefs.showsReading {
-                    GeometryReader { geo in
-                        ReadingFill(meter: tab.meter, width: geo.size.width)
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .matchedGeometryEffect(id: "live", in: pill)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(greys.wash)
+                .matchedGeometryEffect(id: "live", in: pill)
         } else if browser.selectedTabIDs.contains(tab.id) {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(greys.wash)

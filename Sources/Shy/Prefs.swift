@@ -256,9 +256,6 @@ final class Preferences: ObservableObject {
     @Published var engineSuggests: Bool {
         didSet { store.set(engineSuggests, forKey: "search.suggest") }
     }
-    @Published var showsReading: Bool {
-        didSet { store.set(showsReading, forKey: "tabs.reading") }
-    }
     /// The tab you're on says where its page is, at rest, without a click:
     /// its site, from the address on screen (see AtRest.swift). Off unless
     /// asked for.
@@ -531,7 +528,6 @@ final class Preferences: ObservableObject {
         confirmsQuit = store.bool(forKey: Preferences.confirmQuitKey)
         engineSuggests = store.bool(forKey: "search.suggest")
         siteNotifications = store.object(forKey: "notifications.ask") as? Bool ?? true
-        showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true
         showsAddress = store.bool(forKey: "tabs.address")
         shielded = store.object(forKey: "shield") as? Bool ?? true
         let keeps = store.bool(forKey: "sites.keep")

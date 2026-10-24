@@ -536,10 +536,6 @@ struct SettingsPanel: View {
                     ))
                 }
                 Rule()
-                Line("Reading progress on the current tab", "Fills with grey as you scroll down") {
-                    Switch(on: $prefs.showsReading)
-                }
-                Rule()
                 Line("Show the site instead of the title on the current tab", "Hover to see the title. Look-alike and insecure sites are flagged either way") {
                     Switch(on: Binding(
                         get: { prefs.showsAddress },

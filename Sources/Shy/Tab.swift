@@ -252,30 +252,6 @@ enum Autoplay {
     }
 }
 
-/// How far down its page a tab is. Its own object, watched by the fill in
-/// the tab's pill alone: as part of the tab, every percent scrolled re-ran
-/// everything that watches the tab — the page's stage, the buttons, the
-/// row — two to four milliseconds of the window's time each, while WebKit
-/// needed that thread to put the scrolled page on screen.
-@MainActor
-final class Reading: ObservableObject {
-    @Published var value: Double = 0
-}
-
-/// The fill itself: the grey that grows from the left of the tab you are on
-/// as you read down its page, in a width it is given.
-struct ReadingFill: View {
-    @ObservedObject var meter: Reading
-    let width: CGFloat
-
-    var body: some View {
-        Rectangle()
-            .fill(Palette.ink.opacity(0.055))
-            .frame(width: width * meter.value)
-            .animation(.easeOut(duration: 0.15), value: meter.value)
-    }
-}
-
 @MainActor
 final class Tab: ObservableObject, Identifiable {
     let id = UUID()
@@ -393,19 +369,11 @@ final class Tab: ObservableObject, Identifiable {
     /// Set when the page never arrived — no host, no network, a refused
     /// connection. Shown in place of the page rather than in a dialog.
     @Published var failure: String?
-    /// How far down the page you are, nought to one. The tab's own pill fills
-    /// with it. Kept apart from the rest of the tab (see Reading): it changes
-    /// all the way down a page, and only the fill has any use for it.
-    let meter = Reading()
     /// How long the page is, in screens of it: one for a page that doesn't
-    /// scroll. Read with the meter, from the same report; nothing is drawn
+    /// scroll. Read from the page's scroll report; nothing is drawn
     /// from it as it changes (see TabSwitcher's moons). None before the page
     /// has said.
     private(set) var screens: Double?
-    var reading: Double {
-        get { meter.value }
-        set { if meter.value != newValue { meter.value = newValue } }
-    }
 
     /// True while the page has been stripped back to its article.
     @Published private(set) var reader = false
@@ -1302,12 +1270,6 @@ final class Tab: ObservableObject, Identifiable {
     /// already waits for a frame before it says anything.
     func scrolled(to y: Double, of ceiling: Double, screens: Double? = nil) {
         if let screens { self.screens = (max(1, screens) * 10).rounded() / 10 }
-        // In hundredths, and only when that changes. The page reports once a
-        // frame while it scrolls — 120 times a second on a 120 Hz screen — and
-        // each new value had the window redraw the tab's fill, a third of a
-        // core on the thread WebKit needs to put the scrolled page on screen.
-        let fraction = ceiling > 0 ? (min(1, max(0, y / ceiling)) * 100).rounded() / 100 : 0
-        if fraction != reading { reading = fraction }
     }
 
     func go(to url: URL) {
@@ -1339,7 +1301,6 @@ final class Tab: ObservableObject, Identifiable {
         held = nil
         title = ""
         failure = nil
-        reading = 0
         reader = false
         typing = false
         immersed = false
@@ -1391,7 +1352,6 @@ final class Tab: ObservableObject, Identifiable {
         pending = url
         memory = nil
         picture = nil
-        reading = 0
         noisy = false
         stale = false
         pull = nil
@@ -1655,7 +1615,6 @@ final class Tab: ObservableObject, Identifiable {
         guard let url = pending else { return false }
         pending = nil
         failure = nil
-        reading = 0
         reader = false
         typing = false
         immersed = false

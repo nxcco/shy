@@ -118,7 +118,6 @@
     ./bench quit                       test run: quit the app as ⌘Q does
     ./bench middle ID X Y              test run: the middle button clicked at X Y of a tab's page
     ./bench pin ID [off|home]          test run: pin a tab, unpin it, or double-click it (home)
-    ./bench fill [STEPS]               test run: the page reporting its scroll STEPS times, each timed until the window rests
     ./bench peek URL|close             test run: the peek panel over the tab in front, as a shift-click opens it
     ./bench window                     test run: open the browser's window if a hidden probe came up without it
     ./bench pages on|off               test run: let a hidden probe's pages be painted, off every screen (for picture)
@@ -503,9 +502,6 @@ def main(argv):
         request["id"] = args[0]
         request["off"] = args[1:] == ["off"]
         request["home"] = args[1:] == ["home"]
-    elif verb == "fill":
-        if len(args) > 1: sys.exit("usage: bench fill [STEPS]")
-        if args: request["steps"] = int(args[0])
     elif verb == "peek":
         if len(args) != 1: sys.exit("usage: bench peek URL|close")
         request["url"] = args[0]
