@@ -366,7 +366,7 @@ final class Browser: NSObject, ObservableObject {
     var cycling = false
 
     var active: Tab? { tabs.first { $0.id == activeID } }
-    var fieldShowing: Bool { editing || active?.isBlank ?? true }
+    var fieldShowing: Bool { editing || active?.isBlank ?? false }
 
     /// Typed plus whatever the field is quietly finishing for you.
     var completed: String {
@@ -3233,6 +3233,15 @@ final class Browser: NSObject, ObservableObject {
         if peekTab != nil { closePeek() }
         else if closePanel() { return }
         else if let tab = active { close(tab) }
+        // Nothing left in front: ⌘W once more closes the window.
+        else { closeWindow() }
+    }
+
+    /// No tab in front: the window empty, ⌘T or ⌘L for a new tab.
+    private func emptied() {
+        activeID = nil
+        editing = false
+        typed = ""
     }
 
     /// ⇧⌘W: the whole window, its tabs with it, as the red button closes it.
@@ -3290,45 +3299,22 @@ final class Browser: NSObject, ObservableObject {
             if let back = (awake.isEmpty ? loose : awake).max(by: { $0.touched < $1.touched }) {
                 select(back)
             } else {
-                newTab()
+                emptied()
             }
             writeSession(now: true)
             return
         }
 
-        if tabs.count == 1 {
-            if tab.isBlank {
-                NSApp.keyWindow?.performClose(nil)
-            } else {
-                let fresh = Tab(configuration: Web.configuration(space: spaceID))
-                remember(tab, at: 0)
-                tab.close()
-                adopt(fresh)
-                tabs = [fresh]
-                activeID = fresh.id
-                typed = ""
-            }
-            return
-        }
-
-        // The last tab that isn't a pin, on screen, with only pins left
-        // beside it: the same as the only tab. Landing on its neighbour
-        // takes you into a pin you had not asked for, and wakes it if it was
-        // asleep. The pins stay where they are; a new tab takes this one's
-        // place (#537).
+        // The last tab that isn't a pin, on screen — or the only tab: the
+        // window is left empty. Not closed, which isn't what closing a tab
+        // asks for, and not on a pin you hadn't asked for (#537), nor on a
+        // new tab to close again. ⌘W on the empty window closes it.
         if activeID == tab.id,
            !tabs.contains(where: { $0.id != tab.id && $0.pin == nil }) {
-            if tab.isBlank {
-                NSApp.keyWindow?.performClose(nil)
-                return
-            }
-            let fresh = Tab(configuration: Web.configuration(space: spaceID))
-            prepare(fresh)
-            remember(tab, at: index, partner: partner?.id, onLeft: pair?.left == tab.id)
+            if !tab.isBlank { remember(tab, at: index, partner: partner?.id, onLeft: pair?.left == tab.id) }
             tab.close()
-            tabs[index] = fresh
-            activeID = fresh.id
-            typed = ""
+            tabs.remove(at: index)
+            emptied()
             rememberSession()
             return
         }
@@ -5076,6 +5062,8 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘L. The current address comes up selected, so typing over it replaces it
     /// and Escape puts it back.
     func edit() {
+        // ⌘L in an empty window: a new tab, its field ready.
+        guard active != nil || activeSplit != nil else { return newTab() }
         summoning = false
         launching = false
         // Never a name and password written into the address: they would be
@@ -5196,8 +5184,11 @@ final class Browser: NSObject, ObservableObject {
             // Opened behind the page by hand, as a ⌘-clicked link is: it may
             // wait to load (Settings › Tabs › Load background tabs…).
             open(url, foreground: front, from: active, mayWait: true)
+        } else if let active {
+            active.go(to: url)
         } else {
-            (active ?? tabs.first)?.go(to: url)
+            // From the empty window: a tab of its own.
+            open(url, foreground: true)
         }
         editing = false
         typed = ""

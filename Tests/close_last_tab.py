@@ -2,12 +2,12 @@
 """Closing the last tab that isn't a pin (Browser.close, #537), in a hidden probe.
 
 Build first (`./build.sh`), then `python3 Tests/close_last_tab.py` from a
-worktree. With Settings › Tabs › Leave a new tab when the last tab closes,
-and only pins left beside it, the tab on screen closed leaves a new tab in
-its place, not a pin; the pins stay, and ⇧⌘T brings the page back. Closed
-in the background, it takes nothing from the pin on screen. With another
-ordinary tab left, the neighbour is picked as before. With the switch off,
-a pin is picked, as it always was.
+worktree. With only pins left beside it, the tab on screen closed leaves
+the window empty: no tab in front, not a pin and not a new tab; the pins
+stay, and ⇧⌘T brings the page back. Closed in the background, it takes
+nothing from the pin on screen. With another ordinary tab left, the
+neighbour is picked as before. The only tab closed, with no pins, leaves
+the window empty too, rather than closing it.
 """
 import sys
 from pathlib import Path
@@ -53,8 +53,8 @@ def main():
         # The case in the issue: ⌘W on the last ordinary tab.
         st = sv.sp("close", id=b)
         now = active(st)
-        t.ok("a new tab is on screen, not a pin",
-             now is not None and st["activeID"] not in st["pins"] and now["blank"], st)
+        t.ok("the window is empty: no tab in front, not a pin, no new tab",
+             now is None and loose(st) == [], st)
         t.ok("the pins are still there", sorted(st["pins"]) == sorted([a, p]), st["pins"])
         t.ok("b is gone", b not in [x["id"] for x in st["tabs"]], st["tabs"])
 
@@ -76,13 +76,15 @@ def main():
         t.ok("with another tab left, that one is picked", st["activeID"] == e, st)
         t.ok("and no new tab is made for it", loose(st) == [e], st["tabs"])
 
-        # The switch off, as it comes: a pin is picked, as before.
+        # No pins at all: the only tab closed leaves an empty window, open.
         sv.quit(); sv.setup(); sv.launch()
-        a = sv.page("a"); sv.cmd({"do": "pin", "id": a})
         b = sv.page("b")
         only(b)
+        for id in list(sv.sp("state")["pins"]):
+            sv.cmd({"do": "pin", "id": id, "off": True})
         st = sv.sp("close", id=b)
-        t.ok("switch off: the pin is picked, as before", st["activeID"] == a, st)
+        t.ok("the only tab closed leaves the window open and empty",
+             active(st) is None and loose(st) == [], st)
     finally:
         t.done(); sv.finish()
     sys.exit(1 if t.failed else 0)
