@@ -1,12 +1,13 @@
 import Foundation
 
-// search-mcp: Claude's way into Search's pages (Sources/Search/Agent.swift).
+// search-mcp: an AI agent's way into Search's pages (Sources/Search/Agent.swift).
 //
 // An MCP server on its standard input and output — one JSON-RPC message a
 // line, as MCP's stdio transport has it — that hands each tool call to the
 // running app over its socket, agent.sock, and the answer back. It holds no
 // state and decides nothing: what a call may do is the app's to say, and the
-// app only listens while Settings › General › Let Claude open pages is on.
+// app only listens while Settings › Agents › Let agents open pages is on.
+// Any MCP client can run it; Claude Code, for one:
 //
 //   claude mcp add search -- /Applications/Search.app/Contents/MacOS/search-mcp
 //
@@ -81,7 +82,7 @@ func ask(_ request: [String: Any]) -> (answer: [String: Any]?, trouble: String?)
         pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
     }
     guard connected == 0 else {
-        return (nil, "Search isn't listening. Open Search, and turn on Settings › General › Let Claude open pages.")
+        return (nil, "Search isn't listening. Open Search, and turn on Settings › Agents › Let agents open pages.")
     }
     var patience = timeval(tv_sec: 60, tv_usec: 0)
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &patience, socklen_t(MemoryLayout<timeval>.size))

@@ -1,14 +1,14 @@
 import AppKit
 import WebKit
 
-// Claude's pages: what an MCP client on this Mac — Claude Code, Claude's
-// desktop app — can open and read through search-mcp, the small program
-// beside the app (Sources/SearchMCP), which speaks MCP on its standard
+// Agents' pages: what an AI agent on this Mac — any MCP client: Claude
+// Code, Cursor, Codex and the like — can open and read through search-mcp,
+// the small program beside the app (Sources/SearchMCP), which speaks MCP on its standard
 // input and output and passes each call to this over agent.sock.
 //
-// Off unless switched on in Settings › General, which also leaves the mark
+// Off unless switched on in Settings › Agents, which also leaves the mark
 // the switch needs at launch (see SwitchMark). What a page you never chose
-// can ask of Claude, it can ask of these pages, so they hold as little as
+// can ask of an agent, it can ask of these pages, so they hold as little as
 // a page can:
 //
 // - none of your tabs: these are web views of their own, not tabs. Nothing
@@ -20,7 +20,7 @@ import WebKit
 // - http and https only, typed in or followed; a page can't open a window,
 //   download, upload a file, use the camera, the microphone or where you
 //   are, and its alerts are answered "no" without a word;
-// - no script of Claude's own: it reads the page's text, takes a picture
+// - no script of the agent's own: it reads the page's text, takes a picture
 //   of it, clicks and types into what a selector names, nothing else.
 //
 // The pages live in a window of their own off every screen, so a picture of
@@ -43,7 +43,7 @@ final class Agent: NSObject, ObservableObject {
     @Published private(set) var pages: [Page] = []
     private var room: NSWindow?
 
-    /// What can be taken away from Claude in Settings › Agents, and the
+    /// What can be taken away from agents in Settings › Agents, and the
     /// calls each covers. Waiting, listing and closing its own pages stay.
     enum Ability: String, CaseIterable, Identifiable {
         case open, read, picture, click, type
@@ -84,14 +84,14 @@ final class Agent: NSObject, ObservableObject {
         return Set(["open", "go", "text", "shot", "click", "type", "wait", "close", "list", "tools"]).subtracting(taken)
     }
 
-    /// The world Claude's clicks and typing run in, apart from the page's
+    /// The world an agent's clicks and typing run in, apart from the page's
     /// own scripts, which can neither see nor change them.
     private static let world = WKContentWorld.world(name: "search-agent")
 
     final class Page {
         let id: String
         let web: WKWebView
-        /// When Claude last asked anything of it (see `tidy`).
+        /// When an agent last asked anything of it (see `tidy`).
         var used = Date()
         init(id: String, web: WKWebView) {
             self.id = id
@@ -99,7 +99,7 @@ final class Agent: NSObject, ObservableObject {
         }
     }
 
-    /// A page Claude hasn't asked anything of for this long is closed: what
+    /// A page no agent has asked anything of for this long is closed: what
     /// it runs, it runs from your Mac.
     static let idle: TimeInterval = 10 * 60
     private var tidying: Timer?
@@ -156,7 +156,7 @@ final class Agent: NSObject, ObservableObject {
         guard Agent.allowed.contains(verb) else {
             return answer(["error": "“\(verb)” is turned off in Search's Settings › Agents"])
         }
-        // What search-mcp offers Claude: only what is allowed now.
+        // What search-mcp offers the agent: only what is allowed now.
         if verb == "tools" {
             return answer(["allowed": Agent.allowed.sorted()])
         }
@@ -264,7 +264,7 @@ final class Agent: NSObject, ObservableObject {
     }
 
     /// Run without a user gesture. WebKit's public way runs a script as
-    /// though the page had been clicked, and a click Claude makes would then
+    /// though the page had been clicked, and an agent's click would then
     /// let the page do what only a person's click allows: write to your
     /// clipboard, play sound, open a system sheet. WebKit's own variant
     /// without one is asked for by name; without it nothing is run.

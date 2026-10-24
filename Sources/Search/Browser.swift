@@ -2026,7 +2026,7 @@ final class Browser: NSObject, ObservableObject {
             if prefs.agent {
                 Agent.shared.start()
             } else if prefs.agentRefused {
-                announce("“Let Claude open pages” was turned on outside Settings, and stays off")
+                announce("“Let agents open pages” was turned on outside Settings, and stays off")
             }
             welcoming = !prefs.welcomed
             newsShowing = WhatsNew.due(prefs: prefs, welcoming: welcoming)

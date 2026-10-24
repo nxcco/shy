@@ -138,7 +138,7 @@ final class Preferences: ObservableObject {
     /// The setting said on at launch with no mark from the switch behind it,
     /// and was put back to off.
     private(set) var benchRefused = false
-    /// Claude's pages, through search-mcp (see Agent.swift). Off unless
+    /// Agents' pages, through search-mcp (see Agent.swift). Off unless
     /// asked for, in Settings, which leaves the mark it needs at launch.
     @Published var agent: Bool {
         didSet {
@@ -147,7 +147,7 @@ final class Preferences: ObservableObject {
         }
     }
     private(set) var agentRefused = false
-    /// What Claude may not do in its pages (see Agent.Ability): each turned
+    /// What agents may not do in their pages (see Agent.Ability): each turned
     /// off in Settings › Agents. Everything allowed unless taken away.
     @Published var agentDenied: Set<String> {
         didSet { store.set(Array(agentDenied).sorted(), forKey: "agent.denied") }

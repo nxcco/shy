@@ -425,12 +425,12 @@ struct SettingsPanel: View {
 
     // MARK: - agents
 
-    /// What may drive Search from outside it: Claude, through search-mcp
+    /// What may drive Search from outside it: AI agents, through search-mcp
     /// (Agent.swift), and what each of its calls may do; and the bench.
     private var agents: some View {
         VStack(alignment: .leading, spacing: 18) {
             Card {
-                Line("Let Claude open pages", "Claude Code and Claude's app can open web pages, read them, take pictures of them, click and type — in private pages of their own, out of sight. Never your tabs, your sign-ins or your passwords") {
+                Line("Let agents open pages", "An AI agent connected through MCP — Claude Code, Cursor, Codex or any other — can open web pages, read them, take pictures of them, click and type, in private pages of its own, out of sight. Never your tabs, your sign-ins or your passwords") {
                     Switch(on: $prefs.agent)
                 }
                 if prefs.agent { AgentLines(agent: .shared) }
@@ -1058,30 +1058,35 @@ private struct NotificationSites: View {
     }
 }
 
-/// How to reach Claude's pages from Claude Code, and the pages open now.
+/// How an agent reaches its pages: the MCP server to give it, and Claude
+/// Code's command as one example; and the pages open now.
 private struct AgentLines: View {
     @ObservedObject var agent: Agent
 
-    /// The command that tells Claude Code where search-mcp is: beside the
-    /// app's own binary, wherever the app is.
-    private var command: String {
-        let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/search-mcp").path
-        return "claude mcp add search -- '\(helper.replacingOccurrences(of: "'", with: "'\\''"))'"
-    }
+    /// search-mcp, beside the app's own binary, wherever the app is: what
+    /// any MCP client is told to run, over standard input and output.
+    private var helper: String { Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/search-mcp").path }
+    private var command: String { "claude mcp add search -- '\(helper.replacingOccurrences(of: "'", with: "'\\''"))'" }
 
     var body: some View {
         Rule()
-        Line("Connect Claude Code", command) {
-            Pill("Copy") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(command, forType: .string)
-            }
+        Line("Connect an agent", "Give your MCP client this as a stdio server: \(helper)") {
+            Pill("Copy") { copy(helper) }
+        }
+        Rule()
+        Line("Claude Code, for one", command) {
+            Pill("Copy") { copy(command) }
         }
         if !agent.pages.isEmpty {
             Rule()
-            Line("Claude's pages", agent.pages.count == 1 ? "1 open" : "\(agent.pages.count) open") {
+            Line("Agents' pages", agent.pages.count == 1 ? "1 open" : "\(agent.pages.count) open") {
                 Pill("Close All") { agent.closeAll() }
             }
         }
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }

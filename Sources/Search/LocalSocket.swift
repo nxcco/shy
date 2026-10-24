@@ -3,7 +3,7 @@ import Security
 
 // A Unix socket in the app's own folder that only this user can reach, for
 // a program on this Mac to talk to the app: the bench (Bench.swift) and
-// Claude's pages (Agent.swift) each have one. One JSON object per line in,
+// agents' pages (Agent.swift) each have one. One JSON object per line in,
 // one per line out, one request per connection.
 //
 // Readable by this user and nobody else — the file mode says so, and the
