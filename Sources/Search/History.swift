@@ -85,25 +85,7 @@ final class History: ObservableObject {
     private var pageText: [String: PageText] = [:]
     private var visitedHosts: Set<String> = []
 
-    /// Its file: history.json for Personal, one of its own for each other
-    /// profile (see Profiles.swift).
-    private let fileName: String
-    /// Its profile deleted: nothing more is written.
-    private var retired = false
-
-    init(file: String = "history.json") {
-        fileName = file
-        load()
-    }
-
-    /// Its profile deleted: emptied, its file removed, and nothing written again.
-    func retire() {
-        retired = true
-        visits = [:]
-        pageText = [:]
-        visitedHosts = []
-        Disk.remove(file)
-    }
+    init() { load() }
 
     /// URL identity ignores fragments, normalizes only the scheme and host,
     /// and keeps the spelling and encoding of the path and query intact.
@@ -487,12 +469,13 @@ final class History: ObservableObject {
 
     // MARK: - the file
 
-    private var file: URL { Store.file(fileName) }
+    private static var folder: URL { Store.folder }
+    private static var file: URL { Store.file("history.json") }
 
     private func load() {
-        guard let data = try? Data(contentsOf: file) else { return }
+        guard let data = try? Data(contentsOf: History.file) else { return }
         guard let list = try? JSONDecoder().decode([Visit].self, from: data) else {
-            Store.quarantine(file)
+            Store.quarantine(History.file)
             return
         }
         // Keys written by an older Search can meet under the new rule:
@@ -565,17 +548,16 @@ final class History: ObservableObject {
     /// Coalesced: a busy minute of browsing writes the file once, not thirty
     /// times, and never on the main thread.
     private func save() {
-        guard !saving, !retired else { return }
+        guard !saving else { return }
         saving = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             guard let self else { return }
             saving = false
-            guard !retired else { return }
             let now = Date()
             // A cap, so the file can't grow without end. What goes is what has
             // been visited least and longest ago.
             let snapshot = self.visits
-            let file = self.file
+            let file = History.file
             Disk.write(file) {
                 let list = Array(snapshot.values.sorted { History.score($0, now: now) > History.score($1, now: now) }.prefix(2_000))
                 return try? JSONEncoder().encode(list)
