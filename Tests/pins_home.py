@@ -34,14 +34,9 @@ try:
     a = sv.page("a"); sv.page("b")
     pin(a)
 
-    # Off, as it always was: the pin keeps wherever it was taken.
+    # Arc's pin, always: taken elsewhere and put down, it goes home.
     wander(a, "elsewhere")
-    sv.sp("close", id=a); st = sv.sp("state")
-    t.ok("off: ⌘W puts a pin down where it was", last(tab(st, a)["url"]) == "elsewhere", tab(st, a)["url"])
-    st = relaunch(False)
-    t.ok("off: after a restart it is still where it was", pinned(st) == ["elsewhere"], pinned(st))
-
-    # On: Arc's pin.
+    sv.sp("close", id=a)
     st = relaunch(True)
     t.ok("on: after a restart the pin is at the page it was pinned at", pinned(st) == ["a"], pinned(st))
     a = st["pins"][0]

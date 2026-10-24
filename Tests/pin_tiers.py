@@ -101,16 +101,6 @@ try:
     t.ok("undo: your empty tab in a group stays", kept == [(blank, gid)], kept)
     t.ok("undo: and the cleared tab is back in front", by_url(st)[st["activeID"]] == "k", by_url(st).get(st["activeID"]))
 
-    # Off: the rows are drawn as squares, and a pin carried across the
-    # hidden line becomes the kind it landed among.
-    st = relaunch(**{"pins.list": False})
-    t.ok("switch off: the rows are kept, only not drawn", rows(st) == ["d"], rows(st))
-    ids = {v: k for k, v in by_url(st).items()}
-    sv.sp("move", id=ids["d"], to=0); st = sv.sp("state")
-    t.ok("switch off: a row carried among the squares becomes one", pins(st) == ["d", "a", "b"] and rows(st) == [], (pins(st), rows(st)))
-    sv.sp("move", id=ids["a"], to=2); st = sv.sp("state")
-    t.ok("switch off: squares move as they always did", pins(st) == ["d", "b", "a"], pins(st))
-
     # With the tabs across the top, too, every pin is a square to carry.
     st = relaunch(sidebar=False, **{"pins.list": True})
     ids = {v: k for k, v in by_url(st).items()}

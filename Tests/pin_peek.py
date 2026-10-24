@@ -7,7 +7,6 @@ removed afterwards. 127.0.0.1 and localhost serve the same pages and stand
 for two sites; /hop on a server of the pin's own site sends the link on
 to the other, as google.com/goto does.
 """
-import subprocess
 import threading
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import sys
@@ -127,16 +126,6 @@ try:
     follow(b, f"{OTHER}/away")
     t.ok("a tab that isn't a pin goes as before", peek() == "" and sv.url(sv.sp("state"), b).endswith("/away"), (peek(), sv.url(sv.sp("state"), b)))
 
-    sv.quit()
-    subprocess.run(["defaults", "write", sv.SUITE, "pins.peek", "-bool", "false"])
-    sv.launch(); time.sleep(0.5)
-    st = sv.sp("state")
-    p = next(x["id"] for x in st["tabs"] if x["id"] in st["pins"])
-    sv.sp("select", id=p); time.sleep(1.5)
-    follow(p, f"{OTHER}/off")
-    t.ok("switched off: the pin follows the link", peek() == "" and sv.url(sv.sp("state"), p).endswith("/off"), (peek(), sv.url(sv.sp("state"), p)))
-    sv.sp("close", id=p); time.sleep(0.5)
-    t.ok("…and ⌘W puts it down where it was", sv.url(sv.sp("state"), p).endswith("/off"), sv.url(sv.sp("state"), p))
 except Exception:
     import traceback; traceback.print_exc(); t.failed += 1
 finally:
