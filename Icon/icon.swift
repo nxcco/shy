@@ -21,6 +21,41 @@ try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: t
 let canvas = (width: 608.0, height: 276.0)
 let markData = "M469.443 0C545.471 0.00013198 607.103 61.6325 607.104 137.66C607.104 213.688 545.471 275.321 469.443 275.321H137.66C61.6323 275.321 0 213.688 0 137.66C0.00016085 61.6325 61.6325 0.000140192 137.66 0H469.443ZM138.104 51.5977C127.234 51.5977 117.512 53.5115 108.938 57.3389C100.518 61.0132 93.8581 66.2188 88.959 72.9551C84.2132 79.5381 81.8398 87.3464 81.8398 96.3789C81.8399 105.258 83.6773 112.607 87.3516 118.425C91.0258 124.089 95.9251 128.682 102.049 132.203C108.173 135.571 114.833 138.327 122.028 140.471L151.652 149.197C158.389 151.188 163.9 154.249 168.187 158.383C172.473 162.516 174.617 168.028 174.617 174.917C174.617 182.572 171.402 188.849 164.972 193.748C158.695 198.494 150.122 200.867 139.252 200.867C132.21 200.867 125.702 199.413 119.731 196.504C113.914 193.442 109.091 189.308 105.264 184.103C101.436 178.744 99.2169 172.697 98.6045 165.961H97.6855L75.4102 171.013C76.3287 180.658 79.697 189.308 85.5146 196.963C91.3322 204.618 98.9103 210.665 108.249 215.104C117.741 219.544 128.076 221.765 139.252 221.765C151.193 221.765 161.68 219.774 170.713 215.794C179.746 211.813 186.711 206.225 191.61 199.029C196.662 191.834 199.188 183.414 199.188 173.769C199.188 164.124 197.352 156.239 193.678 150.115C190.003 143.838 185.104 138.863 178.98 135.188C172.857 131.514 166.044 128.605 158.542 126.462L128.229 117.735C121.799 115.898 116.516 113.219 112.383 109.698C108.402 106.177 106.412 101.354 106.412 95.2305C106.412 88.188 109.168 82.6758 114.68 78.6953C120.344 74.5619 128.152 72.4951 138.104 72.4951C147.901 72.4952 155.939 74.9448 162.216 79.8438C168.493 84.7428 172.397 91.1729 173.928 99.1338H174.847L196.663 93.8525C195.745 85.5853 192.605 78.3131 187.247 72.0361C181.889 65.6061 174.923 60.6306 166.35 57.1094C157.929 53.4351 148.514 51.5977 138.104 51.5977Z"
 
+/// The H and Y that follow the S, cut from the same pill so the mark reads
+/// SHY. The three letters sit on the pill's three natural centres — the left
+/// cap's (where the S already is), the middle, and the right cap's — so the
+/// gaps between them come out even and the word sits square in the pill.
+/// They are drawn to the S's measure: its 21-unit strokes (22 for an upright
+/// stem, which looks as heavy as a 21 curve), and its cap height less the
+/// overshoot a round letter needs and a flat one doesn't.
+let lettersData: String = {
+    func f(_ v: Double) -> String { String(format: "%.2f", v) }
+    func shape(_ points: [(Double, Double)]) -> String {
+        "M" + points.map { "\(f($0.0)) \(f($0.1))" }.joined(separator: "L") + "Z"
+    }
+    let top = 54.0, bottom = 219.0, stem = 22.0
+    // H, on the pill's centre: two stems and a bar a hair above the middle.
+    let h = 303.55, hw = 59.0, bar = (124.0, 144.0)
+    let H = shape([
+        (h - hw, top), (h - hw + stem, top), (h - hw + stem, bar.0),
+        (h + hw - stem, bar.0), (h + hw - stem, top), (h + hw, top),
+        (h + hw, bottom), (h + hw - stem, bottom), (h + hw - stem, bar.1),
+        (h - hw + stem, bar.1), (h - hw + stem, bottom), (h - hw, bottom),
+    ])
+    // Y, on the right cap's centre: two 21-unit arms meeting on a stem. The
+    // outer edges reach the stem at `fork`; the inner ones meet at the crotch.
+    let y = 469.44, yw = 64.0, fork = 148.0, arm = 21.0
+    let slope = (fork - top) / (yw - stem / 2)
+    let cut = arm * (1 + slope * slope).squareRoot() / slope  // the arm's width along the top
+    let crotch = top + (yw - cut) * slope
+    let Y = shape([
+        (y - yw, top), (y - yw + cut, top), (y, crotch), (y + yw - cut, top),
+        (y + yw, top), (y + stem / 2, fork), (y + stem / 2, bottom),
+        (y - stem / 2, bottom), (y - stem / 2, fork),
+    ])
+    return H + Y
+}()
+
 /// A tiny reader for the one path the mark is: absolute M, L, H, V, C, Z —
 /// what Figma writes for a flattened shape, and nothing else.
 func svgCommands(_ d: String) -> [(Character, [CGFloat])] {
@@ -54,7 +89,7 @@ func svgCommands(_ d: String) -> [(Character, [CGFloat])] {
 
 /// The mark, fit to `fraction` of `plate`'s width and centred on it. SVG's y
 /// grows downward and AppKit's upward, so every y is flipped on the way in;
-/// the S is a hole, so the path is filled even-odd.
+/// the letters are holes, so the path is filled even-odd.
 func markPath(in plate: NSRect, fraction: CGFloat) -> NSBezierPath {
     let scale = plate.width * fraction / canvas.width
     let ox = plate.midX - canvas.width * scale / 2
@@ -66,7 +101,7 @@ func markPath(in plate: NSRect, fraction: CGFloat) -> NSBezierPath {
     path.windingRule = .evenOdd
     var last = NSPoint.zero
     var start = NSPoint.zero
-    for (c, n) in svgCommands(markData) {
+    for (c, n) in svgCommands(markData + lettersData) {
         switch c {
         case "M": last = NSPoint(x: n[0], y: n[1]); start = last; path.move(to: pt(n[0], n[1]))
         case "L": last = NSPoint(x: n[0], y: n[1]); path.line(to: pt(n[0], n[1]))
@@ -168,7 +203,7 @@ if CommandLine.arguments.count > 2 {
     let height = width * canvas.height / canvas.width
     let svg = """
     <svg xmlns="http://www.w3.org/2000/svg" width="\(width)" height="\(height)" viewBox="0 0 \(Int(canvas.width)) \(Int(canvas.height))">\
-    <path fill-rule="evenodd" fill="#171717" d="\(markData)"/></svg>
+    <path fill-rule="evenodd" fill="#171717" d="\(markData)\(lettersData)"/></svg>
     """
     try svg.write(to: assets.appendingPathComponent("mark.svg"), atomically: true, encoding: .utf8)
 
