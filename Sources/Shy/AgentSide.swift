@@ -44,7 +44,7 @@ struct AgentSection: View {
     static func height(_ agent: Agent, row: CGFloat) -> CGFloat {
         guard !agent.pages.isEmpty else { return 0 }
         let rows = agent.folded ? 0 : CGFloat(agent.pages.count) * (row + 2)
-        return 8 + 30 + rows + CGFloat(agent.pending.count) * 74 + 10 + 4
+        return 8 + 30 + rows + agent.pending.reduce(0) { $0 + ($1.picture == nil ? 74 : 170) } + 10 + 4
     }
 
     private var header: some View {
@@ -165,6 +165,15 @@ private struct ApprovalRow: View {
                 .foregroundStyle(Palette.muted)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
+            // The spot a click at a point would land on, marked.
+            if let picture = approval.picture {
+                Image(nsImage: picture)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .overlay { Circle().strokeBorder(Palette.ink, lineWidth: 1.5).frame(width: 14, height: 14) }
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
+            }
             HStack(spacing: 6) {
                 Spacer(minLength: 0)
                 Pill("Deny") { agent.answer(approval, false) }
@@ -206,6 +215,10 @@ struct AgentStage: View {
                 Rectangle().fill(Palette.hairline).frame(height: 1)
                 ZStack(alignment: .topTrailing) {
                     WebStage(page: page.web)
+                        .overlay(alignment: .topLeading) {
+                            if let at = page.cursor { AgentCursor(presses: page.presses).offset(x: at.x, y: at.y) }
+                        }
+                        .animation(Motion.glide, value: page.cursor)
                     if showingSteps { steps }
                 }
             }
@@ -267,6 +280,34 @@ struct AgentStage: View {
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
             .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
             .padding(10)
+        }
+    }
+}
+
+/// The agent's pointer over its page: an arrow where it last pointed, and a
+/// ring that opens out each time it presses. Never in the way of yours.
+private struct AgentCursor: View {
+    let presses: Int
+    @State private var ring = false
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Circle()
+                .strokeBorder(Palette.ink.opacity(ring ? 0 : 0.5), lineWidth: 2)
+                .frame(width: ring ? 34 : 6, height: ring ? 34 : 6)
+                .offset(x: ring ? -17 : -3, y: ring ? -17 : -3)
+            Image(systemName: "cursorarrow")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(Palette.ink)
+                .shadow(color: Palette.ground, radius: 0, x: 1, y: 1)
+                .shadow(color: Palette.ground, radius: 0, x: -1, y: -1)
+                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                .offset(x: -3, y: -2)
+        }
+        .allowsHitTesting(false)
+        .onChange(of: presses) { _, _ in
+            ring = false
+            withAnimation(.easeOut(duration: 0.45)) { ring = true }
         }
     }
 }

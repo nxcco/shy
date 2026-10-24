@@ -45,6 +45,18 @@ class H(BaseHTTPRequestHandler):
 <form method=post action=/send><button id=send>Send</button></form>
 <script>document.getElementById('c').textContent = 'cookie:' + document.cookie</script>"""
             kind = "text/html"
+        elif self.path == "/pointer":
+            body = b"""<!doctype html><title>Pointer</title><style>body{margin:0;height:5000px}
+#b{position:absolute;left:100px;top:100px;width:200px;height:60px}
+#c{position:absolute;left:400px;top:100px;width:200px;height:60px}
+#i{position:absolute;left:100px;top:300px;width:300px;height:40px}</style>
+<p id=out>untouched</p><p id=pos>top</p>
+<button id=b onclick="document.getElementById('out').textContent = 'clicked ' + (event.isTrusted ? 'trusted' : 'scripted')">Press</button>
+<button id=c onclick="navigator.clipboard.writeText('stolen').catch(()=>{}); document.execCommand('copy')">Copy</button>
+<input id=i onkeydown="if (event.key === 'Enter') document.getElementById('out').textContent = 'typed ' + this.value + ' enter'">
+<script>addEventListener('scroll', () => document.getElementById('pos').textContent = 'scrolled ' + Math.round(scrollY));
+document.addEventListener('copy', e => { e.clipboardData.setData('text/plain', 'stolen'); e.preventDefault(); });</script>"""
+            kind = "text/html"
         elif self.path == "/form":
             body = b"""<!doctype html><title>Form</title>
 <p id=out>untouched</p>
@@ -123,7 +135,7 @@ def main():
         t.ok("initialize answers with tools", "tools" in init["result"]["capabilities"], init)
         mcp.send("notifications/initialized", notify=True)
         names = [x["name"] for x in mcp.send("tools/list")["result"]["tools"]]
-        t.ok("nine tools", names == ["shy_open", "shy_text", "shy_shot", "shy_click", "shy_type", "shy_go", "shy_wait", "shy_list", "shy_close"], names)
+        t.ok("twelve tools", names == ["shy_open", "shy_text", "shy_shot", "shy_click", "shy_type", "shy_click_at", "shy_type_at", "shy_scroll", "shy_go", "shy_wait", "shy_list", "shy_close"], names)
 
         opened = mcp.tool("shy_open", url=f"{base}/hello")
         pid = page_id(opened)
@@ -218,6 +230,50 @@ def main():
         t.ok("the form reached the site", "POST /send" in seen, seen)
         steps = sv.cmd({"do": "agentpage", "id": acting})["steps"]
         t.ok("every step is written down", any("handed over" in x for x in steps) and any("Click" in x for x in steps), steps)
+        mcp.tool("shy_close", tab_id="all")
+
+        # Steering by the pointer: a real click at a point of the latest
+        # screenshot, typing and a key, a wheel, and your clipboard kept.
+        pp = page_id(mcp.tool("shy_open", url=f"{base}/pointer"))
+        shot = mcp.tool("shy_shot", tab_id=pp)["content"][0]
+        width = int.from_bytes(base64.b64decode(shot["data"])[16:20], "big")
+        k = width / 1280
+        mcp.tool("shy_click_at", tab_id=pp, x=200 * k, y=130 * k)
+        t.ok("click_at presses where it points, as a real click", "clicked trusted" in words(mcp.tool("shy_text", tab_id=pp)))
+        mcp.tool("shy_type_at", tab_id=pp, x=250 * k, y=320 * k, text="Hi", key="Enter")
+        t.ok("type_at types into the field there, then Enter", "typed Hi enter" in words(mcp.tool("shy_text", tab_id=pp)))
+        mcp.tool("shy_scroll", tab_id=pp, dy=700)
+        t.ok("scroll moves the page", "scrolled 700" in words(mcp.tool("shy_text", tab_id=pp)))
+        off = mcp.tool("shy_click_at", tab_id=pp, x=99999, y=5)
+        t.ok("a point off the page is refused", off.get("isError") is True, off)
+        mcp.tool("shy_scroll", tab_id=pp, dy=-700)
+        subprocess.run(["pbcopy"], input=b"mine")
+        mcp.tool("shy_click_at", tab_id=pp, x=500 * k, y=130 * k)
+        time.sleep(2.2)
+        kept = subprocess.run(["pbpaste"], capture_output=True).stdout
+        t.ok("a page's write to the clipboard on an agent's click is undone", kept == b"mine", kept)
+
+        # On a handed-over page that asks: a click at a point waits for a
+        # yes, with a look at the spot.
+        sv.cmd({"do": "go", "id": mine, "url": f"{base}/pointer"}); sv.cmd({"do": "wait", "id": mine}); time.sleep(0.5)
+        asked = sv.cmd({"do": "handover", "id": mine, "acts": True, "asks": True})["page"]
+        mcp.tool("shy_wait", tab_id=asked, seconds=5)
+        mcp.tool("shy_shot", tab_id=asked)
+        answers.clear()
+        def once():
+            for _ in range(40):
+                time.sleep(0.25)
+                try:
+                    pend = sv.cmd({"do": "agentpage", "id": asked})["pending"]
+                    if pend:
+                        answers.append(sv.cmd({"do": "approve", "yes": True})["answered"]); return
+                except RuntimeError:
+                    pass
+        helper = threading.Thread(target=once); helper.start()
+        mcp.tool("shy_click_at", tab_id=asked, x=200 * k, y=130 * k)
+        helper.join(15)
+        t.ok("on a handed-over page the click at a point is asked about", answers and answers[0].startswith("Click at"), answers)
+        t.ok("and made once allowed", "clicked trusted" in words(mcp.tool("shy_text", tab_id=asked)))
         mcp.tool("shy_close", tab_id="all")
 
     finally:

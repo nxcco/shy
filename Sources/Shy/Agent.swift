@@ -67,10 +67,10 @@ final class Agent: NSObject, ObservableObject {
         var calls: Set<String> {
             switch self {
             case .open: return ["open", "go"]
-            case .read: return ["text"]
+            case .read: return ["text", "scroll"]
             case .picture: return ["shot"]
-            case .click: return ["click"]
-            case .type: return ["type"]
+            case .click: return ["click", "clickat"]
+            case .type: return ["type", "typeat"]
             }
         }
         var title: String {
@@ -87,7 +87,7 @@ final class Agent: NSObject, ObservableObject {
             case .open: return "Only http and https addresses"
             case .read: return "Title, address and visible text"
             case .picture: return "Of what the page shows"
-            case .click: return "Buttons, links and labels"
+            case .click: return "Buttons, links and labels, or a point on the page"
             case .type: return "Into fields and editable text"
             }
         }
@@ -97,7 +97,7 @@ final class Agent: NSObject, ObservableObject {
     static var allowed: Set<String> {
         let denied = Shared.prefs.agentDenied
         let taken = Ability.allCases.filter { denied.contains($0.rawValue) }.flatMap(\.calls)
-        return Set(["open", "go", "text", "shot", "click", "type", "wait", "close", "list", "tools"]).subtracting(taken)
+        return Set(["open", "go", "text", "shot", "click", "type", "clickat", "typeat", "scroll", "wait", "close", "list", "tools"]).subtracting(taken)
     }
 
     /// The world an agent's clicks and typing run in, apart from the page's
@@ -133,6 +133,8 @@ final class Agent: NSObject, ObservableObject {
         let page: String
         let site: String
         let what: String
+        /// Around the point a click or typing at a point would land on.
+        var picture: NSImage?
         let reply: (Bool) -> Void
     }
 
@@ -148,6 +150,12 @@ final class Agent: NSObject, ObservableObject {
         @Published var acting: String?
         @Published var steps: [Step] = []
         @Published var handover: Handover?
+        /// Where the agent's pointer is on the page, in the page's points,
+        /// and how many times it has pressed, for the cursor drawn over it.
+        @Published var cursor: CGPoint?
+        @Published var presses = 0
+        /// Screenshot pixels to the page's points, from the latest shot.
+        var shotScale: CGFloat?
         private var watching: [NSKeyValueObservation] = []
 
         init(id: String, web: WKWebView) {
@@ -179,7 +187,8 @@ final class Agent: NSObject, ObservableObject {
 
     /// What each call is doing, as the folder says it.
     private static let doing = ["open": "opening", "go": "going", "text": "reading", "shot": "looking",
-                                "click": "clicking", "type": "typing", "wait": "waiting"]
+                                "click": "clicking", "type": "typing", "clickat": "clicking", "typeat": "typing",
+                                "scroll": "scrolling", "wait": "waiting"]
 
     /// The page being acted on, and what to, for the folder's header.
     var busy: (page: Page, doing: String)? {
@@ -328,6 +337,7 @@ final class Agent: NSObject, ObservableObject {
                     guard let image, let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
                           let png = bitmap.representation(using: .png, properties: [:])
                     else { return answer(["error": "nothing drawn yet"]) }
+                    if page.web.bounds.width > 0 { page.shotScale = CGFloat(bitmap.pixelsWide) / page.web.bounds.width }
                     answer(["png": png.base64EncodedString(), "width": bitmap.pixelsWide, "height": bitmap.pixelsHigh])
                 }
             }
@@ -341,29 +351,53 @@ final class Agent: NSObject, ObservableObject {
             let what = verb == "click"
                 ? "Click \(Agent.quoted(selector))"
                 : "Type \(Agent.quoted(text)) into \(Agent.quoted(selector))"
-            let act = {
+            permit(page, what, verb: verb, at: nil, answer) {
                 page.note(what)
                 self.run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value, trouble in
                     let said = trouble ?? value as? String ?? "the page didn't answer"
                     answer(said == "ok" ? ["ok": true] : ["error": said])
                 }
             }
-            // A page with your sign-in in it: only what you allowed, and
-            // asked about first unless you said not to.
-            guard let handover = page.live else { return act() }
-            guard handover.acts else {
-                page.note("Refused: \(what) (read only)")
-                return answer(["error": "this page was handed over read-only: the person allowed reading, not clicking or typing"])
+
+        case "clickat", "typeat":
+            // A point on the latest screenshot, pressed as a mouse would,
+            // and typing as a keyboard would — into what is there now.
+            let text = request["text"] as? String ?? ""
+            let key = request["key"] as? String
+            guard text.count <= 10_000 else { return answer(["error": "that is a lot to type"]) }
+            if let key, Agent.keys[key] == nil {
+                return answer(["error": "no key “\(key)”: one of \(Agent.keys.keys.sorted().joined(separator: ", "))"])
             }
-            guard handover.asks else { return act() }
-            page.acting = "waiting for you"
-            ask(page, handover, what) { yes in
-                guard yes else {
-                    page.note("You refused: \(what)")
-                    return answer(["error": "the person said no to this"])
+            guard verb == "clickat" || !text.isEmpty || key != nil else { return answer(["error": "typeat needs text or a key"]) }
+            let at = point(request, on: page)
+            if verb == "clickat" || request["x"] != nil || request["y"] != nil {
+                guard at != nil else { return answer(["error": "x and y must be a point on the page, in the latest screenshot's pixels"]) }
+            }
+            let place = at.map { " at \(Int(($0.x * (page.shotScale ?? 1)).rounded())), \(Int(($0.y * (page.shotScale ?? 1)).rounded()))" } ?? ""
+            let what = verb == "clickat"
+                ? "Click\(place)"
+                : "Type \(text.isEmpty ? "" : Agent.quoted(text) + " ")\(key.map { "then \($0) " } ?? "")\(place.isEmpty ? "where the page has focus" : place.trimmingCharacters(in: .whitespaces))"
+            permit(page, what, verb: verb, at: at, answer) {
+                page.note(what)
+                self.sparing(page) {
+                    if let at { self.press(page, at) }
+                    if verb == "typeat" { self.keyboard(text, then: key, on: page) }
                 }
-                page.acting = verb == "click" ? "clicking" : "typing"
-                act()
+                // A moment for the page to take it in.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { answer(["ok": true]) }
+            }
+
+        case "scroll":
+            let dy = min(20_000, max(-20_000, request["dy"] as? Double ?? 600))
+            let dx = min(20_000, max(-20_000, request["dx"] as? Double ?? 0))
+            let at = point(request, on: page)
+            if let at { page.cursor = at }
+            page.note("Scrolled \(dy >= 0 ? "down" : "up") \(Int(abs(dy)))")
+            var arguments: [String: Any] = ["dx": dx, "dy": dy]
+            if let at { arguments["x"] = at.x; arguments["y"] = at.y }
+            run(Agent.scrolling, on: page, arguments) { value, trouble in
+                let said = trouble ?? value as? String ?? "the page didn't answer"
+                answer(said == "ok" ? self.describe(page) : ["error": said])
             }
 
         case "close":
@@ -433,10 +467,133 @@ final class Agent: NSObject, ObservableObject {
         unsafeBitCast(imp, to: Call.self)(page.web, call, script as NSString, arguments as NSDictionary, nil, Agent.world, false, done)
     }
 
+    // MARK: - steering by the pointer
+
+    /// What a key named in typeat sends: its key code and its characters.
+    static let keys: [String: (code: UInt16, characters: String)] = [
+        "Enter": (36, "\r"), "Tab": (48, "\t"), "Escape": (53, "\u{1b}"), "Backspace": (51, "\u{7f}"),
+        "Delete": (117, String(UnicodeScalar(NSDeleteFunctionKey)!)),
+        "ArrowUp": (126, String(UnicodeScalar(NSUpArrowFunctionKey)!)),
+        "ArrowDown": (125, String(UnicodeScalar(NSDownArrowFunctionKey)!)),
+        "ArrowLeft": (123, String(UnicodeScalar(NSLeftArrowFunctionKey)!)),
+        "ArrowRight": (124, String(UnicodeScalar(NSRightArrowFunctionKey)!)),
+        "Space": (49, " "),
+    ]
+
+    /// A point in the latest screenshot's pixels, as the page's own points;
+    /// nil when it isn't on the page.
+    private func point(_ request: [String: Any], on page: Page) -> CGPoint? {
+        guard let x = (request["x"] as? NSNumber)?.doubleValue, let y = (request["y"] as? NSNumber)?.doubleValue else { return nil }
+        let scale = page.shotScale ?? page.web.window?.backingScaleFactor ?? 2
+        let at = CGPoint(x: x / scale, y: y / scale)
+        let size = page.web.bounds.size
+        guard at.x >= 0, at.y >= 0, at.x < size.width, at.y < size.height else { return nil }
+        return at
+    }
+
+    /// A mouse event at a point of the page, for its own window.
+    private func mouse(_ type: NSEvent.EventType, at point: CGPoint, on web: WKWebView) -> NSEvent? {
+        guard let window = web.window else { return nil }
+        let local = NSPoint(x: point.x, y: web.isFlipped ? point.y : web.bounds.height - point.y)
+        return NSEvent.mouseEvent(with: type, location: web.convert(local, to: nil), modifierFlags: [],
+                                  timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                  context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)
+    }
+
+    /// Moved there and pressed, as a mouse would: the page sees a real
+    /// click, hover first. What a click lets a page do that it couldn't
+    /// otherwise — a window, a download, a file, the camera — is refused
+    /// all the same (see the delegate below), and its clipboard is kept
+    /// (`sparing`).
+    private func press(_ page: Page, _ point: CGPoint) {
+        page.cursor = point
+        page.presses += 1
+        let web = page.web
+        if let moved = mouse(.mouseMoved, at: point, on: web) { web.mouseMoved(with: moved) }
+        if let down = mouse(.leftMouseDown, at: point, on: web) { web.mouseDown(with: down) }
+        if let up = mouse(.leftMouseUp, at: point, on: web) { web.mouseUp(with: up) }
+    }
+
+    /// Typed a key at a time into whatever has the focus, then a key.
+    private func keyboard(_ text: String, then key: String?, on page: Page) {
+        let web = page.web
+        guard let window = web.window else { return }
+        if window.firstResponder !== web { window.makeFirstResponder(web) }
+        func send(_ characters: String, code: UInt16) {
+            for type in [NSEvent.EventType.keyDown, .keyUp] {
+                guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [],
+                                                   timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                                   context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                                                   isARepeat: false, keyCode: code)
+                else { continue }
+                if type == .keyDown { web.keyDown(with: event) } else { web.keyUp(with: event) }
+            }
+        }
+        for character in text {
+            if character == "\n" { send("\r", code: 36) } else { send(String(character), code: 0) }
+        }
+        if let key, let sent = Agent.keys[key] { send(sent.characters, code: sent.code) }
+    }
+
+    /// Your clipboard as it was, whatever the page did with the click or
+    /// keys it was given: a real click lets a page write to it, and an
+    /// agent's never should.
+    private func sparing(_ page: Page, _ act: () -> Void) {
+        let board = NSPasteboard.general
+        let before = board.changeCount
+        let kept: [NSPasteboardItem] = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) { copy.setData(data, forType: type) }
+            }
+            return copy
+        }
+        act()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            guard board.changeCount != before else { return }
+            board.clearContents()
+            board.writeObjects(kept)
+            page.note("The page wrote to your clipboard; it was put back")
+        }
+    }
+
+    /// Clicks and typing on a page with your sign-in in it: only what you
+    /// allowed, and asked about first unless you said not to — with a look
+    /// at the spot, for one at a point.
+    private func permit(_ page: Page, _ what: String, verb: String, at point: CGPoint?,
+                        _ answer: @escaping ([String: Any]) -> Void, act: @escaping () -> Void) {
+        guard let handover = page.live else { return act() }
+        guard handover.acts else {
+            page.note("Refused: \(what) (read only)")
+            return answer(["error": "this page was handed over read-only: the person allowed reading, not clicking or typing"])
+        }
+        guard handover.asks else { return act() }
+        page.acting = "waiting for you"
+        let doing = Agent.doing[verb] ?? "acting"
+        let asking = { (picture: NSImage?) in
+            if let point { page.cursor = point }
+            self.ask(page, handover, what, picture: picture) { yes in
+                guard yes else {
+                    page.note("You refused: \(what)")
+                    return answer(["error": "the person said no to this"])
+                }
+                page.acting = doing
+                act()
+            }
+        }
+        guard let point else { return asking(nil) }
+        let shot = WKSnapshotConfiguration()
+        shot.rect = CGRect(x: point.x - 120, y: point.y - 70, width: 240, height: 140)
+            .intersection(page.web.bounds)
+        page.web.takeSnapshot(with: shot) { image, _ in
+            MainActor.assumeIsolated { asking(image) }
+        }
+    }
+
     // MARK: - asking you
 
     /// Waits for your yes in the folder; no answer in 40 seconds is a no.
-    private func ask(_ page: Page, _ handover: Handover, _ what: String, _ reply: @escaping (Bool) -> Void) {
+    private func ask(_ page: Page, _ handover: Handover, _ what: String, picture: NSImage? = nil, _ reply: @escaping (Bool) -> Void) {
         var replied = false
         let id = UUID()
         let once: (Bool) -> Void = { [weak self] yes in
@@ -445,7 +602,7 @@ final class Agent: NSObject, ObservableObject {
             self?.pending.removeAll { $0.id == id }
             reply(yes)
         }
-        pending.append(Approval(id: id, page: page.id, site: handover.site, what: what, reply: once))
+        pending.append(Approval(id: id, page: page.id, site: handover.site, what: what, picture: picture, reply: once))
         NSApp.requestUserAttention(.informationalRequest)
         DispatchQueue.main.asyncAfter(deadline: .now() + 40) { once(false) }
     }
@@ -590,6 +747,21 @@ final class Agent: NSObject, ObservableObject {
     }
 
     // MARK: - what runs in the page
+
+    /// The page scrolled as a wheel over that point would: the nearest box
+    /// under it that scrolls, or the page.
+    private static let scrolling = """
+        let n = (typeof x === 'number') ? document.elementFromPoint(x, y) : null;
+        while (n && n !== document.body && n !== document.documentElement) {
+          const s = getComputedStyle(n);
+          const down = /(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight;
+          const across = /(auto|scroll)/.test(s.overflowX) && n.scrollWidth > n.clientWidth;
+          if ((dy && down) || (dx && across)) { n.scrollBy(dx, dy); return 'ok'; }
+          n = n.parentElement;
+        }
+        window.scrollBy(dx, dy);
+        return 'ok';
+        """
 
     /// The words on the page, as it shows them.
     private static let reading = "return document.body ? document.body.innerText : ''"

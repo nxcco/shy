@@ -50,6 +50,28 @@ let tools: [Tool] = [
                       "selector": ["type": "string", "description": "A CSS selector, or text=… for a label's words."],
                       "text": ["type": "string", "description": "What to type."]],
          required: ["tab_id", "selector", "text"]),
+    Tool(name: "shy_click_at", call: "clickat",
+         description: "Move the pointer to a point on the page and click there, as a mouse would. x and y are in the pixels of the latest shy_shot of this page. For what has no selector: canvas apps, custom menus.",
+         properties: ["tab_id": tabID, "x": ["type": "number", "description": "Pixels from the left of the latest screenshot."],
+                      "y": ["type": "number", "description": "Pixels from the top of the latest screenshot."]],
+         required: ["tab_id", "x", "y"]),
+    Tool(name: "shy_type_at", call: "typeat",
+         description: "Type as a keyboard would: click at x, y first if given (pixels of the latest shy_shot), then type the text, then press a key if named. Without x and y, types where the page has focus.",
+         properties: ["tab_id": tabID,
+                      "x": ["type": "number", "description": "Pixels from the left of the latest screenshot."],
+                      "y": ["type": "number", "description": "Pixels from the top of the latest screenshot."],
+                      "text": ["type": "string", "description": "What to type. A newline presses Enter."],
+                      "key": ["type": "string", "enum": ["Enter", "Tab", "Escape", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"],
+                              "description": "A key to press after the text."]],
+         required: ["tab_id"]),
+    Tool(name: "shy_scroll", call: "scroll",
+         description: "Scroll as a wheel would, over a point if given (pixels of the latest shy_shot): the box under it that scrolls, or the page. dy is points down (negative is up), 600 unless said; dx is points across.",
+         properties: ["tab_id": tabID,
+                      "x": ["type": "number", "description": "Pixels from the left of the latest screenshot."],
+                      "y": ["type": "number", "description": "Pixels from the top of the latest screenshot."],
+                      "dy": ["type": "number", "description": "Points to scroll down; negative scrolls up."],
+                      "dx": ["type": "number", "description": "Points to scroll right; negative scrolls left."]],
+         required: ["tab_id"]),
     Tool(name: "shy_go", call: "go",
          description: "Take a page to another http or https address. Waits up to 15 s for it to load.",
          properties: ["tab_id": tabID, "url": ["type": "string", "description": "An http:// or https:// address."]],
@@ -132,7 +154,7 @@ func call(_ name: String, _ arguments: [String: Any]) -> [String: Any] {
     var request: [String: Any] = ["do": tool.call]
     if let client { request["client"] = client }
     if let id = arguments["tab_id"] as? String { request["id"] = id }
-    for key in ["url", "selector", "text", "seconds"] where arguments[key] != nil { request[key] = arguments[key] }
+    for key in ["url", "selector", "text", "seconds", "x", "y", "dx", "dy", "key"] where arguments[key] != nil { request[key] = arguments[key] }
     let (answer, trouble) = ask(request)
     guard let answer else { return text(trouble ?? "Shy gave no answer", error: true) }
     if let error = answer["error"] as? String { return text(error, error: true) }
@@ -144,7 +166,7 @@ func call(_ name: String, _ arguments: [String: Any]) -> [String: Any] {
         let head = "\(answer["title"] as? String ?? "")\n\(answer["url"] as? String ?? "")"
         let cut = answer["truncated"] as? Bool == true ? "\n\n[cut at 100,000 characters]" : ""
         return text(head + "\n\n" + (answer["text"] as? String ?? "") + cut)
-    case "click", "type":
+    case "click", "type", "clickat", "typeat":
         return text("Done.")
     case "close":
         return text("Closed \(answer["closed"] as? Int ?? 0).")
