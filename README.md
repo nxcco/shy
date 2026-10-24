@@ -1,128 +1,121 @@
-# Search
+# Shy
 
-A small, fast, quiet web browser for the Mac, by [Office Commun](https://officecommun.com).
+The shy browser, for the Mac. It stays out of the way.
 
-![Search, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)
+![Shy, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)
 
-**[Download for macOS →](https://officecommun.com/search)** · macOS 14 or later · free · about 8 MB
-
-Or with [Homebrew](https://brew.sh): `brew install --cask driceroland/tap/search`
+macOS 14 or later · free · around 8 MB · a fork of [Search](https://github.com/driceroland/Search) by Office Commun
 
 ---
 
-## What it is
+## Why shy
 
-Search is a browser with nothing in the way. A row of tabs — across the top or down the left, your choice — and the page. There is no toolbar, no start page, no sidebar of suggestions, no account to sign into, nothing that wants your attention. You type an address or a few words in one field and you are on the page.
+Most browsers want something from you: a start page, a feed, an account, a sidebar of suggestions, a badge to clear. Shy wants nothing. A row of tabs, the page, and one field to type in. Everything else waits until you reach for it, and stays out of sight when you don't.
 
-It uses **WebKit**, the engine already inside every Mac (it is what Safari runs on). That is why the whole app is about 8 MB on disk and opens instantly: there is no second copy of Chromium to download, update and keep in memory.
+- **Small.** It runs on WebKit, the engine already inside every Mac, the one Safari uses. There is no second copy of Chromium to download, update and hold in memory, so the whole app is a few megabytes and opens at once.
+- **Efficient.** A tab from yesterday costs nothing until you click it. A tab you leave alone lets its page go and comes back where you left it. Ads and trackers are stopped inside WebKit's networking before a request is made, so there is nothing to draw and nothing to slow down.
+- **Tidy.** Tabs, pins, groups, spaces and profiles, each doing one clear job, organized the way Arc taught people to like.
+- **Quiet.** No toolbar, no start page, no telemetry, nothing that asks for attention.
+- **Helpful, if you ask.** Claude can browse in Shy for you, in private pages of its own, out of sight. It is off until you turn it on, and it never touches your tabs.
 
-It was built by a design studio that spends its whole day in a browser and was tired of the ones that had become products. This one is a tool.
+## Tabs, kept tidy
 
-## What it does
+- **A row or a column.** Tabs across the top or down the side. `⇧⌘S` switches; `⌘S` folds the column away until the pointer reaches the edge.
+- **Pins, as in Arc.** Squares for the sites you live in, rows under them for pages you keep, and a line with Clear above the tabs that come and go. A pin stays on its site: a link elsewhere opens over it, and `⌘W` or a relaunch takes it back to the page it was pinned at. Press a pin's `⌘` number again to go back to where you were.
+- **Groups.** Right-click a tab › New Tab Group. Click a group's heading to fold it.
+- **Spaces.** Separate sets of tabs for separate parts of your life. Switch with `⌃1`–`⌃9`, two fingers sideways over the tabs, or a click on the space's icon, which opens a small drawer of your spaces: click to go, drag to reorder, `+` to add. Right-click the icon to rename it, give it an icon or a downloads folder, move it to another profile, or delete it.
+- **Profiles.** A profile holds its own sign-ins and site data, history, bookmarks and passwords; every space belongs to one. Going to a space goes to its profile, in the same window: Work signed in to work mail, Personal to yours. Make one in Settings › Tabs › Profiles or from a space's menu.
+- **Two pages side by side.** Drag a tab onto a page, or press `⌥⌘N`. `⌃⌘←` / `⌃⌘→` move between them.
+- **Sleeping and closing.** Tabs you aren't using sleep sooner, later or never, your choice, and tabs you leave alone can close by themselves after a day, a week or a month. A site you need running, like a chat or a player, can be kept awake from its site card.
+- **`⌘K`** finds any open tab by name; **`⌃Tab`** walks through them, with `⌃W`, `⌃R` and `⌃M` to close, reload or mute the one picked; holding **`⌘`** shows each tab's number.
 
-- **One field.** Type an address and you go there; type words and you search. It finishes addresses from your own history and never sends what you type anywhere until you press Return.
-- **Tabs that stay out of the way.** Pin the pages you keep open all day and they shrink to a letter or their icon. Tabs from your last session come back instantly and cost nothing until you click them. `⌘K` lists your open tabs by name.
-- **Keep an important site running.** Enable Keep selected sites awake in Settings › Tabs, then choose Keep This Site Awake in the site card. It prevents sleeping and automatic closure, even under memory pressure, at the cost of more memory. Private choices last only in that tab; manual closing still works.
-- **Two pages side by side.** Turn on Split View in Settings › Tabs, then drag a tab onto a page or choose Tabs › Split Current Page. Drag the divider to resize the panes; the outlined pane receives page commands. Pairs and their widths come back with their Space, including after a restart.
-- **Reading mode.** `⇧⌘R` strips a page down to the article.
-- **Hide anything, for good.** `⇧⌘H`, then click a cookie banner, a newsletter overlay, a rail of "related" nonsense — it goes, and it is still gone on that site next time, before the page has drawn a single frame.
-- **An ad blocker that runs before the page.** Third-party trackers and ad networks are stopped at the network level, so there is nothing to render and nothing to slow down. On by default, off per site if something breaks.
-- **Video that follows you.** `⇧⌘P` lifts the video out of the page into a small window that stays above everything, including other apps.
-- **Passwords, in your keychain.** Search offers to save a sign-in once it has actually worked, and offers your saved accounts, and the Mac's passkeys for the site, under the field when you click it — the way Safari does, never filling anything on its own. Everything lives in the macOS keychain, encrypted by the system, readable only by Search. Bring yours in from Chrome, Arc, Dia, Brave or Edge in one click; nothing leaves the Mac.
-- **Light, dark, or the Mac's own.** The frame and the pages follow.
-- **Bookmarks, history, downloads** — each a panel, each searchable, each one keystroke away.
-- **Chrome extensions, without Chrome.** Paste a Chrome Web Store link in Settings › Extensions, or open the extension's page in Search and press Add. It runs on WebKit's own extension engine — the one Safari uses — and where Chrome has APIs WebKit doesn't (bookmarks, history, downloads, side panel, offscreen documents, fonts, notifications, speech, OAuth sign-in), Search fills them in itself. They live behind the puzzle button; pin the ones you use often. Building your own? Load its folder as an unpacked extension and press Reload after each change, as in Chrome's developer mode. macOS 15.4 or later.
-- **Updates itself, quietly.** Once a day it checks for a newer build, downloads it, verifies it is signed by Office Commun, and swaps it in for the next launch. Nothing restarts on its own.
+## Less in the way
+
+- **One field.** Type an address and you go there; type words and you search. Type the start of a site's name and `Tab` to search that site, or `settings` to go to Settings. Nothing you type leaves the Mac until you press Return, unless you turn on your engine's suggestions.
+- **Hide anything, for good.** `⇧⌘H`, then click a cookie banner, a newsletter overlay or a rail of "related" links. It goes, and it is still gone on that site next time, before the page draws a frame.
+- **Ad and tracker blocking**, on by default, off per site if something breaks.
+- **Reading mode.** `⇧⌘R` keeps the article and drops the rest.
+- **Video that follows you.** `⇧⌘P` floats a video in a small window above everything; it can also float by itself when you switch tabs or apps.
+- **Peek.** Shift-click a link and its page opens over the one you are reading; Escape puts it away.
+- **Passwords in your keychain.** Shy offers to save a sign-in once it has worked, and offers your accounts and the Mac's passkeys under the field when you click it, never filling anything on its own. Bring yours in from Chrome, Arc, Dia, Brave or Edge; nothing leaves the Mac.
+- **Chrome extensions, without Chrome**, on WebKit's own extension engine (macOS 15.4 or later). Paste a Chrome Web Store link in Settings › Extensions.
+
+## Claude, low-key
+
+Turn on **Settings › General › Let Claude open pages**, copy the command it shows, and run it once:
+
+```
+claude mcp add search -- /Applications/Search.app/Contents/MacOS/search-mcp
+```
+
+Claude Code can then open web pages in Shy, read them, take pictures of them, click and type. That's all it can do, and all of it happens in Claude's own pages:
+
+- They are private pages out of sight, never your tabs. Each has its own store, forgotten when it closes, with none of your cookies, sign-ins, passwords or extensions.
+- They open http and https and nothing else: no files on your Mac, no downloads, no pop-up windows, no camera, microphone or location.
+- No network port is opened. Claude's side talks to Shy over a socket in Shy's folder that only your user can reach, and the switch only counts if you turned it on in Settings.
+- Settings shows how many pages Claude has open, with a button to close them all.
+
+There is no assistant pane, no chat button, and no AI anywhere you didn't ask for it.
 
 ## What it doesn't do
 
 On purpose:
 
-- No extension you have to install to feel at home. Blocking ads, hiding clutter, reading mode, picture-in-picture and passwords are built in; extensions are there for everything else.
-- No sync, no account, no cloud. Your tabs, history and passwords are on your Mac and nowhere else.
-- No telemetry, no analytics, no crash reports sent anywhere. The only things that leave your Mac are the pages you ask for, their icons, and one small request a day to see whether there is a newer version.
-- One window. Tabs are the only kind of "new" there is.
+- No sync, no account, no cloud. Your tabs, history and passwords stay on your Mac.
+- No telemetry, analytics or crash reports. What leaves your Mac is the pages you ask for, their icons, and one small request a day to check for an update.
+- No start page, no feed, no suggestions you didn't ask for.
 
 ## Privacy, concretely
 
 | What | Where it is | Who can read it |
 |---|---|---|
-| Passwords | The macOS login keychain, as ordinary keychain items tagged `Search` | Search, signed by Office Commun. Any other app triggers the system's permission dialog. |
-| History, bookmarks, open tabs, hidden elements | Small JSON files in `~/Library/Application Support/Search/` | You. |
-| Cookies and site data | WebKit's own store for the app | The sites that set them, as in any browser. |
-| Extensions | Unpacked in `~/Library/Application Support/Search/Extensions/`, their data in WebKit's extension store | Each extension, within the permissions you accepted when adding it. |
+| Passwords | The macOS keychain, as items tagged `Search` (Personal) or `Search · <profile>` | Shy. Any other app gets the system's permission dialog. |
+| History, bookmarks, open tabs, hidden elements | Small JSON files in `~/Library/Application Support/Search/`, history and bookmarks one file per profile | You. |
+| Cookies and site data | WebKit's own stores: one per profile, and one for each space that kept sign-ins of its own | The sites that set them, as in any browser. |
+| Claude's pages | In memory only, gone when closed | Nothing is kept. |
+| Extensions | `~/Library/Application Support/Search/Extensions/`, their data in WebKit's extension store | Each extension, within the permissions you accepted. |
 | Anything else | Nowhere. There is no server. | — |
 
-A **private tab** (`⇧⌘N`) has its own cookie jar and leaves nothing behind when it closes.
-
-Apps you allow in System Settings › Privacy & Security › Automation can read the address and title of your tabs with AppleScript; private tabs are never shown.
+A **private tab** (`⇧⌘N`) has its own cookie jar and leaves nothing behind. A page opened from a folder on your Mac can show the pictures beside it but can't read the other files there.
 
 ## Keyboard
 
 | | |
 |---|---|
-| `⌘L` address · `⌘K` switch tab · `⌘T` new tab · `⌘W` close · `⇧⌘T` reopen | `⌘[` `⌘]` back, forward · `⇧⌘[` `⇧⌘]` previous, next tab · `⌘1`–`⌘9` jump |
-| `⇧⌘S` tabs across the top or down the left · `⌘S` fold the sidebar away · `⇧⌘B` bookmark this page | `⇧⌘R` reading mode · `⇧⌘P` float the video · `⇧⌘H` hide something · `⇧⌘U` what is hidden here |
-| `⌘F` find · `⌘D` duplicate tab · `⇧⌘C` copy address · `⇧⌘V` paste and go | `⌘Y` history · `⇧⌘J` downloads · `⌘,` settings · `⌥⌘L` passwords |
+| `⌘L` address · `⌘K` find a tab · `⌘T` new tab · `⌘W` close · `⇧⌘T` reopen | `⌘[` `⌘]` back, forward · `⇧⌘[` `⇧⌘]` previous, next tab · `⌘1`–`⌘9` jump |
+| `⇧⌘S` tabs on top or at the side · `⌘S` fold the column · `⌃1`–`⌃9` spaces | `⇧⌘R` reading mode · `⇧⌘P` float the video · `⇧⌘H` hide something |
+| `⌥⌘N` split the page · `⌃⌘←` `⌃⌘→` between the two | `⌘F` find · `⌘Y` history · `⇧⌘J` downloads · `⌘,` settings |
 
-Space keys (Control+1–9 by default) and the modifier used to peek at a link can be changed in Settings › Shortcuts while those features are enabled.
-
-`⌘R` reloads the page; `⌥⌘R` reloads it from origin, checking everything cached with the site again, as Safari's Reload Page From Origin, which is also in a right-click on the reload button.
-
-`⌃Tab` and `⌃⇧Tab` walk along the row of tabs; `Tab` stays the page's, for moving through a form. `esc` puts away whatever is open.
-
-With Split View on, `⌥⌘N` splits the current page and `⌃⌘←` / `⌃⌘→` go from one page to the other. `⌘W` closes the focused tab and gives the remaining page the whole area. Tabs › Separate Split Tabs keeps both tabs open separately.
+Shortcuts can be changed in Settings › Shortcuts. `esc` puts away whatever is open.
 
 ---
 
 ## For developers
 
-### Why the source is here
-
-So anyone can read exactly what a browser handling their passwords and history is doing, build it themselves, or fix something that bothers them. The code is small enough to actually read — about 42,000 lines of Swift, no dependencies beyond what Apple ships with macOS, one file per concern.
-
 ### Building it
 
-- macOS 14 or later, Xcode 16 / Swift 6 toolchain
-- `swift build` — runs the app straight from the SwiftPM binary
-- `./build.sh` — assembles a real, double-clickable `Search.app` in `build/`, ad-hoc signed so it runs on your own Mac. `SEARCH_DEV=1 ./build.sh` makes it a dev build, on a yellow icon and named for its branch (`Search-split-view` from `claude/split-view-4a6927`), so it's never mistaken for an installed Search or for another worktree's build; `SEARCH_FEATURE=name` picks the name. It shares the installed app's settings and its bundle id, so while both run, a link from another app may land in either
-
-A build you make yourself won't be notarized or carry Office Commun's Developer ID, so the first launch needs a right-click → Open (or an allow in System Settings → Privacy & Security). That's expected — it's the same thing that happens with any app that isn't from the App Store or a notarized DMG. Your own build also keeps its passwords apart from a signed Search's: the keychain tells the two apart by their signatures.
-
-`./build.sh release dmg` also makes `Search.dmg` / `Search.zip`. `./build.sh release ship` additionally notarizes and staples — that step needs a Developer ID certificate and Apple credentials, so it only really does anything for Office Commun's own releases.
+- macOS 14 or later, Xcode 16 / Swift 6 toolchain. No dependencies beyond what Apple ships.
+- `swift build` builds the app and `search-mcp`; `./build.sh` assembles a double-clickable app in `build/`, ad-hoc signed so it runs on your Mac. `SEARCH_DEV=1 ./build.sh` makes a dev build on a yellow icon, named for its branch.
+- The app still builds as `Search.app`, with Search's bundle id and folders, so it shares settings, sign-ins and passwords with an installed Search.
+- A build you make yourself isn't notarized, so the first launch needs right-click › Open.
 
 ### How it's put together
 
-- **SwiftUI** for everything drawn, **AppKit** for the handful of things SwiftUI doesn't reach on macOS (the window's title bar, dragging the window by an empty part of the tab row), **WKWebView** for pages.
-- One `Tab` per page. Its web view is built lazily — a tab restored from last session doesn't cost a process until you switch to it. That's most of why launching with twenty tabs is still instant. Each page runs in WebKit's own content process, as in Safari; a tab you close is really gone.
-- The ad blocker is a `WKContentRuleList` compiled once at launch and enforced inside WebKit's networking, before a request is made — zero cost at run time, unlike a JavaScript blocker.
-- Hidden elements are a per-site list of selectors injected as a stylesheet at document start, so nothing is ever seen appearing and vanishing.
-- Every colour is a light/dark pair in `Design.swift`, resolved by the window's appearance; nothing else in the code knows which mode it is in.
-- Extensions run on `WKWebExtension` (macOS 15.4+). `Crx.swift` fetches an extension from the Chrome Web Store's public update address and checks the CRX3 signature against the extension's id before anything is unpacked. `Extensions.swift` is the browser's side of WebKit's contract — tabs, the window, permissions, popups. `ExtensionShims.swift` adds, at install, a small script to the extension's worker, pages and content scripts: it defines the Chrome APIs WebKit lacks — `userScripts`, `privacy`, `browsingData`, `sessions`, the old FileSystem API and more — as calls answered natively by Search, and mends the places where WebKit behaves differently from Chrome: replies from pages that don't answer, listeners added after a worker starts, workers WebKit loses track of, members and constants it leaves out. Extension pages are served from `chrome-extension://<id>/`, the address they have in Chrome, so servers and sites recognise them. `./bench ext-*` drives all of it from the shell against a test run. `ExtensionNative.swift` speaks Chrome's native messaging to hosts registered in Chrome's `NativeMessagingHosts` folders.
-- `Sources/Search/` is one file per concern: `Vault.swift` is the keychain, `Shield.swift` the ad blocker, `Curtain.swift` the hidden elements, `Session.swift` what comes back at launch, `Updater.swift` the update, `Bench.swift` the test socket, and so on. There's no framework of its own to learn first.
+- **SwiftUI** for what is drawn, **AppKit** where SwiftUI doesn't reach, **WKWebView** for pages. One file per concern in `Sources/Search/`.
+- `Tab.swift`: one tab per page, its web view built only when needed. `Spaces.swift` and `Profiles.swift`: which store, history, bookmarks and keychain drawer a space uses. `Vault.swift`: the keychain. `Shield.swift`: the ad blocker, a `WKContentRuleList`. `Curtain.swift`: hidden elements. `Session.swift`: what comes back at launch.
+- `Agent.swift`: Claude's pages and their socket. `Sources/SearchMCP/`: `search-mcp`, the MCP server Claude runs, which only passes calls to that socket. It is signed on its own, with none of the app's entitlements. `LocalSocket.swift`: the user-only socket and the keychain mark behind both scripting switches.
+- Extensions run on `WKWebExtension`; `ExtensionShims.swift` fills in the Chrome APIs WebKit lacks.
 
-### Testing it without closing it
+### Testing
 
-Turn on **Settings › General › Let a script drive Search** and the running app listens on a Unix socket in its own folder (readable by your user only). `./bench` at the root of the repository speaks it:
-
-```
-./bench open https://example.com     # a tab of its own, at the end of your row, marked with a flask
-./bench wait 2e7e7e89                 # until it has loaded
-./bench text 2e7e7e89                 # the page's text
-./bench shot 2e7e7e89 out.png         # a picture of it
-./bench click 2e7e7e89 "button.go"    # click, type, submit — through the page's own events
-./bench probe                         # the window's state: open panels, a modal, every window
-./bench close all
-```
-
-Bench tabs are never selected for you, never enter the session or the history, and go when the script says so. It is how this browser is tested while somebody is using it.
-
-`python3 Tests/split_view.py`, after `./build.sh`, checks Split View through the app's own model in a hidden test run with its own settings and files, all removed afterwards. It never makes or shows a window; what can only be seen (dragging onto a page's edge, the divider under the pointer, the motion) is checked by hand on a release candidate.
+- `swift test` runs the unit tests.
+- `python3 Tests/<suite>.py`, after `./build.sh debug`, drives a hidden test run of the app with its own settings and files, removed afterwards. There is one suite per feature; `Tests/agent_mcp.py` covers Claude's pages and `Tests/file_siblings.py` local files.
+- **Settings › General › Let a script drive Search** opens a socket that `./bench` speaks, for driving the running app from the shell: `./bench open https://example.com`, `./bench text <id>`, `./bench shot <id> out.png`, `./bench close all`.
 
 ### Contributing
 
-Issues and pull requests are genuinely welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how this is reviewed and what tends to get merged. The short version: small changes, no new dependencies, nothing that phones home. Found a security problem? Please report it privately, as [SECURITY.md](SECURITY.md) says.
+Small changes, no new dependencies, nothing that phones home. See [CONTRIBUTING.md](CONTRIBUTING.md); report security problems privately, as [SECURITY.md](SECURITY.md) says.
 
 ### License
 
-MIT — see [LICENSE](LICENSE). Do what you want with the code. "Search" and the app icon are Office Commun's; please rename a fork before distributing it under another name.
+MIT, see [LICENSE](LICENSE). Shy is a fork of [Search](https://github.com/driceroland/Search) by Office Commun; "Search" and its icon are theirs.
