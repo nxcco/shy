@@ -18,18 +18,18 @@ A column of tabs, the page, and one field to type in. Nothing else asks for your
 
 ## Its own line
 
-Shy is a fork of [Search](https://github.com/driceroland/Search) with a line of its own: low accidental complexity, no feature it doesn't need, no more growth than necessary. Stay shy.
+Shy is a fork of [Search](https://github.com/driceroland/Search) by Office Commun, with a line of its own: low accidental complexity, no feature it doesn't need, no more growth than necessary. Stay shy.
 
 It is built with AI agents, and safety comes first. Shy is a tiny wrapper around WebKit, so its attack surface is small and WebKit takes on the hard parts. Nothing listens on the network, and every change is reviewed for what it opens up.
 
 ## Building
 
 ```bash
-swift build      # the app and search-mcp
-./build.sh       # build/Search.app, ad-hoc signed
+swift build      # the app and shy-mcp
+./build.sh       # build/Shy.app, ad-hoc signed
 swift test       # unit tests; Tests/*.py drive a hidden copy of the app
 ```
 
-The app still builds as `Search.app` and shares its folders with an installed Search. Report security issues privately, as [SECURITY.md](SECURITY.md) says.
+The app builds as `Shy.app`, with a bundle id and folders of its own. Report security issues privately, as [SECURITY.md](SECURITY.md) says.
 
-MIT, see [LICENSE](LICENSE). "Search" and its icon are Office Commun's.
+MIT, see [LICENSE](LICENSE).
