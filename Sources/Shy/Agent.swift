@@ -7,8 +7,7 @@ import WebKit
 // the small program beside the app (Sources/ShyMCP), which speaks MCP on its standard
 // input and output and passes each call to this over agent.sock.
 //
-// Off unless switched on in Settings › Agents, which also leaves the mark
-// the switch needs at launch (see SwitchMark). What a page you never chose
+// Off unless switched on in Settings › Agents. What a page you never chose
 // can ask of an agent, it can ask of these pages, so they hold as little as
 // a page can:
 //

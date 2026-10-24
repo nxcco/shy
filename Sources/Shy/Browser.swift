@@ -2055,11 +2055,7 @@ final class Browser: NSObject, ObservableObject {
             } else if prefs.benchRefused {
                 announce("“Let a script drive Shy” was turned on outside Settings, and stays off")
             }
-            if prefs.agent {
-                Agent.shared.start()
-            } else if prefs.agentRefused {
-                announce("“Let agents open pages” was turned on outside Settings, and stays off")
-            }
+            if prefs.agent { Agent.shared.start() }
             let fresh = !prefs.welcomed
             prefs.welcomed = true
             newsShowing = WhatsNew.due(prefs: prefs, fresh: fresh)

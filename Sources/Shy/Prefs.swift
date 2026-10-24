@@ -125,8 +125,6 @@ final class Preferences: ObservableObject {
     @Published var agent: Bool {
         didSet { store.set(agent, forKey: "agent") }
     }
-    /// Always false now; the line that reported a refused switch goes next.
-    private(set) var agentRefused = false
     /// What agents may not do in their pages (see Agent.Ability): each turned
     /// off in Settings › Agents. Everything allowed unless taken away.
     @Published var agentDenied: Set<String> {
