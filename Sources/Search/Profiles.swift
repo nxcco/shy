@@ -226,23 +226,16 @@ final class Profiles: ObservableObject {
 }
 
 /// Settings › Profiles & Spaces: every profile with its spaces under it.
-/// A space goes to another profile by dragging it onto that profile, or
-/// from its ⋯ menu, after a yes either way; the menu also renames and
-/// deletes it. The order of spaces is the drawer's to change, not this.
+/// A space's right-click menu renames it, moves it to another profile
+/// (after a yes) or deletes it; each profile's ⋯ makes a space in it,
+/// renames or deletes it. The order of spaces is the drawer's to change.
 struct ProfilesPage: View {
     @ObservedObject var browser: Browser
     @ObservedObject private var profiles = Profiles.shared
-    /// The space being dragged, and the one-time word its drag carries. A
-    /// drop counts only with that word: text dragged in from another app,
-    /// or a drag let go somewhere else and long gone, moves nothing.
-    @State private var dragging: (space: UUID, token: String)?
-    /// The profile a space is held over.
-    @State private var over: UUID?
-
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Each profile keeps its own sign-ins, history, bookmarks and passwords. Drag a space onto a profile to move it there.")
+                Text("Each profile keeps its own sign-ins, history, bookmarks and passwords. Right-click a space to rename it, move it to another profile or delete it.")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -267,7 +260,7 @@ struct ProfilesPage: View {
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: 8)
                 Dots {
-                    Button("New Space") { browser.askForSpace { made in browser.setProfile(profile.id, of: made.id) } }
+                    Button("New Space") { browser.askForSpace(in: profile.id) }
                     Button("Rename…") {
                         Ask.name("Rename Profile", placeholder: profile.name, initial: profile.name, confirm: "Rename") {
                             profiles.rename(profile.id, to: $0)
@@ -283,7 +276,7 @@ struct ProfilesPage: View {
             .frame(height: 40)
             if spaces.isEmpty {
                 Rule()
-                Text("No spaces — drag one here")
+                Text("No spaces yet")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Palette.muted)
                     .padding(.horizontal, 14)
@@ -294,30 +287,9 @@ struct ProfilesPage: View {
                 row(space, in: profile)
             }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .strokeBorder(Palette.ink.opacity(over == profile.id ? 0.35 : 0), lineWidth: 1.5)
-                .allowsHitTesting(false)
-        )
-        .onDrop(of: [.plainText], isTargeted: Binding(
-            get: { over == profile.id },
-            set: { over = $0 ? profile.id : (over == profile.id ? nil : over) }
-        )) { providers in
-            guard let held = dragging, let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: NSString.self) { text, _ in
-                let said = text as? String
-                DispatchQueue.main.async {
-                    // Only the drag this page started, once.
-                    guard said == "shy-space:\(held.token)", dragging?.token == held.token else { return }
-                    dragging = nil
-                    browser.askToMove(held.space, to: profile.id)
-                }
-            }
-            return true
-        }
     }
 
-    /// A space: its icon and name, to be picked up; and its menu.
+    /// A space: its icon and name; a right-click for what can be done to it.
     private func row(_ space: Space, in profile: Profile) -> some View {
         HStack(spacing: 10) {
             Image(systemName: space.symbol)
@@ -329,35 +301,30 @@ struct ProfilesPage: View {
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
             Spacer(minLength: 8)
-            Dots {
-                Button("Rename…") {
-                    Ask.name("Rename Space", placeholder: space.name, initial: space.name, confirm: "Rename") {
-                        browser.renameSpace(space.id, to: $0)
-                    }
-                }
-                Menu("Move to") {
-                    ForEach(profiles.list.filter { $0.id != profile.id }) { other in
-                        Button(other.name) { browser.askToMove(space.id, to: other.id) }
-                    }
-                }
-                .disabled(profiles.list.count < 2)
-                if !space.isFirst {
-                    Divider()
-                    Button("Delete…") {
-                        Ask.sure("Delete “\(space.name)”?", detail: "Its tabs close, and what it alone keeps is erased from this Mac.", confirm: "Delete") {
-                            browser.deleteSpace(space.id)
-                        }
-                    }
-                }
-            }
         }
         .padding(.horizontal, 14)
         .frame(height: 36)
         .contentShape(Rectangle())
-        .onDrag {
-            let token = UUID().uuidString
-            dragging = (space.id, token)
-            return NSItemProvider(object: "shy-space:\(token)" as NSString)
+        .contextMenu {
+            Button("Rename…") {
+                Ask.name("Rename Space", placeholder: space.name, initial: space.name, confirm: "Rename") {
+                    browser.renameSpace(space.id, to: $0)
+                }
+            }
+            Menu("Move to") {
+                ForEach(profiles.list.filter { $0.id != profile.id }) { other in
+                    Button(other.name) { browser.askToMove(space.id, to: other.id) }
+                }
+            }
+            .disabled(profiles.list.count < 2)
+            if !space.isFirst {
+                Divider()
+                Button("Delete…") {
+                    Ask.sure("Delete “\(space.name)”?", detail: "Its tabs close, and what it alone keeps is erased from this Mac.", confirm: "Delete") {
+                        browser.deleteSpace(space.id)
+                    }
+                }
+            }
         }
     }
 

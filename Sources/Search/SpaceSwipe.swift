@@ -249,13 +249,31 @@ struct NewSpaceCard: View {
     @State private var name = ""
     @State private var icon = "briefcase"
     @State private var choosing = false
-    /// Signed in where the other spaces are, or starting afresh.
-    @State private var shared = true
+    /// The profile it is in: signed in, and keeping history, bookmarks and
+    /// passwords, as that profile does.
+    @State private var profile = Profile.personalID
+    @ObservedObject private var profiles = Profiles.shared
     @State private var hovering = false
     @FocusState private var typing: Bool
 
-    private var saying: String {
-        shared ? "Signed in wherever your other spaces are." : "Its own cookies and sign-ins, starting from none."
+    /// The profiles to choose from, and New Profile…, which makes one.
+    private var profilePicker: some View {
+        Picker("", selection: Binding(
+            get: { profile },
+            set: { picked in
+                guard picked == ProfileChoice.making else { return profile = picked }
+                Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
+                         placeholder: "Work", confirm: "Create") { profile = profiles.add(named: $0).id }
+            }
+        )) {
+            ForEach(profiles.list) { Text($0.name).tag($0.id) }
+            Divider()
+            Text("New Profile…").tag(ProfileChoice.making)
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize()
+        .help("The profile it signs in as, and keeps its history, bookmarks and passwords in")
     }
 
     var body: some View {
@@ -266,9 +284,7 @@ struct NewSpaceCard: View {
                     pick(size: 13, box: CGSize(width: 28, height: 26))
                     field
                         .frame(width: 170)
-                    Segmented(options: [(true, "Signed in"), (false, "Signed out")], selection: $shared)
-                        .fixedSize()
-                        .help(saying)
+                    profilePicker
                     Pill("Cancel") { cancel() }
                     Pill("Create", filled: true) { create() }
                 }
@@ -280,22 +296,13 @@ struct NewSpaceCard: View {
                         Text("New space")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Palette.ink)
-                        Text("Its own tabs.")
+                        Text("Its own tabs, in a profile.")
                             .font(.system(size: 11))
                             .foregroundStyle(Palette.muted)
                             .multilineTextAlignment(.center)
                     }
                     field
-                    // Most people want Google and the rest to know them here too;
-                    // some want a clean slate.
-                    VStack(spacing: 6) {
-                        Segmented(options: [(true, "Signed in"), (false, "Signed out")], selection: $shared, wide: true)
-                        Text(saying)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Palette.muted)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    profilePicker
                     HStack(spacing: 8) {
                         Pill("Cancel") { cancel() }
                         Pill("Create", filled: true) { create() }
@@ -307,6 +314,7 @@ struct NewSpaceCard: View {
         }
         .onAppear {
             icon = browser.freeIcon
+            profile = browser.newSpaceProfile ?? browser.profileID
             DispatchQueue.main.async { typing = true }
         }
         .onExitCommand(perform: cancel)
@@ -373,7 +381,7 @@ struct NewSpaceCard: View {
     private func create() {
         let named = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !named.isEmpty else { typing = true; return }
-        browser.addSpace(named: named, icon: icon, sharesSignIns: shared)
+        browser.addSpace(named: named, icon: icon, profile: profile)
     }
 
     /// Back to the space it was made from, the way it came.
@@ -382,4 +390,9 @@ struct NewSpaceCard: View {
         let back = browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0
         SpaceSwipe.shared.slide(browser, to: back, from: browser.spaces.count)
     }
+}
+
+/// The menu's New Profile…, among the profiles' ids.
+private enum ProfileChoice {
+    static let making = UUID(uuidString: "00000000-0000-0000-0000-00000000FFFF") ?? UUID()
 }

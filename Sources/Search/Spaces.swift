@@ -312,9 +312,15 @@ extension Browser {
 
     /// A new space — signed in where the others are, or starting afresh with
     /// its own cookies and sign-ins. By default it starts empty and on screen.
-    func addSpace(named name: String, icon: String? = nil, sharesSignIns: Bool = true) {
+    /// A new space in a profile: signed in as that profile is. Sign-ins of
+    /// its own (`sharesSignIns` false) are for the bench's tests of spaces
+    /// from before profiles, and nothing else.
+    func addSpace(named name: String, icon: String? = nil, profile: UUID? = nil, sharesSignIns: Bool = true) {
         makingSpace = false
-        let made = Space(id: UUID(), name: name, colour: 0, icon: icon ?? freeIcon, sharesSignIns: sharesSignIns)
+        var made = Space(id: UUID(), name: name, colour: 0, icon: icon ?? freeIcon, sharesSignIns: sharesSignIns)
+        let profile = profile ?? newSpaceProfile ?? profileID
+        made.profile = profile == Profile.personalID ? nil : profile
+        newSpaceProfile = nil
         spaces.append(made)
         Spaces.write(spaces)
         if let afterSpaceCreated {
@@ -333,8 +339,11 @@ extension Browser {
     }
 
     /// "New Space…": the card for a new space, in the column or the bar.
-    func askForSpace(then onCreated: ((Space) -> Void)? = nil) {
+    /// `profile`: the one it starts in, the card's choice at first; the
+    /// profile on screen when none is said.
+    func askForSpace(in profile: UUID? = nil, then onCreated: ((Space) -> Void)? = nil) {
         afterSpaceCreated = onCreated
+        newSpaceProfile = profile
         // In place, where the next space would come in, in the column or the
         // bar alike; a question only while the tabs are folded out of sight.
         if !folded || peeking {
@@ -342,8 +351,8 @@ extension Browser {
             SpaceSwipe.shared.start(for: self)
             SpaceSwipe.shared.slide(self, to: spaces.count, from: here)
         } else {
-            Ask.newSpace(
-                then: { name, shared in self.addSpace(named: name, sharesSignIns: shared) },
+            Ask.newSpace(in: profile ?? profileID,
+                then: { name, profile in self.addSpace(named: name, profile: profile) },
                 cancelled: { self.cancelSpaceCreation() }
             )
         }
@@ -702,19 +711,21 @@ enum Ask {
         }
     }
 
-    /// A new space's name, and whether it keeps the sign-ins the others
-    /// have — for when the column isn't there to hold the card.
-    static func newSpace(then: @escaping (String, Bool) -> Void, cancelled: @escaping () -> Void) {
+    /// A new space's name, and the profile it is in — for when the column
+    /// isn't there to hold the card.
+    @MainActor static func newSpace(in profile: UUID, then: @escaping (String, UUID) -> Void, cancelled: @escaping () -> Void) {
         let alert = NSAlert()
         alert.messageText = "New Space"
-        alert.informativeText = "Its own tabs. Signed in where your other spaces are, unless it starts afresh."
+        alert.informativeText = "Its own tabs, signed in as its profile is."
         let field = NSTextField(frame: NSRect(x: 0, y: 30, width: 260, height: 24))
         field.placeholderString = "Work"
-        let fresh = NSButton(checkboxWithTitle: "Start signed out, with its own cookies", target: nil, action: nil)
-        fresh.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
-        let box = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 56))
+        let profiles = Profiles.shared.list
+        let pick = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 24), pullsDown: false)
+        pick.addItems(withTitles: profiles.map(\.name))
+        pick.selectItem(at: profiles.firstIndex { $0.id == profile } ?? 0)
+        let box = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 58))
         box.addSubview(field)
-        box.addSubview(fresh)
+        box.addSubview(pick)
         alert.accessoryView = box
         alert.addButton(withTitle: "Create")
         alert.addButton(withTitle: "Cancel")
@@ -722,7 +733,7 @@ enum Ask {
         show(alert) { ok in
             let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard ok, !name.isEmpty else { cancelled(); return }
-            then(name, fresh.state != .on)
+            then(name, profiles[max(0, pick.indexOfSelectedItem)].id)
         }
     }
 

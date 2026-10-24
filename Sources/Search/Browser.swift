@@ -1965,6 +1965,8 @@ final class Browser: NSObject, ObservableObject {
     /// whether the card for a new space stands in for them (see SpaceSwipe).
     @Published var spaceSwipe: CGFloat = 0
     @Published var makingSpace = false
+    /// The profile a space being made starts in (askForSpace).
+    var newSpaceProfile: UUID?
     /// A tab being sent into the Space being made from its context menu.
     var afterSpaceCreated: ((Space) -> Void)?
     /// A link's page, peeked at over this one (see Peek.swift).
