@@ -186,9 +186,9 @@ final class Profiles: ObservableObject {
 }
 
 /// Settings › Profiles & Spaces: every profile with its spaces under it.
-/// A space is given to another profile by dragging it onto that profile's
-/// card, or from the menu beside it, after a yes either way; a profile is
-/// made, renamed or deleted here, and a new space made in it.
+/// A space goes to another profile by dragging it onto that profile, or
+/// from its ⋯ menu, after a yes either way; the menu also renames and
+/// deletes it. The order of spaces is the drawer's to change, not this.
 struct ProfilesPage: View {
     @ObservedObject var browser: Browser
     @ObservedObject private var profiles = Profiles.shared
@@ -196,17 +196,20 @@ struct ProfilesPage: View {
     /// drop counts only with that word: text dragged in from another app,
     /// or a drag let go somewhere else and long gone, moves nothing.
     @State private var dragging: (space: UUID, token: String)?
-    /// The profile card a space is held over.
+    /// The profile a space is held over.
     @State private var over: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Card {
-                Line("Profiles", "Each keeps its own sign-ins, history, bookmarks and passwords. Every space belongs to one, and going to a space goes to its profile. Extensions and settings are shared") {
-                    Pill("New Profile…") {
-                        Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
-                                 placeholder: "Work", confirm: "Create") { profiles.add(named: $0) }
-                    }
+            HStack(alignment: .firstTextBaseline) {
+                Text("Each profile keeps its own sign-ins, history, bookmarks and passwords. Drag a space onto a profile to move it there.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 12)
+                Pill("New Profile…") {
+                    Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
+                             placeholder: "Work", confirm: "Create") { profiles.add(named: $0) }
                 }
             }
             ForEach(profiles.list) { profile in
@@ -218,41 +221,37 @@ struct ProfilesPage: View {
     private func card(_ profile: Profile) -> some View {
         let spaces = browser.spaces.filter { $0.profileID == profile.id }
         return Card {
-            Line(profile.name, spaces.isEmpty ? "No spaces" : spaces.count == 1 ? "1 space" : "\(spaces.count) spaces") {
-                HStack(spacing: 6) {
-                    Pill("New Space") {
-                        browser.askForSpace { made in browser.setProfile(profile.id, of: made.id) }
-                    }
-                    Pill("Rename…") {
+            HStack(spacing: 8) {
+                Text(profile.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.ink)
+                Spacer(minLength: 8)
+                Dots {
+                    Button("New Space") { browser.askForSpace { made in browser.setProfile(profile.id, of: made.id) } }
+                    Button("Rename…") {
                         Ask.name("Rename Profile", placeholder: profile.name, initial: profile.name, confirm: "Rename") {
                             profiles.rename(profile.id, to: $0)
                         }
                     }
                     if !profile.isPersonal {
-                        Pill("Delete…") { askDelete(profile, spaces: spaces) }
+                        Divider()
+                        Button("Delete…") { askDelete(profile, spaces: spaces) }
                     }
                 }
             }
+            .padding(.horizontal, 14)
+            .frame(height: 40)
+            if spaces.isEmpty {
+                Rule()
+                Text("No spaces — drag one here")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Palette.muted)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            }
             ForEach(spaces) { space in
                 Rule()
-                Line(space.name, nil) {
-                    Picker("", selection: Binding(
-                        get: { space.profileID },
-                        set: { browser.askToMove(space.id, to: $0) }
-                    )) {
-                        ForEach(profiles.list) { Text($0.name).tag($0.id) }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                }
-                .contentShape(Rectangle())
-                .onDrag {
-                    let token = UUID().uuidString
-                    dragging = (space.id, token)
-                    return NSItemProvider(object: "shy-space:\(token)" as NSString)
-                }
-                .help("Drag onto another profile to move it there")
+                row(space, in: profile)
             }
         }
         .overlay(
@@ -275,6 +274,67 @@ struct ProfilesPage: View {
                 }
             }
             return true
+        }
+    }
+
+    /// A space: its icon and name, to be picked up; and its menu.
+    private func row(_ space: Space, in profile: Profile) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: space.symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Palette.muted)
+                .frame(width: 18)
+            Text(space.name)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Dots {
+                Button("Rename…") {
+                    Ask.name("Rename Space", placeholder: space.name, initial: space.name, confirm: "Rename") {
+                        browser.renameSpace(space.id, to: $0)
+                    }
+                }
+                Menu("Move to") {
+                    ForEach(profiles.list.filter { $0.id != profile.id }) { other in
+                        Button(other.name) { browser.askToMove(space.id, to: other.id) }
+                    }
+                }
+                .disabled(profiles.list.count < 2)
+                if !space.isFirst {
+                    Divider()
+                    Button("Delete…") {
+                        Ask.sure("Delete “\(space.name)”?", detail: "Its tabs close, and what it alone keeps is erased from this Mac.", confirm: "Delete") {
+                            browser.deleteSpace(space.id)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 36)
+        .contentShape(Rectangle())
+        .onDrag {
+            let token = UUID().uuidString
+            dragging = (space.id, token)
+            return NSItemProvider(object: "shy-space:\(token)" as NSString)
+        }
+    }
+
+    /// The ⋯ button and its menu.
+    private struct Dots<Items: View>: View {
+        @ViewBuilder let items: () -> Items
+        var body: some View {
+            Menu(content: items) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Palette.muted)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
     }
 
