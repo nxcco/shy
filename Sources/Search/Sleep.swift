@@ -134,7 +134,7 @@ extension Browser {
 
     func keepsAwake(_ tab: Tab) -> Bool {
         guard let host = tab.awakeHost else { return false }
-        return (tab.shy ? tab.awakeSites : prefs.awakeSites).contains(host)
+        return (tab.shy ? tab.awakeSites : prefs.awakeSites(in: tab.profile)).contains(host)
     }
 
     func keepAwake(_ on: Bool, for tab: Tab) {
@@ -142,7 +142,9 @@ extension Browser {
         if tab.shy {
             if on { tab.awakeSites.insert(host) } else { tab.awakeSites.remove(host) }
         } else {
-            if on { prefs.awakeSites.insert(host) } else { prefs.awakeSites.remove(host) }
+            var sites = prefs.awakeSites(in: tab.profile)
+            if on { sites.insert(host) } else { sites.remove(host) }
+            prefs.setAwakeSites(sites, in: tab.profile)
         }
     }
 
@@ -159,7 +161,7 @@ extension Browser {
         guard prefs.siteNotifications, !tab.shy, let url = tab.address,
               let scheme = url.scheme, let host = url.host(), !host.isEmpty else { return false }
         let site = Browser.origin(scheme, host, url.port ?? 0)
-        return Store.settings.object(forKey: SiteNotifications.key(site)) as? Bool == true
+        return Store.settings.object(forKey: SiteNotifications.key(site, in: profile(of: tab))) as? Bool == true
     }
 
     /// What the page is in the middle of that letting it go would cut off:

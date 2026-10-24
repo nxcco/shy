@@ -33,25 +33,38 @@ final class SiteNotifications: NSObject {
 
     // MARK: - choices
 
-    static func key(_ origin: String) -> String { "capture.\(origin)|notifications" }
+    /// Kept per profile, as the camera's answers are (Browser.scoped):
+    /// Personal's under the keys there always were, another's with its id.
+    static func key(_ origin: String, in profile: UUID) -> String {
+        "capture." + (profile == Profile.personalID ? "" : "\(profile.uuidString)|") + "\(origin)|notifications"
+    }
 
-    /// Every origin answered, allowed or not.
-    static var choices: [String: Bool] {
+    /// Every origin a profile answered, allowed or not.
+    static func choices(in profile: UUID) -> [String: Bool] {
+        let head = "capture." + (profile == Profile.personalID ? "" : "\(profile.uuidString)|")
         var out: [String: Bool] = [:]
         for (key, value) in Store.settings.dictionaryRepresentation()
-        where key.hasPrefix("capture.") && key.hasSuffix("|notifications") {
+        where key.hasPrefix(head) && key.hasSuffix("|notifications") {
             guard let allowed = value as? Bool else { continue }
-            out[String(key.dropFirst("capture.".count).dropLast("|notifications".count))] = allowed
+            let origin = String(key.dropFirst(head.count).dropLast("|notifications".count))
+            // Personal's head is every profile's: not another's keys.
+            if profile == Profile.personalID, UUID(uuidString: String(origin.prefix(36))) != nil { continue }
+            out[origin] = allowed
         }
         return out
     }
 
-    /// The sites allowed to send notifications, for Settings › Privacy.
-    static var allowed: [String] { choices.filter(\.value).map(\.key).sorted() }
+    /// The sites a profile allows to send notifications, for Settings › Privacy.
+    static func allowed(in profile: UUID) -> [String] { choices(in: profile).filter(\.value).map(\.key).sorted() }
 
-    static func forget(_ origin: String) {
-        Store.settings.removeObject(forKey: key(origin))
+    static func forget(_ origin: String, in profile: UUID) {
+        Store.settings.removeObject(forKey: key(origin, in: profile))
         shared.objectWillChange.send()
+    }
+
+    /// The profile a store's pages are in; Personal for one of none.
+    private static func profile(of store: WKWebsiteDataStore) -> UUID {
+        MainActor.assumeIsolated { Profiles.owner(of: store) } ?? Profile.personalID
     }
 
     // MARK: - WebKit
@@ -81,7 +94,7 @@ final class SiteNotifications: NSObject {
     /// WebKit asks, as a store opens, what each site was told.
     @objc(notificationPermissionsForWebsiteDataStore:)
     nonisolated func permissions(_ store: WKWebsiteDataStore) -> NSDictionary {
-        let choices = MainActor.assumeIsolated { on ? SiteNotifications.choices : [:] }
+        let choices = MainActor.assumeIsolated { on ? SiteNotifications.choices(in: SiteNotifications.profile(of: store)) : [:] }
         return choices.mapValues { NSNumber(value: $0) } as NSDictionary
     }
 
@@ -92,7 +105,7 @@ final class SiteNotifications: NSObject {
             let text = { (key: String) in (data.responds(to: NSSelectorFromString(key)) ? data.value(forKey: key) as? String : nil) ?? "" }
             let origin = text("origin")
             // Only an origin you allowed, and only while the switch is on.
-            guard on, SiteNotifications.choices[origin] == true else { return }
+            guard on, SiteNotifications.choices(in: SiteNotifications.profile(of: store))[origin] == true else { return }
             let id = (data.responds(to: NSSelectorFromString("identifier")) ? data.value(forKey: "identifier") as? NSObject : nil)
                 .map { "\($0)" } ?? UUID().uuidString
             let dictionary = data.responds(to: NSSelectorFromString("dictionaryRepresentation"))
@@ -406,8 +419,9 @@ enum PageNotifications {
         // Only a site you allowed, while the switch is on, and never from a
         // private tab, which shares the process pool but keeps nothing.
         let web = Web.pages.allObjects.first { self.page(of: $0) == page }
-        guard Shared.prefs.siteNotifications, SiteNotifications.choices[origin] == true,
-              let web, web.configuration.websiteDataStore.isPersistent else { return }
+        guard Shared.prefs.siteNotifications, let web, web.configuration.websiteDataStore.isPersistent,
+              SiteNotifications.choices(in: Profiles.owner(of: web.configuration.websiteDataStore) ?? Profile.personalID)[origin] == true
+        else { return }
         let id = c.id(note)
         SiteNotifications.shared.post(id: "page|\(id)", title: c.text(c.title(note)), body: c.text(c.body(note)),
                                       origin: origin, tag: c.text(c.tag(note)),
@@ -450,11 +464,17 @@ enum PageNotifications {
         }
     }
 
-    /// What each site was told, as WebKit asks for it (handed over, not kept).
+    /// What each site was told, as WebKit asks for it (handed over, not
+    /// kept). This one answer is every page's, whichever profile it is in:
+    /// so only what every profile answered alike, or one profile's answer
+    /// would show in another. A site answered in one alone asks there, and
+    /// that profile's own answer is given (Browser.askedForNotifications).
     private static func permissions() -> Ref? {
         guard let c = WebKitC.loaded, let dictionary = c.dictionary() else { return nil }
         guard Shared.prefs.siteNotifications else { return dictionary }
-        for (origin, allowed) in SiteNotifications.choices {
+        let each = Profiles.shared.list.map { SiteNotifications.choices(in: $0.id) }
+        let alike = (each.first ?? [:]).filter { origin, allowed in each.allSatisfy { $0[origin] == allowed } }
+        for (origin, allowed) in alike {
             guard let key = c.string(origin as CFString), let value = c.boolean(allowed) else { continue }
             _ = c.setItem(dictionary, key, value)
             c.release(key)

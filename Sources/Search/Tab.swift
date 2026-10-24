@@ -299,6 +299,9 @@ final class Tab: ObservableObject, Identifiable {
     var carriesExtensions: Bool { configuration.webExtensionController != nil }
     /// Where its cookies and sign-ins are kept.
     var store: WKWebsiteDataStore { configuration.websiteDataStore }
+    /// The profile its page is signed in as, read from its store (see
+    /// Profiles.owner); Personal for a private tab, which keeps nothing.
+    var profile: UUID { Profiles.owner(of: store) ?? Profile.personalID }
     /// Whoever handles navigation and windows for this page; applied when
     /// the page is built, whenever that is.
     weak var delegate: (WKNavigationDelegate & WKUIDelegate)? {
@@ -534,16 +537,18 @@ final class Tab: ObservableObject, Identifiable {
     /// size every site starts at keeps nothing, and follows that size.
     func rememberZoom() {
         guard let host = address?.host(), !shy else { return }
+        let key = SiteMemory.key("zoom.", host, profile)
         if abs(zoom - Tab.defaultZoom) < 0.01 {
-            Store.settings.removeObject(forKey: "zoom." + host)
+            Store.settings.removeObject(forKey: key)
         } else {
-            Store.settings.set(Double(zoom), forKey: "zoom." + host)
+            Store.settings.set(Double(zoom), forKey: key)
         }
     }
 
     func applyRememberedZoom() {
         guard let host = address?.host() else { return }
-        let kept = (Store.settings.object(forKey: "zoom." + host) as? Double).map { CGFloat($0) }
+        // A private tab keeps none, and reads none of another's.
+        let kept = (shy ? nil : Store.settings.object(forKey: SiteMemory.key("zoom.", host, profile)) as? Double).map { CGFloat($0) }
             ?? Tab.defaultZoom
         guard abs(kept - web.pageZoom) > 0.004 else { return }
         web.pageZoom = kept
@@ -1123,7 +1128,7 @@ final class Tab: ObservableObject, Identifiable {
         // (see Dusk.swift). Before the document, so a site known to be light
         // is never seen white. Every frame: a frame darkens its own document,
         // led by its page.
-        if let dusk = Dusk.shared.script(for: Dusk.host(of: url ?? pageAddress)) {
+        if let dusk = Dusk.shared.script(for: Dusk.host(of: url ?? pageAddress), in: profile) {
             controller.addUserScript(
                 WKUserScript(source: dusk, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Web.world)
             )

@@ -274,7 +274,7 @@ struct SiteCard: View {
         if !tab.shy, browser.prefs.floatsOnLeave || browser.prefs.floatsAway,
            let url = tab.pageAddress, ["http", "https"].contains(url.scheme?.lowercased()),
            Players.knows(url), let host = url.host() {
-            Ground(host: host)
+            Ground(host: host, profile: tab.profile)
         }
     }
 
@@ -365,11 +365,13 @@ struct SiteCard: View {
     /// for the page already open too.
     private struct Ground: View {
         let host: String
+        let profile: UUID
         @State private var on: Bool
 
-        init(host: String) {
+        init(host: String, profile: UUID) {
             self.host = host
-            _on = State(initialValue: Grounded.holds(host))
+            self.profile = profile
+            _on = State(initialValue: Grounded.holds(host, in: profile))
         }
 
         var body: some View {
@@ -384,7 +386,7 @@ struct SiteCard: View {
             .padding(.leading, MenuMetrics.text)
             .padding(.trailing, MenuMetrics.trailing)
             .frame(height: MenuMetrics.row)
-            .onChange(of: on) { _, value in Grounded.set(value, for: host) }
+            .onChange(of: on) { _, value in Grounded.set(value, for: host, in: profile) }
         }
     }
 

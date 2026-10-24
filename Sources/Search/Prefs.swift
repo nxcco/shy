@@ -214,8 +214,13 @@ final class Preferences: ObservableObject {
     @Published var keywords: [Keyword] {
         didSet { store.set((try? JSONEncoder().encode(keywords)) ?? Data(), forKey: "search.keywords") }
     }
-    @Published var awakeSites: Set<String> {
-        didSet { store.set(Array(awakeSites).sorted(), forKey: "tabs.awakeSites") }
+    /// Sites kept awake (see Sleep.swift), each profile its own (SiteMemory).
+    func awakeSites(in profile: UUID) -> Set<String> {
+        Set(store.stringArray(forKey: SiteMemory.key("tabs.awakeSites", profile)) ?? [])
+    }
+    func setAwakeSites(_ sites: Set<String>, in profile: UUID) {
+        objectWillChange.send()
+        store.set(Array(sites).sorted(), forKey: SiteMemory.key("tabs.awakeSites", profile))
     }
     /// Sized website pop-ups may use small windows instead of tabs (#552).
     @Published var popupWindows: Bool {
@@ -223,9 +228,14 @@ final class Preferences: ObservableObject {
     }
     /// Sites whose pages may open windows without a click just before
     /// (BlockedPopups.swift), each a registrable domain. Empty until you
-    /// choose Always Allow on one; Settings › Privacy lists them.
-    @Published var popupSites: Set<String> {
-        didSet { store.set(Array(popupSites).sorted(), forKey: "privacy.popupSites") }
+    /// choose Always Allow on one; Settings › Privacy lists them. Each
+    /// profile its own (SiteMemory).
+    func popupSites(in profile: UUID) -> Set<String> {
+        Set(store.stringArray(forKey: SiteMemory.key("privacy.popupSites", profile)) ?? [])
+    }
+    func setPopupSites(_ sites: Set<String>, in profile: UUID) {
+        objectWillChange.send()
+        store.set(Array(sites).sorted(), forKey: SiteMemory.key("privacy.popupSites", profile))
     }
     /// Tabs nobody has looked at for a while give their page back and keep
     /// where they were: unless sleepPace is Never.
@@ -554,9 +564,7 @@ final class Preferences: ObservableObject {
         customEngine = store.string(forKey: "search.custom") ?? ""
         keywords = store.data(forKey: "search.keywords")
             .flatMap { try? JSONDecoder().decode([Keyword].self, from: $0) } ?? []
-        awakeSites = Set(store.stringArray(forKey: "tabs.awakeSites") ?? [])
         popupWindows = store.bool(forKey: "tabs.popupWindows")
-        popupSites = Set(store.stringArray(forKey: "privacy.popupSites") ?? [])
         tabLife = TabLife(rawValue: store.integer(forKey: "tabs.close.after")) ?? .never
         sleepPace = SleepPace.chosen
         lazyTabs = store.bool(forKey: "tabs.lazy")

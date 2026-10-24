@@ -697,9 +697,9 @@ struct SettingsPanel: View {
                     Rule()
                     Line("Block on \(host)", "Turn off here if the site breaks — the page reloads") {
                         Switch(on: Binding(
-                            get: { !Shield.shared.isPaused(on: host) },
+                            get: { !Shield.shared.isPaused(on: host, in: browser.active?.profile ?? browser.profileID) },
                             set: { on in
-                                Shield.shared.pause(host, !on)
+                                Shield.shared.pause(host, !on, in: browser.active?.profile ?? browser.profileID)
                                 browser.reload()
                             }
                         ))
@@ -717,8 +717,8 @@ struct SettingsPanel: View {
                 Line("Let sites ask to send notifications", "A site asks on a card over its page, and only one you allow reaches your Mac's notifications. Private tabs are never asked") {
                     Switch(on: $prefs.siteNotifications)
                 }
-                NotificationSites()
-                PopupSiteList(prefs: prefs)
+                NotificationSites(profile: browser.profileID)
+                PopupSiteList(prefs: prefs, profile: browser.profileID)
             }
             Card {
                 Line("History", "Every address you have been to") {
@@ -989,15 +989,17 @@ struct Pill: View {
 /// Settings › Privacy: the sites allowed to send notifications, each with a
 /// way to take it back.
 private struct NotificationSites: View {
+    /// Whose: the profile of the space on screen.
+    let profile: UUID
     @ObservedObject private var notifications = SiteNotifications.shared
 
     var body: some View {
-        let sites = SiteNotifications.allowed
+        let sites = SiteNotifications.allowed(in: profile)
         if !sites.isEmpty {
             ForEach(sites, id: \.self) { site in
                 Rule()
                 Line(URL(string: site).map(SiteCard.site) ?? site, "Can send notifications") {
-                    Pill("Remove") { SiteNotifications.forget(site) }
+                    Pill("Remove") { SiteNotifications.forget(site, in: profile) }
                 }
             }
         }

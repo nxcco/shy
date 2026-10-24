@@ -29,6 +29,33 @@ struct Profile: Codable, Identifiable, Equatable {
     static let personal = Profile(id: personalID, name: "Personal")
 }
 
+/// What a profile remembers about sites — a zoom, a choice about dark
+/// pages, videos that stay put, the blocker paused, pop-ups allowed, sites
+/// kept awake — under keys of its own, so one profile's choices never
+/// answer for another, nor show a site in one profile what it was allowed
+/// in another. Personal's are the keys there always were; another's carry
+/// its id. Whatever reads them is handed the profile (Tab.profile).
+enum SiteMemory {
+    /// A key for a whole list, such as "shield.paused".
+    static func key(_ key: String, _ profile: UUID) -> String {
+        profile == Profile.personalID ? key : "\(key)@\(profile.uuidString)"
+    }
+
+    /// A key for one site, such as "zoom." and a host.
+    static func key(_ prefix: String, _ site: String, _ profile: UUID) -> String {
+        profile == Profile.personalID ? prefix + site : "\(prefix)\(profile.uuidString)|\(site)"
+    }
+
+    /// Everything a profile remembered about sites, gone with it.
+    static func forget(_ profile: UUID) {
+        guard profile != Profile.personalID else { return }
+        let id = profile.uuidString
+        for key in Store.settings.dictionaryRepresentation().keys where key.hasSuffix("@\(id)") || key.contains(".\(id)|") {
+            Store.settings.removeObject(forKey: key)
+        }
+    }
+}
+
 @MainActor
 final class Profiles: ObservableObject {
     static let shared = Profiles()
@@ -107,6 +134,17 @@ final class Profiles: ObservableObject {
         return made
     }
 
+    private static var curtains: [UUID: Curtain] = [:]
+
+    /// What it hides on each site (see Curtain.swift): Personal's in
+    /// hidden.json, as always; another's in a file of its own.
+    static func curtain(_ id: UUID) -> Curtain {
+        if let made = curtains[id] { return made }
+        let made = Curtain(file: id == Profile.personalID ? "hidden.json" : "hidden-\(id.uuidString).json")
+        curtains[id] = made
+        return made
+    }
+
     static func bookmarks(_ id: UUID) -> Bookmarks {
         if let made = bookmarkLists[id] { return made }
         let made = Bookmarks(file: id == Profile.personalID ? "bookmarks.json" : "bookmarks-\(id.uuidString).json")
@@ -174,14 +212,15 @@ final class Profiles: ObservableObject {
         Profiles.histories.removeValue(forKey: id)?.retire()
         Profiles.bookmarkLists.removeValue(forKey: id)?.retire()
         // Never opened this run: their files go all the same.
-        for name in ["history-\(id.uuidString).json", "bookmarks-\(id.uuidString).json"] {
+        Profiles.curtains.removeValue(forKey: id)
+        SiteSearch.forget(in: id)
+        for name in ["history-\(id.uuidString).json", "bookmarks-\(id.uuidString).json", "hidden-\(id.uuidString).json"] {
             Disk.remove(Store.file(name))
         }
         Vault.forgetAll(in: id)
-        // Its sites' camera, microphone, screen and location answers.
-        for key in Store.settings.dictionaryRepresentation().keys where key.hasPrefix("capture.\(id.uuidString)|") {
-            Store.settings.removeObject(forKey: key)
-        }
+        // What it remembered about sites, its camera, microphone, screen,
+        // location and notification answers among them.
+        SiteMemory.forget(id)
     }
 }
 

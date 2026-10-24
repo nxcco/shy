@@ -28,28 +28,36 @@ final class Shield: ObservableObject {
     /// Sites it is off for — the ones it broke. A checkout that never
     /// finishes, a video that never starts: switching off here, for this site,
     /// beats switching off everywhere and forgetting to switch back.
-    private(set) var paused: Set<String> = Set(
-        Store.settings.stringArray(forKey: "shield.paused") ?? []
-    )
+    /// Kept per profile (see SiteMemory).
+    private var paused: [UUID: Set<String>] = [:]
 
-    func isPaused(on host: String?) -> Bool {
-        guard let host else { return false }
-        return paused.contains(host)
+    private func paused(in profile: UUID) -> Set<String> {
+        if let known = paused[profile] { return known }
+        let read = Set(Store.settings.stringArray(forKey: SiteMemory.key("shield.paused", profile)) ?? [])
+        paused[profile] = read
+        return read
     }
 
-    func pause(_ host: String, _ off: Bool) {
-        if off { paused.insert(host) } else { paused.remove(host) }
-        Store.settings.set(Array(paused).sorted(), forKey: "shield.paused")
+    func isPaused(on host: String?, in profile: UUID) -> Bool {
+        guard let host else { return false }
+        return paused(in: profile).contains(host)
+    }
+
+    func pause(_ host: String, _ off: Bool, in profile: UUID) {
+        var list = paused(in: profile)
+        if off { list.insert(host) } else { list.remove(host) }
+        paused[profile] = list
+        Store.settings.set(Array(list).sorted(), forKey: SiteMemory.key("shield.paused", profile))
     }
 
     /// Before each page: the list goes on or off for the site this tab is
     /// heading to. A rule list is enforced from the moment it is added, so
     /// doing this at the navigation is what makes "off for this site" true
     /// for the whole page rather than for the second half of it.
-    func tune(_ controller: WKUserContentController, for host: String?) {
+    func tune(_ controller: WKUserContentController, for host: String?, in profile: UUID) {
         guard let list else { return }
         controller.remove(list)
-        if enabled, !isPaused(on: host) { controller.add(list) }
+        if enabled, !isPaused(on: host, in: profile) { controller.add(list) }
     }
 
     /// Third parties whose only job is to watch or to sell. First-party

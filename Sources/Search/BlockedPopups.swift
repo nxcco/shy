@@ -93,7 +93,7 @@ extension Browser {
     /// Whether a window this tab's page asks for with no click just before
     /// opens all the same (see the top of this file).
     func popupsAllowed(_ tab: Tab, from frame: WKFrameInfo, top: URL?) -> Bool {
-        BlockedPopups.allows(prefs.popupSites.union(tab.popupSites), top: top,
+        BlockedPopups.allows(prefs.popupSites(in: tab.profile).union(tab.popupSites), top: top,
                              frameScheme: frame.securityOrigin.protocol, frameHost: frame.securityOrigin.host)
     }
 
@@ -116,7 +116,7 @@ extension Browser {
         if tab.shy {
             tab.popupSites.insert(site)
         } else {
-            prefs.popupSites.insert(site)
+            prefs.setPopupSites(prefs.popupSites(in: tab.profile).union([site]), in: tab.profile)
         }
         tab.blockedPopups = []
     }
@@ -235,12 +235,15 @@ struct BlockedPopupsMenu: View {
 /// to take it back. Nothing shows while there are none.
 struct PopupSiteList: View {
     @ObservedObject var prefs: Preferences
+    /// Whose: the profile of the space on screen.
+    let profile: UUID
 
     var body: some View {
-        ForEach(prefs.popupSites.sorted(), id: \.self) { site in
+        let sites = prefs.popupSites(in: profile)
+        ForEach(sites.sorted(), id: \.self) { site in
             Rule()
             Line(site, "Can open pop-ups without a click") {
-                Pill("Remove") { prefs.popupSites.remove(site) }
+                Pill("Remove") { prefs.setPopupSites(sites.subtracting([site]), in: profile) }
             }
         }
     }

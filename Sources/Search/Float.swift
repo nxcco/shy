@@ -879,16 +879,16 @@ enum Players {
 enum Grounded {
     static let prefix = "nofloat."
 
-    static func holds(_ host: String) -> Bool {
-        Store.settings.bool(forKey: prefix + host)
+    static func holds(_ host: String, in profile: UUID) -> Bool {
+        Store.settings.bool(forKey: SiteMemory.key(prefix, host, profile))
     }
 
     /// Off keeps nothing, as Autoplay's does.
-    static func set(_ on: Bool, for host: String) {
+    static func set(_ on: Bool, for host: String, in profile: UUID) {
         if on {
-            Store.settings.set(true, forKey: prefix + host)
+            Store.settings.set(true, forKey: SiteMemory.key(prefix, host, profile))
         } else {
-            Store.settings.removeObject(forKey: prefix + host)
+            Store.settings.removeObject(forKey: SiteMemory.key(prefix, host, profile))
         }
     }
 }

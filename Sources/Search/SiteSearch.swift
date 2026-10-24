@@ -81,7 +81,7 @@ enum SiteSearch {
     /// the start of its address only — never by the name it gives itself,
     /// which could be anyone's ("Google", a bank's). Among them the one whose
     /// name is the shortest.
-    static func match(_ typed: String) -> SearchSite? {
+    static func match(_ typed: String, in profile: UUID) -> SearchSite? {
         let word = typed.trimmingCharacters(in: .whitespaces).lowercased()
         guard word.count >= 2, !word.contains(" "), !word.contains("/") else { return nil }
         func names(_ site: SearchSite) -> [String] {
@@ -90,23 +90,27 @@ enum SiteSearch {
         }
         let found = builtIn.filter { site in names(site).contains { $0.hasPrefix(word) } }
         if let best = found.min(by: { $0.name.count < $1.name.count }) { return best }
-        return learned.filter { $0.host.hasPrefix(word) }.min { $0.host.count < $1.host.count }
+        return learned(in: profile).filter { $0.host.hasPrefix(word) }.min { $0.host.count < $1.host.count }
     }
 
     // MARK: - learned from sites you visit (OpenSearch)
 
-    private static var file: URL { Store.file("search-sites.json") }
-    private static var loaded: [SearchSite]?
+    /// Each profile's own (see SiteMemory): Personal's in search-sites.json,
+    /// as always; another's in a file of its own.
+    private static func file(_ profile: UUID) -> URL {
+        Store.file(profile == Profile.personalID ? "search-sites.json" : "search-sites-\(profile.uuidString).json")
+    }
+    private static var loaded: [UUID: [SearchSite]] = [:]
     /// Never more than this many: the oldest go first.
     static let most = 40
 
-    static var learned: [SearchSite] {
-        if let loaded { return loaded }
-        let read = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([SearchSite].self, from: $0) } ?? []
+    static func learned(in profile: UUID) -> [SearchSite] {
+        if let known = loaded[profile] { return known }
+        let read = (try? Data(contentsOf: file(profile))).flatMap { try? JSONDecoder().decode([SearchSite].self, from: $0) } ?? []
         // Named by their address, whatever an earlier build wrote.
         let kept = read.filter { Keyword.accepts($0.template) && sameSite($0.template, $0.host) }
             .map { SearchSite(name: $0.host, host: $0.host, template: $0.template) }
-        loaded = kept
+        loaded[profile] = kept
         return kept
     }
 
@@ -124,11 +128,11 @@ enum SiteSearch {
     /// at most, without the browser's cookies — and the site joins the list.
     /// Nothing is ever fetched for a site not visited, in the background or
     /// from a private tab (see Browser, where this is called).
-    static func learn(from page: URL, description: URL) {
+    static func learn(from page: URL, description: URL, in profile: UUID) {
         guard page.scheme == "https", description.scheme == "https",
               let host = siteHost(page.absoluteString), sameSite(description.absoluteString, host),
               !builtIn.contains(where: { Vault.registrable(bare($0.host)) == Vault.registrable(host) }),
-              !learned.contains(where: { $0.host == host }) else { return }
+              !learned(in: profile).contains(where: { $0.host == host }) else { return }
         var request = URLRequest(url: description, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.httpShouldHandleCookies = false
         // Redirected only within the site: nothing is read from one not visited.
@@ -140,7 +144,7 @@ enum SiteSearch {
             let template = found.template
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    adopt(host: host, template: template)
+                    adopt(host: host, template: template, in: profile)
                 }
             }
         }.resume()
@@ -149,20 +153,21 @@ enum SiteSearch {
     /// A learned site kept: named by its address, the only name it can't
     /// choose for itself, so the row and the chip say where the words go.
     /// (Its description's own name is left unread for that reason.)
-    static func adopt(host: String, template: String) {
+    static func adopt(host: String, template: String, in profile: UUID) {
         guard Keyword.accepts(template), sameSite(template, host),
-              !learned.contains(where: { $0.host == host }) else { return }
-        var list = learned + [SearchSite(name: host, host: host, template: template)]
+              !learned(in: profile).contains(where: { $0.host == host }) else { return }
+        var list = learned(in: profile) + [SearchSite(name: host, host: host, template: template)]
         if list.count > most { list.removeFirst(list.count - most) }
-        loaded = list
+        loaded[profile] = list
         let snapshot = list
-        Disk.write(file) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(file(profile)) { try? JSONEncoder().encode(snapshot) }
     }
 
-    /// Forgotten, all of them: with the history (Browser.clearHistory).
-    static func forget() {
-        loaded = []
-        try? FileManager.default.removeItem(at: file)
+    /// Forgotten, all of a profile's: with its history (Browser.clearHistory),
+    /// or with the profile.
+    static func forget(in profile: UUID) {
+        loaded[profile] = []
+        Disk.remove(file(profile))
     }
 
     private static func bare(_ host: String) -> String {

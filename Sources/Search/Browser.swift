@@ -13,7 +13,6 @@ import Combine
 @MainActor
 enum Shared {
     static let prefs = Preferences()
-    static let curtain = Curtain()
     static let loot = Loot()
     static let floater = Float()
     static let fetches = Fetches()
@@ -580,7 +579,8 @@ final class Browser: NSObject, ObservableObject {
 
     // MARK: - taking things off pages
 
-    let curtain = Shared.curtain
+    /// What is hidden on sites, as the page in front's profile keeps it.
+    var curtain: Curtain { Profiles.curtain(active?.profile ?? profileID) }
     let loot = Shared.loot
     let floater = Shared.floater
     /// True while the pointer is picking things to hide.
@@ -1363,7 +1363,7 @@ final class Browser: NSObject, ObservableObject {
         // The sites' icons are a list of where you have been, too, and so
         // are the searches learned from sites visited (SiteSearch.swift).
         Favicons.shared.forgetAll()
-        SiteSearch.forget()
+        Profiles.shared.list.forEach { SiteSearch.forget(in: $0.id) }
         announce("History cleared")
     }
 
@@ -2285,7 +2285,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 for tab in tabs + parkedTabs {
-                    tab.arm(hiding: curtain.css(on: curtain.host(of: tab.address)))
+                    tab.arm(hiding: Profiles.curtain(tab.profile).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateInSearch(on ? AutoScroll.script : AutoScroll.off)
                 }
             }
@@ -2327,7 +2327,7 @@ final class Browser: NSObject, ObservableObject {
                 // re-arming with nothing would quietly restore every element
                 // this person had taken off, everywhere.
                 for tab in tabs {
-                    tab.arm(hiding: curtain.css(on: curtain.host(of: tab.address)))
+                    tab.arm(hiding: Profiles.curtain(tab.profile).css(on: curtain.host(of: tab.address)))
                 }
                 announce(on ? "Passkeys offered again — reload the page" : "Sites will ask for a password instead")
             }
@@ -4818,7 +4818,7 @@ final class Browser: NSObject, ObservableObject {
             if let otherwise { picture(otherwise, quietly: quietly, toggle: toggle) }
             return
         }
-        if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map(Grounded.holds) == true {
+        if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map({ Grounded.holds($0, in: tab.profile) }) == true {
             if let otherwise { picture(otherwise, quietly: quietly, toggle: toggle) }
             return
         }
@@ -4865,7 +4865,7 @@ final class Browser: NSObject, ObservableObject {
         // A hero background on a studio's home page is a video too, and it
         // followed people around the desktop. Nor from one you grounded in
         // its site card. ⌘⇧P still lifts from anywhere.
-        if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map(Grounded.holds) == true {
+        if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map({ Grounded.holds($0, in: tab.profile) }) == true {
             if let otherwise { lift(otherwise, quietly: quietly) }
             return
         }
@@ -5002,6 +5002,7 @@ final class Browser: NSObject, ObservableObject {
         }
         tab.onPick = { [weak self] tab, selector, label, note in
             guard let self, let host = curtain.host(of: tab.address) else { return }
+            let curtain = Profiles.curtain(tab.profile)
             // A private tab writes nothing down, hidden.json included: taken
             // off this page only.
             if tab.shy {
@@ -5205,7 +5206,7 @@ final class Browser: NSObject, ObservableObject {
             return
         }
         // "red": Reddit's search, a Tab away.
-        let site = !summoning ? SiteSearch.match(typed) : nil
+        let site = !summoning ? SiteSearch.match(typed, in: profileID) : nil
         if siteOffer != site { siteOffer = site }
 
         (offers, ending) = placeOffers(for: typed)
@@ -5548,7 +5549,7 @@ final class Browser: NSObject, ObservableObject {
         if tab.shy {
             tab.built?.evaluateInSearch(Dusk.shared.forced(for: host, on))
         } else {
-            Dusk.shared.choose(on, for: host, native: tab.duskNative)
+            Dusk.shared.choose(on, for: host, native: tab.duskNative, in: tab.profile)
         }
     }
 
@@ -5565,10 +5566,10 @@ final class Browser: NSObject, ObservableObject {
     /// yet, looked at.
     private func redusk() {
         for tab in tabs + parkedTabs {
-            tab.arm(hiding: curtain.css(on: curtain.host(of: tab.address)))
+            tab.arm(hiding: Profiles.curtain(tab.profile).css(on: curtain.host(of: tab.address)))
             guard let web = tab.built else { continue }
             let host = Dusk.host(of: tab.pageAddress)
-            if Dusk.shared.unsure(host) { duskLook(tab) } else { web.evaluateInSearch(Dusk.shared.update(for: host)) }
+            if Dusk.shared.unsure(host, in: tab.profile) { duskLook(tab) } else { web.evaluateInSearch(Dusk.shared.update(for: host, in: tab.profile)) }
         }
     }
 
@@ -5578,16 +5579,16 @@ final class Browser: NSObject, ObservableObject {
     /// with nothing in it.
     func duskLook(_ tab: Tab) {
         guard let web = tab.built, let url = web.url, let host = Dusk.host(of: url),
-              Dusk.shared.unsure(host), !tab.dusked else { return }
+              Dusk.shared.unsure(host, in: tab.profile), !tab.dusked else { return }
         Dusk.look(at: web) { [weak self, weak tab] dark in
             MainActor.assumeIsolated {
-                guard let self, let tab, let dark, tab.built === web, web.url == url, Dusk.shared.unsure(host) else { return }
+                guard let self, let tab, let dark, tab.built === web, web.url == url, Dusk.shared.unsure(host, in: tab.profile) else { return }
                 tab.duskNative = dark
                 // A private tab remembers nothing, not even this.
                 if !tab.shy { Dusk.shared.saw(host, dark: dark) }
-                guard !dark, let script = Dusk.shared.script(for: host, light: true) else { return }
+                guard !dark, let script = Dusk.shared.script(for: host, light: true, in: tab.profile) else { return }
                 web.evaluateInSearch(script)
-                tab.arm(hiding: self.curtain.css(on: self.curtain.host(of: tab.address)))
+                tab.arm(hiding: Profiles.curtain(tab.profile).css(on: self.curtain.host(of: tab.address)))
             }
         }
     }
@@ -5758,9 +5759,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // decided here because here is the last moment before it loads.
         if action.targetFrame?.isMainFrame ?? true, let tab = tab(for: webView) {
             let host = curtain.host(of: url)
-            tab.arm(hiding: curtain.css(on: host), to: url)
+            tab.arm(hiding: Profiles.curtain(tab.profile).css(on: host), to: url)
             // And the blocker, on or off for where it is going.
-            Shield.shared.tune(webView.configuration.userContentController, for: host)
+            Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.profile)
             // The frames that were told about the last page's darkening go
             // with it.
             tab.duskFrames.removeAll()
@@ -6374,7 +6375,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
               let page = webView.url, let scheme = page.scheme, let host = page.host(),
               Browser.origin(scheme, host, page.port ?? 0) == site
         else { return decisionHandler(false) }
-        if let remembered = SiteNotifications.choices[site] { return decisionHandler(remembered) }
+        if let remembered = SiteNotifications.choices(in: profile(of: tab))[site] { return decisionHandler(remembered) }
         ask(from: webView, show: { [weak self] in
             guard let self else { return decisionHandler(false) }
             guard !permissionBusy else { return decisionHandler(false) }
@@ -6383,7 +6384,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
                 decisionHandler(decision == .grant)
                 SiteNotifications.shared.objectWillChange.send()
             }
-            askedAbout = "\(site)|notifications"
+            askedAbout = scoped("\(site)|notifications", for: tab)
             asking = CaptureAsk(host: origin.host, wants: "notifications")
         }, drop: { decisionHandler(false) })
     }
@@ -6510,13 +6511,14 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // fetch looks broken.
         Favicons.shared.fetch(for: tab)
         guard !tab.shy, !tab.bench else { return }
-        history.record(url, title: tab.title)
+        let profile = tab.profile
+        Profiles.history(profile).record(url, title: tab.title)
         // A site's home page that says where its search is (OpenSearch):
         // with Search a site on, it joins the list (see SiteSearch.learn).
         if url.scheme == "https", url.path.isEmpty || url.path == "/" {
             webView.evaluateInSearch(SiteSearch.lookup) { value in
                 guard let text = value as? String, let description = URL(string: text) else { return }
-                MainActor.assumeIsolated { SiteSearch.learn(from: url, description: description) }
+                MainActor.assumeIsolated { SiteSearch.learn(from: url, description: description, in: profile) }
             }
         }
     }

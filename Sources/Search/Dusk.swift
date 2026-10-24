@@ -45,7 +45,15 @@ final class Dusk: ObservableObject {
     /// The sites someone switched against what was measured: darkened on a
     /// site that measured dark, or left alone on one that measured light.
     /// A choice that agrees with the measuring isn't kept.
-    private(set) var sites: [String: Bool] = Store.settings.dictionary(forKey: "dusk.sites") as? [String: Bool] ?? [:]
+    /// Kept per profile (see SiteMemory).
+    private var sites: [UUID: [String: Bool]] = [:]
+
+    private func sites(in profile: UUID) -> [String: Bool] {
+        if let known = sites[profile] { return known }
+        let read = Store.settings.dictionary(forKey: SiteMemory.key("dusk.sites", profile)) as? [String: Bool] ?? [:]
+        sites[profile] = read
+        return read
+    }
 
     /// What each site measured this session: true, dark by itself. Only so a
     /// site's next page can be darkened before its first frame rather than
@@ -76,10 +84,12 @@ final class Dusk: ObservableObject {
     /// `native`: what the page measured, true for dark by itself, nil when it
     /// hasn't been measured yet (it is then taken for light, which is what
     /// gets it darkened).
-    func choose(_ darkened: Bool, for host: String, native: Bool?) {
+    func choose(_ darkened: Bool, for host: String, native: Bool?, in profile: UUID) {
         let measured = !(native ?? false)
-        if darkened == measured { sites[host] = nil } else { sites[host] = darkened }
-        Store.settings.set(sites, forKey: "dusk.sites")
+        var list = sites(in: profile)
+        if darkened == measured { list[host] = nil } else { list[host] = darkened }
+        sites[profile] = list
+        Store.settings.set(list, forKey: SiteMemory.key("dusk.sites", profile))
         revision += 1
     }
 
@@ -93,47 +103,47 @@ final class Dusk: ObservableObject {
     /// Whether a page on `host` is darkened from its first frame: on, not
     /// paused, Search dark, and the site switched on by hand or measured
     /// light already this session. Nothing goes into any other page.
-    func wanted(_ host: String?) -> Bool {
+    func wanted(_ host: String?, in profile: UUID) -> Bool {
         guard active, Dusk.frameIsDark, let host else { return false }
-        if let chosen = sites[host] { return chosen }
+        if let chosen = sites(in: profile)[host] { return chosen }
         return seen[host] == false
     }
 
     /// Whether a page on `host` is still to be looked at, from outside it
     /// (see look): on, Search dark, and neither switched nor known light.
-    func unsure(_ host: String?) -> Bool {
-        guard active, Dusk.frameIsDark, let host, sites[host] == nil else { return false }
+    func unsure(_ host: String?, in profile: UUID) -> Bool {
+        guard active, Dusk.frameIsDark, let host, sites(in: profile)[host] == nil else { return false }
         return seen[host] != false
     }
 
     /// For each new document on `host`, or nil. `light`: what the page up
     /// now was just seen to be, for a private tab, which keeps nothing.
-    func script(for host: String?, light: Bool = false) -> String? {
-        guard let host, wanted(host) || light && active && Dusk.frameIsDark && sites[host] != false else { return nil }
-        return Dusk.page(config(for: host, light: light))
+    func script(for host: String?, light: Bool = false, in profile: UUID) -> String? {
+        guard let host, wanted(host, in: profile) || light && active && Dusk.frameIsDark && sites(in: profile)[host] != false else { return nil }
+        return Dusk.page(config(for: host, light: light, in: profile))
     }
 
     /// For the page up now: taking it over, or letting it go.
-    func update(for host: String?) -> String {
-        script(for: host) ?? Dusk.letGo
+    func update(for host: String?, in profile: UUID) -> String {
+        script(for: host, in: profile) ?? Dusk.letGo
     }
 
     static let letGo = "window.__officeDusk && window.__officeDusk.update({ on: false })"
 
     /// A private tab's ⇧⌘D: this page, whatever it measured, kept nowhere.
     func forced(for host: String, _ on: Bool) -> String {
-        on ? Dusk.page(config(for: host, chosen: true)) : "window.__officeDusk && window.__officeDusk.force(false)"
+        on ? Dusk.page(config(for: host, chosen: true, in: Profile.personalID)) : "window.__officeDusk && window.__officeDusk.force(false)"
     }
 
     /// Only the one site's answers, never the list of every site switched
     /// or measured: a page is told what it needs about itself.
-    private func config(for host: String, light: Bool = false, chosen: Bool? = nil) -> String {
+    private func config(for host: String, light: Bool = false, chosen: Bool? = nil, in profile: UUID) -> String {
         // "filter" keeps a page to the filter even where the browser can do
         // colours: for comparing the two, set by hand.
         let mode = Store.settings.string(forKey: "dusk.mode") ?? "colours"
         let known: Bool? = light ? false : seen[host]
         let config: [String: Any] = ["on": true, "host": host, "mode": mode,
-                                     "choice": (chosen ?? sites[host]).map { $0 as Any } ?? NSNull(),
+                                     "choice": (chosen ?? sites(in: profile)[host]).map { $0 as Any } ?? NSNull(),
                                      "known": known.map { $0 as Any } ?? NSNull()]
         guard let data = try? JSONSerialization.data(withJSONObject: config),
               let json = String(data: data, encoding: .utf8) else { return "{\"on\":false}" }

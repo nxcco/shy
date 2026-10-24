@@ -1073,7 +1073,7 @@ final class Bench {
                 var out: [String: Any] = [
                     "offer": browser.siteOffer?.name ?? "", "chip": browser.siteChip?.name ?? "",
                     "typed": browser.typed, "offers": browser.offers.map { [$0.key, $0.url.absoluteString] },
-                    "editing": browser.editing, "learned": SiteSearch.learned.map { [$0.name, $0.host, $0.template] },
+                    "editing": browser.editing, "learned": SiteSearch.learned(in: browser.profileID).map { [$0.name, $0.host, $0.template] },
                     "address": browser.active?.address?.absoluteString ?? "",
                 ]
                 out.merge(extra) { _, new in new }
@@ -1095,14 +1095,14 @@ final class Bench {
                       let description = (request["description"] as? String).flatMap(URL.init(string:)) else {
                     answer(["error": "sitesearch learn needs page and description"]); return
                 }
-                SiteSearch.learn(from: page, description: description)
+                SiteSearch.learn(from: page, description: description, in: browser.profileID)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { answer(state()) }
             case "adopt":
                 // A learned site kept as learn keeps one, past the fetch: the
                 // name a description gives itself is never read.
-                SiteSearch.adopt(host: request["host"] as? String ?? "", template: request["template"] as? String ?? "")
+                SiteSearch.adopt(host: request["host"] as? String ?? "", template: request["template"] as? String ?? "", in: browser.profileID)
                 answer(state())
-            case "forget": SiteSearch.forget(); answer(state())
+            case "forget": SiteSearch.forget(in: browser.profileID); answer(state())
             default: answer(state())
             }
 
@@ -1769,7 +1769,7 @@ final class Bench {
         case "notifications":
             // What a test run would have posted, and every site's answer.
             guard Store.testing else { answer(["error": "notifications only works on a --test run"]); return }
-            answer(["recorded": SiteNotifications.shared.recorded, "choices": SiteNotifications.choices,
+            answer(["recorded": SiteNotifications.shared.recorded, "choices": SiteNotifications.choices(in: browser.profileID),
                     "asking": browser.asking.map { "\($0.host) \($0.wants)" } ?? ""])
 
         case "answer":
@@ -3017,11 +3017,11 @@ final class Bench {
             guard Store.testing || ["state", "sites"].contains(action) else {
                 answer(["error": "popups \(action) only works on a --test run"]); return
             }
-            let sites: () -> [String: Any] = { ["allowed": browser.prefs.popupSites.sorted()] }
+            let sites: () -> [String: Any] = { ["allowed": browser.prefs.popupSites(in: browser.profileID).sorted()] }
             if action == "sites" { answer(sites()); return }
             if action == "remove" {
                 guard let site = request["site"] as? String else { answer(["error": "popups remove needs a site"]); return }
-                browser.prefs.popupSites.remove(site)
+                browser.prefs.setPopupSites(browser.prefs.popupSites(in: browser.profileID).subtracting([site]), in: browser.profileID)
                 answer(sites()); return
             }
             guard let tab = find(request, in: browser) else { answer(missing(request)); return }
@@ -3031,7 +3031,7 @@ final class Bench {
                     "openable": tab.blockedPopups.map { BlockedPopups.openable($0.url) != nil },
                     "sign": !tab.blockedPopups.isEmpty,
                     "site": BlockedPopups.site(of: tab.pageAddress) ?? "",
-                    "allowed": browser.prefs.popupSites.sorted(),
+                    "allowed": browser.prefs.popupSites(in: browser.profileID).sorted(),
                     "tabAllowed": tab.popupSites.sorted(),
                 ]
             }

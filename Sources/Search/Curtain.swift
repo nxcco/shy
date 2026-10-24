@@ -27,7 +27,14 @@ final class Curtain: ObservableObject {
     @Published private(set) var byHost: [String: [Veil]] = [:]
     private var saving = false
 
-    init() { load() }
+    /// Its file: hidden.json for Personal, one of its own for each other
+    /// profile (see Profiles.curtain).
+    private let fileName: String
+
+    init(file: String = "hidden.json") {
+        fileName = file
+        load()
+    }
 
     func host(of url: URL?) -> String? {
         guard let host = url?.host()?.lowercased() else { return nil }
@@ -82,10 +89,10 @@ final class Curtain: ObservableObject {
 
     // MARK: - the file
 
-    private static var file: URL { Store.file("hidden.json") }
+    private var file: URL { Store.file(fileName) }
 
     private func load() {
-        guard let data = try? Data(contentsOf: Curtain.file),
+        guard let data = try? Data(contentsOf: file),
               let stored = try? JSONDecoder().decode([String: [Veil]].self, from: data)
         else { return }
         byHost = stored
@@ -98,7 +105,7 @@ final class Curtain: ObservableObject {
             guard let self else { return }
             saving = false
             let snapshot = byHost
-            let file = Curtain.file
+            let file = self.file
             DispatchQueue.global(qos: .utility).async {
                 guard let data = try? JSONEncoder().encode(snapshot) else { return }
                 try? FileManager.default.createDirectory(
