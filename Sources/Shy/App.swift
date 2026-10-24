@@ -54,7 +54,7 @@ struct ShyApp: App {
                     .shortcut("file.newPrivateTab")
                 Button(browser.reopenTitle) { browser.reopen() }
                     .shortcut("file.reopen")
-                    .disabled(browser.ghosts.isEmpty && Browsers.lastClosedAt == nil)
+                    .disabled(browser.closedHere.isEmpty && Browsers.lastClosedAt == nil)
                 Divider()
                 Button("Open Address…") { browser.edit() }
                     .shortcut("file.openAddress")
@@ -268,9 +268,9 @@ struct ShyApp: App {
                         }
                     }
                 }
-                if !browser.ghosts.isEmpty {
+                if !browser.closedHere.isEmpty {
                     Section("Recently Closed") {
-                        ForEach(browser.ghosts.reversed().prefix(10)) { ghost in
+                        ForEach(browser.closedHere.reversed().prefix(10)) { ghost in
                             Button {
                                 browser.reopen(ghost)
                             } label: {

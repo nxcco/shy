@@ -1865,6 +1865,11 @@ final class Browser: NSObject, ObservableObject {
     /// and the History menu can offer them by name.
     @Published private(set) var ghosts: [Ghost] = []
 
+    /// The ones closed in the profile on screen, the only ones offered back:
+    /// an address from one profile — a sign-in link, a document — reopened
+    /// in another would be taken there with that one's sign-ins.
+    var closedHere: [Ghost] { ghosts.filter { $0.profile == profileID } }
+
     struct Ghost: Identifiable, Equatable {
         let id = UUID()
         let url: URL
@@ -1883,6 +1888,9 @@ final class Browser: NSObject, ObservableObject {
         var batch: UUID? = nil
         /// Of a Clear's tabs, the one you were on, which comes back in front.
         var front = false
+        /// The profile it was signed in as: it comes back only there, never
+        /// with another's sign-ins (see closedHere).
+        var profile = Profile.personalID
 
         var label: String { title.isEmpty ? Address.pretty(url) : title }
     }
@@ -3385,17 +3393,17 @@ final class Browser: NSObject, ObservableObject {
     func reopen() {
         // A window closed after the last tab was: the window comes back, as
         // in Safari and Chrome (see Windows.swift).
-        if let window = Browsers.lastClosedAt, window > (ghosts.last?.at ?? .distantPast), Browsers.reopenWindow() { return }
-        guard let ghost = ghosts.last else { return }
+        if let window = Browsers.lastClosedAt, window > (closedHere.last?.at ?? .distantPast), Browsers.reopenWindow() { return }
+        guard let ghost = closedHere.last else { return }
         if let batch = ghost.batch { reopen(batch: batch) } else { reopen(ghost) }
     }
 
     /// What ⇧⌘T brings back, for its menu items: a Clear's tabs by how
     /// many, or the one tab (or the window) it always did.
     var reopenTitle: String {
-        guard let last = ghosts.last, let batch = last.batch,
+        guard let last = closedHere.last, let batch = last.batch,
               (Browsers.lastClosedAt ?? .distantPast) <= last.at else { return "Reopen Closed Tab" }
-        let count = ghosts.filter { $0.batch == batch }.count
+        let count = closedHere.filter { $0.batch == batch }.count
         return count == 1 ? "Reopen Cleared Tab" : "Reopen \(count) Cleared Tabs"
     }
 
@@ -3439,6 +3447,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// One of them by name, from the History menu.
     func reopen(_ ghost: Ghost) {
+        guard ghost.profile == profileID else { return }
         ghosts.removeAll { $0.id == ghost.id }
         let tab = Tab(configuration: Web.configuration(space: spaceID))
         prepare(tab)
@@ -3458,7 +3467,7 @@ final class Browser: NSObject, ObservableObject {
     private func remember(_ tab: Tab, at index: Int, partner: Tab.ID? = nil, onLeft: Bool = false) {
         guard !tab.shy, let url = tab.address else { return }
         ghosts.append(Ghost(url: url, title: tab.title, index: index,
-                            partner: partner, onLeft: onLeft, was: tab.id, batch: batching))
+                            partner: partner, onLeft: onLeft, was: tab.id, batch: batching, profile: profile(of: tab)))
         // Twelve steps back, a Clear counting as one: its tabs come back
         // together or not at all, however many there were.
         var steps = Set<UUID>()

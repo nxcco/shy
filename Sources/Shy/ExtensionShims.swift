@@ -4454,7 +4454,7 @@ enum ExtensionShims {
         // MARK: sessions — the tabs you closed
         case "sessions.getRecentlyClosed":
             let limit = (first as? [String: Any])?["maxResults"] as? Int ?? 25
-            return browser.ghosts.reversed().prefix(limit).map { ghost in
+            return browser.closedHere.reversed().prefix(limit).map { ghost in
                 ["lastModified": Int(Date().timeIntervalSince1970),
                  "tab": ["sessionId": ghost.id.uuidString, "url": ghost.url.absoluteString, "title": ghost.title,
                          "index": ghost.index, "windowId": 1, "active": false, "pinned": false, "highlighted": false,
@@ -4463,7 +4463,7 @@ enum ExtensionShims {
         case "sessions.getDevices":
             return []
         case "sessions.restore":
-            let ghost = (first as? String).flatMap { key in browser.ghosts.first { $0.id.uuidString == key } } ?? browser.ghosts.last
+            let ghost = (first as? String).flatMap { key in browser.closedHere.first { $0.id.uuidString == key } } ?? browser.closedHere.last
             guard let ghost else { throw Unsupported(what: "Nothing to restore") }
             browser.reopen(ghost)
             return ["lastModified": Int(Date().timeIntervalSince1970),
