@@ -1449,6 +1449,16 @@ final class Browser: NSObject, ObservableObject {
         pending?(.deny)
     }
 
+    /// A site's camera, microphone, screen or location answer, kept per
+    /// profile: what one profile allowed, another still asks about, and a
+    /// site can't see in one profile what it was allowed in another and so
+    /// tell the two are the same person. Personal's keys are what they
+    /// always were.
+    private func scoped(_ key: String, for tab: Tab?) -> String {
+        let profile = tab.map(profile(of:)) ?? profileID
+        return profile == Profile.personalID ? key : "\(profile.uuidString)|" + key
+    }
+
     private func answerCapture(_ decision: WKPermissionDecision, keep: Bool = true) {
         guard let decide, let asking, Date().timeIntervalSince(asking.shown) > 0.5 else { return }
         // Remembered per site, so a call you take every week asks once.
@@ -6253,7 +6263,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             host = origin.host.isEmpty ? (tab(for: webView)?.address?.host() ?? "This page") : origin.host
             site = origin.host.isEmpty ? host : "\(origin.protocol)://\(origin.host)" + (origin.port == 0 ? "" : ":\(origin.port)")
         }
-        let key = "\(site)|\(type.rawValue)"
+        let key = scoped("\(site)|\(type.rawValue)", for: tab(for: webView))
         let shy = tab(for: webView).map { $0.shy || !webView.configuration.websiteDataStore.isPersistent } ?? false
 
         if !shy, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
@@ -6342,7 +6352,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
               site == Browser.origin(scheme, host, page.port ?? 0),
               Browser.origin(asker.protocol, asker.host, asker.port) == site
         else { return give(.deny) }
-        let key = "\(site)|location"
+        let key = scoped("\(site)|location", for: tab)
         if !tab.shy, let remembered = Store.settings.object(forKey: "capture." + key) as? Bool {
             return give(remembered ? .grant : .deny)
         }

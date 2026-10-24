@@ -178,6 +178,10 @@ final class Profiles: ObservableObject {
             Disk.remove(Store.file(name))
         }
         Vault.forgetAll(in: id)
+        // Its sites' camera, microphone, screen and location answers.
+        for key in Store.settings.dictionaryRepresentation().keys where key.hasPrefix("capture.\(id.uuidString)|") {
+            Store.settings.removeObject(forKey: key)
+        }
     }
 }
 
