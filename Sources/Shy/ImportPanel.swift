@@ -429,12 +429,13 @@ struct ImportPanel: View {
         if passwords {
             group.enter()
             // The one moment macOS asks for the key, if the browser keeps one.
+            let target = browser.profileID
             DispatchQueue.global(qos: .userInitiated).async {
                 let outcome = Result { try source.read(profile: profile) }
                 DispatchQueue.main.async {
                     switch outcome {
                     case .success(let found):
-                        let kept = browser.keep(found)
+                        let kept = browser.keep(found, in: target)
                         ImportRecords.note(source.name, passwords: kept)
                         let skipped = found.skipped > 0 ? " (\(found.skipped.formatted()) skipped: no address)" : ""
                         // Ones that didn't decrypt: said, so an import that

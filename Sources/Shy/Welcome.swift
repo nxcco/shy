@@ -246,12 +246,13 @@ struct WelcomePanel: View {
         let group = DispatchGroup()
         if wantsPasswords && source.importsPasswords {
             group.enter()
+            let target = browser.profileID
             DispatchQueue.global(qos: .userInitiated).async {
                 let outcome = Result { try source.read(profile: profile) }
                 DispatchQueue.main.async {
                     switch outcome {
                     case .success(let found):
-                        let kept = browser.keep(found)
+                        let kept = browser.keep(found, in: target)
                         ImportRecords.note(source.name, passwords: kept)
                         lines.append("\(kept) passwords" + (found.undecrypted > 0 ? " (\(found.undecrypted) couldn't be decrypted)" : ""))
                     case .failure(Chromium.Trouble.noPassphrase):

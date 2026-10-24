@@ -1119,10 +1119,11 @@ final class Browser: NSObject, ObservableObject {
     /// What came back from another browser's store, put in the keychain,
     /// with the sites it was told never to ask about. Saving one already
     /// kept updates it, so bringing the same in again adds nothing twice.
-    /// Returns how many were kept.
-    func keep(_ found: Chromium.Found) -> Int {
+    /// Returns how many were kept. `profile`: the one on screen when the
+    /// import began, taken then — the keychain's question can stay up while
+    /// you go to a space of another.
+    func keep(_ found: Chromium.Found, in profile: UUID) -> Int {
         var kept = 0
-        let profile = profileID
         for login in found.logins
         where Vault.save(host: login.host, user: login.user, password: login.password, used: login.used, clear: login.clear, in: profile) {
             kept += 1
@@ -1138,7 +1139,7 @@ final class Browser: NSObject, ObservableObject {
     func took(_ outcome: Result<Chromium.Found, Error>, from name: String) {
         switch outcome {
         case .success(let found):
-            let kept = keep(found)
+            let kept = keep(found, in: profileID)
             ImportRecords.note(name, passwords: kept)
             let locked = found.undecrypted > 0 ? " (\(found.undecrypted) couldn't be decrypted)" : ""
             announce((kept == 0 ? "Nothing new in \(name)" : "\(kept) passwords from \(name)") + locked)
