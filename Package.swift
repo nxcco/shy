@@ -13,6 +13,13 @@ let package = Package(
             // here but ceremony.
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        // Claude's way into Search's pages (Agent.swift), shipped beside the
+        // app's binary.
+        .executableTarget(
+            name: "search-mcp",
+            path: "Sources/SearchMCP",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .testTarget(
             name: "SearchTests",
             dependencies: ["Search"],

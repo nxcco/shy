@@ -123,6 +123,9 @@ SDK="$(xcrun --sdk macosx --show-sdk-version)"
 vtool -set-build-version macos "$MINIMUM" "$SDK" -replace \
   -output "$APP/Contents/MacOS/$NAME.sdk" "$APP/Contents/MacOS/$NAME"
 mv "$APP/Contents/MacOS/$NAME.sdk" "$APP/Contents/MacOS/$NAME"
+# search-mcp, Claude's way into the app's pages (Agent.swift), beside the
+# app's binary, where Settings tells Claude Code to find it.
+cp "$(dirname "$BINARY")/search-mcp" "$APP/Contents/MacOS/search-mcp"
 # The AppleScript dictionary (Scripting.swift): read-only, tabs' addresses
 # and titles. The plist below points to it.
 cp Search.sdef "$APP/Contents/Resources/"
@@ -137,6 +140,7 @@ if [ "$CONFIG" = "release" ]; then
   rm -rf "$APP.dSYM"
   dsymutil "$BINARY" -o "$APP.dSYM" 2>/dev/null || echo "no dSYM this time" >&2
   strip -x "$APP/Contents/MacOS/$NAME"
+  strip -x "$APP/Contents/MacOS/search-mcp"
 fi
 
 # The icon, drawn fresh each time — it is thirty lines of Swift, not an asset
@@ -287,8 +291,14 @@ if [ -f "Search.provisionprofile" ]; then
   ENTITLEMENTS="Search.passkeys.entitlements"
   echo "passkeys: profile embedded"
 fi
+# search-mcp first, as itself and with none of the app's entitlements (the
+# camera, the microphone, where you are, passkeys): the app is then signed
+# around it, without --deep, which would have given it the app's.
+HELPER="$APP/Contents/MacOS/search-mcp"
 if [ -n "$IDENTITY" ]; then
-  codesign --force --deep --timestamp --options runtime \
+  codesign --force --timestamp --options runtime --identifier com.officecommun.search.mcp \
+    --sign "$IDENTITY" "$HELPER"
+  codesign --force --timestamp --options runtime \
     --entitlements "$ENTITLEMENTS" \
     --sign "$IDENTITY" "$APP"
   echo "signed as: $IDENTITY"
@@ -296,7 +306,8 @@ else
   # A build that cannot sign at all is not a build: `|| true` here let one
   # through as though it had finished, leaving a bundle that would not open.
   # set -e stops it now, with codesign's own words above.
-  codesign --force --deep --sign - "$APP"
+  codesign --force --identifier com.officecommun.search.mcp --sign - "$HELPER"
+  codesign --force --sign - "$APP"
   [ "$STEP" != "app" ] && echo "no Developer ID certificate found — the DMG will only open on this Mac" >&2
 fi
 

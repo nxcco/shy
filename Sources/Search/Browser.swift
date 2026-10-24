@@ -2013,6 +2013,11 @@ final class Browser: NSObject, ObservableObject {
             } else if prefs.benchRefused {
                 announce("“Let a script drive Search” was turned on outside Settings, and stays off")
             }
+            if prefs.agent {
+                Agent.shared.start()
+            } else if prefs.agentRefused {
+                announce("“Let Claude open pages” was turned on outside Settings, and stays off")
+            }
             welcoming = !prefs.welcomed
             newsShowing = WhatsNew.due(prefs: prefs, welcoming: welcoming)
             // Once a day, quietly: is there a newer one?
@@ -2275,6 +2280,10 @@ final class Browser: NSObject, ObservableObject {
                 if on { Bench.shared.start(for: self) } else { Bench.shared.stop() }
                 announce(on ? "Scripts can drive Search — see ./bench" : "The bench is closed")
             }
+            .store(in: &bag)
+        prefs.$agent
+            .dropFirst()
+            .sink { on in if on { Agent.shared.start() } else { Agent.shared.stop() } }
             .store(in: &bag)
 
         // Every tab's next page, and the page each is showing now (see AutoScroll.swift).

@@ -138,6 +138,15 @@ final class Preferences: ObservableObject {
     /// The setting said on at launch with no mark from the switch behind it,
     /// and was put back to off.
     private(set) var benchRefused = false
+    /// Claude's pages, through search-mcp (see Agent.swift). Off unless
+    /// asked for, in Settings, which leaves the mark it needs at launch.
+    @Published var agent: Bool {
+        didSet {
+            store.set(agent, forKey: "agent")
+            agent ? SwitchMark.grant("agent") : SwitchMark.revoke("agent")
+        }
+    }
+    private(set) var agentRefused = false
     /// Light, dark, or the Mac's own.
     @Published var look: Look {
         didSet {
@@ -543,6 +552,13 @@ final class Preferences: ObservableObject {
         if scripted, !allowed {
             benchRefused = true
             store.set(false, forKey: "bench")
+        }
+        let asked = store.bool(forKey: "agent")
+        let marked = asked && (Store.testing || SwitchMark.given("agent"))
+        agent = marked
+        if asked, !marked {
+            agentRefused = true
+            store.set(false, forKey: "agent")
         }
         let chosen = store.string(forKey: "look").flatMap(Look.init) ?? .system
         look = chosen

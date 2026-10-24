@@ -26,9 +26,7 @@ final class Bench {
     private var awake: NSObjectProtocol?
 
     private weak var browser: Browser?
-    private var listener: Int32 = -1
-    private var accepting: DispatchSourceRead?
-    private var clients: [Int32: Client] = [:]
+    private var server: LocalSocket?
 
     /// Where the socket is. Beside the session file, so a test run's bench is
     /// as separate from the real one as everything else it keeps.
@@ -84,46 +82,12 @@ final class Bench {
 
     // MARK: - who switched it on
 
-    /// Whether the bench was switched on in Settings, by you. The setting
-    /// itself lives in the defaults, which any program you run can write; on
-    /// its own it opens nothing. The switch also leaves a mark in the
-    /// keychain — its data protection half, where only apps signed as Search
-    /// with its profile can read or write, under the app's own access group —
-    /// and without the mark the setting is put back to off at launch, with a
-    /// word about it. Test runs keep the setting alone: their worlds hold
-    /// nothing of yours, and scripts set them up with a defaults write.
+    /// Whether the bench was switched on in Settings, by you (see SwitchMark).
     @MainActor
     enum Consent {
-        private static var query: [String: Any] {
-            [kSecClass as String: kSecClassGenericPassword,
-             kSecUseDataProtectionKeychain as String: true,
-             kSecAttrService as String: "com.officecommun.search.bench",
-             kSecAttrAccount as String: Store.world.map { "consent (\($0))" } ?? "consent"]
-        }
-
-        /// The mark is there — or there is nowhere to keep one: a copy built
-        /// without Search's provisioning profile has no access group, and
-        /// keeps the switch as it always was.
-        static var given: Bool {
-            var asked = query
-            asked[kSecReturnAttributes as String] = true
-            let status = SecItemCopyMatching(asked as CFDictionary, nil)
-            return status == errSecSuccess || status == errSecMissingEntitlement
-        }
-
-        static func grant() {
-            var item = query
-            item[kSecValueData as String] = Data("on".utf8)
-            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            let status = SecItemAdd(item as CFDictionary, nil)
-            if status != errSecSuccess, status != errSecDuplicateItem, status != errSecMissingEntitlement {
-                NSLog("Bench: the switch left no mark (%d)", status)
-            }
-        }
-
-        static func revoke() {
-            SecItemDelete(query as CFDictionary)
-        }
+        static var given: Bool { SwitchMark.given("consent") }
+        static func grant() { SwitchMark.grant("consent") }
+        static func revoke() { SwitchMark.revoke("consent") }
     }
 
     // MARK: - starting and stopping
@@ -136,153 +100,24 @@ final class Bench {
         if Store.testing, !Store.measuring, awake == nil {
             awake = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "Bench")
         }
-        let path = Bench.socket.path
-        try? FileManager.default.createDirectory(
-            at: Bench.socket.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        unlink(path)
-
-        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return }
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let room = MemoryLayout.size(ofValue: address.sun_path)
-        guard path.utf8.count < room else { close(fd); return }
-        withUnsafeMutablePointer(to: &address.sun_path) { sun in
-            sun.withMemoryRebound(to: CChar.self, capacity: room) { bytes in
-                _ = strlcpy(bytes, path, room)
-            }
-        }
-        let size = socklen_t(MemoryLayout<sockaddr_un>.size)
-        let bound = withUnsafePointer(to: &address) { pointer in
-            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, size) }
-        }
-        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, 8) == 0 else {
-            close(fd)
-            unlink(path)
-            return
-        }
-        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
-
-        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
-        source.setEventHandler { [weak self] in self?.accept() }
-        source.resume()
-        accepting = source
-        listener = fd
+        let server = LocalSocket(at: Bench.socket, decorate: { answer in
+            var answer = answer
+            if !Bench.caught.isEmpty { answer["onScreen"] = Bench.caught }
+            return answer
+        }) { [weak self] request, answer in self?.handle(request, answer) }
+        guard server.start() else { return }
+        self.server = server
         running = true
     }
 
     func stop() {
         guard running else { return }
-        accepting?.cancel()
-        accepting = nil
-        close(listener)
-        listener = -1
-        unlink(Bench.socket.path)
-        clients.values.forEach { $0.drop() }
-        clients = [:]
+        server?.stop()
+        server = nil
         running = false
         // The tabs a script left open go with it.
         if let browser {
             for tab in browser.tabs where tab.bench { browser.close(tab) }
-        }
-    }
-
-    private func accept() {
-        let fd = Darwin.accept(listener, nil, nil)
-        guard fd >= 0 else { return }
-        // Only this user. The file mode already says so; this says it again,
-        // for the day the folder's permissions are not what they were.
-        var uid = uid_t(0)
-        var gid = gid_t(0)
-        guard getpeereid(fd, &uid, &gid) == 0, uid == getuid() else {
-            close(fd)
-            return
-        }
-        let client = Client(fd: fd) { [weak self] request, answer in
-            self?.handle(request, answer)
-        } gone: { [weak self] fd in
-            self?.clients[fd] = nil
-        }
-        clients[fd] = client
-    }
-
-    // MARK: - one connection
-
-    /// Reads until a newline, hands the line up, writes the answer, closes.
-    private final class Client {
-        let fd: Int32
-        private var bytes = Data()
-        private let source: DispatchSourceRead
-        private let handle: ([String: Any], @escaping ([String: Any]) -> Void) -> Void
-        private let gone: (Int32) -> Void
-        private var answered = false
-
-        init(
-            fd: Int32,
-            handle: @escaping ([String: Any], @escaping ([String: Any]) -> Void) -> Void,
-            gone: @escaping (Int32) -> Void
-        ) {
-            self.fd = fd
-            self.handle = handle
-            self.gone = gone
-            fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
-            source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
-            source.setEventHandler { [weak self] in self?.read() }
-            source.resume()
-        }
-
-        private func read() {
-            var chunk = [UInt8](repeating: 0, count: 65536)
-            let count = Darwin.read(fd, &chunk, chunk.count)
-            if count <= 0 {
-                if count == 0 || errno != EAGAIN { drop() }
-                return
-            }
-            bytes.append(contentsOf: chunk[0..<count])
-            // A line that never ends is not a request.
-            if bytes.count > 4_000_000 {
-                say(["error": "request too long"])
-                return
-            }
-            guard let newline = bytes.firstIndex(of: 0x0A) else { return }
-            let line = bytes[bytes.startIndex..<newline]
-            bytes = Data()
-            source.cancel()
-            guard let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else {
-                say(["error": "not a JSON object"])
-                return
-            }
-            handle(json) { [weak self] answer in self?.say(answer) }
-        }
-
-        private func say(_ answer: [String: Any]) {
-            guard !answered else { return }
-            answered = true
-            var answer = answer
-            // The socket's queue is the main one.
-            let caught = MainActor.assumeIsolated { Bench.caught }
-            if !caught.isEmpty { answer["onScreen"] = caught }
-            var out = (try? JSONSerialization.data(withJSONObject: answer)) ?? Data("{\"error\":\"unwritable answer\"}".utf8)
-            out.append(0x0A)
-            out.withUnsafeBytes { raw in
-                var sent = 0
-                while sent < raw.count {
-                    let n = write(fd, raw.baseAddress! + sent, raw.count - sent)
-                    if n <= 0 {
-                        if errno == EAGAIN { usleep(2000); continue }
-                        break
-                    }
-                    sent += n
-                }
-            }
-            drop()
-        }
-
-        func drop() {
-            if !source.isCancelled { source.cancel() }
-            close(fd)
-            gone(fd)
         }
     }
 

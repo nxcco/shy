@@ -417,6 +417,11 @@ struct SettingsPanel: View {
                 }
             }
             Card {
+                Line("Let Claude open pages", "Claude Code and Claude's app can open web pages, read them, take pictures of them, click and type — in private pages of their own, out of sight. Never your tabs, your sign-ins or your passwords") {
+                    Switch(on: $prefs.agent)
+                }
+                if prefs.agent { AgentLines(agent: .shared) }
+                Rule()
                 Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
                     Switch(on: $prefs.bench)
                 }
@@ -1041,6 +1046,34 @@ private struct NotificationSites: View {
                 Line(URL(string: site).map(SiteCard.site) ?? site, "Can send notifications") {
                     Pill("Remove") { SiteNotifications.forget(site) }
                 }
+            }
+        }
+    }
+}
+
+/// How to reach Claude's pages from Claude Code, and the pages open now.
+private struct AgentLines: View {
+    @ObservedObject var agent: Agent
+
+    /// The command that tells Claude Code where search-mcp is: beside the
+    /// app's own binary, wherever the app is.
+    private var command: String {
+        let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/search-mcp").path
+        return "claude mcp add search -- '\(helper.replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+
+    var body: some View {
+        Rule()
+        Line("Connect Claude Code", command) {
+            Pill("Copy") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+            }
+        }
+        if !agent.pages.isEmpty {
+            Rule()
+            Line("Claude's pages", agent.pages.count == 1 ? "1 open" : "\(agent.pages.count) open") {
+                Pill("Close All") { agent.closeAll() }
             }
         }
     }
