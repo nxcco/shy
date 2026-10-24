@@ -207,18 +207,20 @@ enum Muter {
 /// `mediaTypesRequiringUserActionForPlayback` says, which is why the
 /// global switch is asked here and not left to that.
 enum Autoplay {
-    private static func key(_ host: String) -> String { "autoplay." + host }
+    /// Per profile (see SiteMemory): a site let play in one is not in
+    /// another, nor can tell from it that the two are the same person.
+    private static func key(_ host: String, _ profile: UUID) -> String { SiteMemory.key("autoplay.", host, profile) }
 
-    static func allowed(_ host: String) -> Bool {
-        Store.settings.bool(forKey: key(host))
+    static func allowed(_ host: String, in profile: UUID) -> Bool {
+        Store.settings.bool(forKey: key(host, profile))
     }
 
     /// Off keeps nothing, as a site at the usual zoom keeps nothing.
-    static func set(_ on: Bool, for host: String) {
+    static func set(_ on: Bool, for host: String, in profile: UUID) {
         if on {
-            Store.settings.set(true, forKey: key(host))
+            Store.settings.set(true, forKey: key(host, profile))
         } else {
-            Store.settings.removeObject(forKey: key(host))
+            Store.settings.removeObject(forKey: key(host, profile))
         }
     }
 
@@ -229,11 +231,12 @@ enum Autoplay {
     /// copy of its configuration — kept the old answer until it slept: with
     /// the switch off again, its videos still waited for a click. The page's
     /// own policy says what the switch says instead, from its next load.
-    static func apply(to preferences: WKWebpagePreferences, for url: URL, shy: Bool,
+    /// `profile`: whose sites may play, nil for a page that keeps nothing.
+    static func apply(to preferences: WKWebpagePreferences, for url: URL, profile: UUID?,
                       made: WKAudiovisualMediaTypes) {
         let waits = Store.settings.bool(forKey: Preferences.waitsKey)
         let policy: Int
-        if !waits, !shy, let host = url.host(), allowed(host) {
+        if !waits, let profile, let host = url.host(), allowed(host, in: profile) {
             policy = 1
         } else if waits, !made.contains(.video) {
             policy = 3

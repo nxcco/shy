@@ -4,6 +4,27 @@ import XCTest
 
 @MainActor
 final class ShieldTests: XCTestCase {
+    /// A private page is reached by no profile's pause; a profile's pause
+    /// and its autoplay stay its own.
+    func testPausesAndAutoplayAreThePagesProfilesOnly() {
+        let host = "pause-\(UUID().uuidString.prefix(8)).example"
+        let other = UUID()
+        defer {
+            Shield.shared.pause(host, false, in: Profile.personalID)
+            Autoplay.set(false, for: host, in: Profile.personalID)
+            SiteMemory.forget(other)
+        }
+        Shield.shared.pause(host, true, in: Profile.personalID)
+        XCTAssertTrue(Shield.shared.isPaused(on: host, in: Profile.personalID))
+        XCTAssertFalse(Shield.shared.isPaused(on: host, in: nil))
+        XCTAssertFalse(Shield.shared.isPaused(on: host, in: other))
+        Autoplay.set(true, for: host, in: other)
+        XCTAssertTrue(Autoplay.allowed(host, in: other))
+        XCTAssertFalse(Autoplay.allowed(host, in: Profile.personalID))
+        SiteMemory.forget(other)
+        XCTAssertFalse(Autoplay.allowed(host, in: other))
+    }
+
     func testNetworkFilterMatchesOnlyTheListedHostAndItsSubdomains() throws {
         let pattern = try NSRegularExpression(pattern: Shield.networkFilter(for: "segment.com"))
         for url in ["https://segment.com/track", "http://segment.com/track",

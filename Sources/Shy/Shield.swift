@@ -38,8 +38,9 @@ final class Shield: ObservableObject {
         return read
     }
 
-    func isPaused(on host: String?, in profile: UUID) -> Bool {
-        guard let host else { return false }
+    /// `profile` nil: a private tab's page, which no profile's pause reaches.
+    func isPaused(on host: String?, in profile: UUID?) -> Bool {
+        guard let host, let profile else { return false }
         return paused(in: profile).contains(host)
     }
 
@@ -54,7 +55,7 @@ final class Shield: ObservableObject {
     /// heading to. A rule list is enforced from the moment it is added, so
     /// doing this at the navigation is what makes "off for this site" true
     /// for the whole page rather than for the second half of it.
-    func tune(_ controller: WKUserContentController, for host: String?, in profile: UUID) {
+    func tune(_ controller: WKUserContentController, for host: String?, in profile: UUID?) {
         guard let list else { return }
         controller.remove(list)
         if enabled, !isPaused(on: host, in: profile) { controller.add(list) }

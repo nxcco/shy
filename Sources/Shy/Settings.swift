@@ -677,7 +677,8 @@ struct SettingsPanel: View {
                         Pill("Try again") { shield.compile() }
                     }
                 }
-                if let host = browser.hereHost, prefs.shielded, shield.trouble == nil {
+                // Not from a private tab: its site would be written down.
+                if let host = browser.hereHost, prefs.shielded, shield.trouble == nil, browser.active?.shy != true {
                     Rule()
                     Line("Block on \(host)", "Turn off here if the site breaks — the page reloads") {
                         Switch(on: Binding(

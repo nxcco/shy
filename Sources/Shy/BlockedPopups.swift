@@ -93,7 +93,8 @@ extension Browser {
     /// Whether a window this tab's page asks for with no click just before
     /// opens all the same (see the top of this file).
     func popupsAllowed(_ tab: Tab, from frame: WKFrameInfo, top: URL?) -> Bool {
-        BlockedPopups.allows(prefs.popupSites(in: tab.profile).union(tab.popupSites), top: top,
+        // A private tab only what it was let itself: never a profile's list.
+        BlockedPopups.allows(tab.shy ? tab.popupSites : prefs.popupSites(in: tab.profile).union(tab.popupSites), top: top,
                              frameScheme: frame.securityOrigin.protocol, frameHost: frame.securityOrigin.host)
     }
 

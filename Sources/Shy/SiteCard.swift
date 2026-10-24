@@ -294,7 +294,7 @@ struct SiteCard: View {
         if !tab.shy, !Store.settings.bool(forKey: Preferences.waitsKey),
            let url = tab.pageAddress, ["http", "https"].contains(url.scheme?.lowercased()),
            let host = url.host() {
-            Sound(host: host)
+            Sound(host: host, profile: tab.profile)
         }
     }
 
@@ -329,12 +329,14 @@ struct SiteCard: View {
     /// open stays as it came, and the line says so once flipped.
     private struct Sound: View {
         let host: String
+        let profile: UUID
         private let was: Bool
         @State private var on: Bool
 
-        init(host: String) {
+        init(host: String, profile: UUID) {
             self.host = host
-            was = Autoplay.allowed(host)
+            self.profile = profile
+            was = Autoplay.allowed(host, in: profile)
             _on = State(initialValue: was)
         }
 
@@ -357,7 +359,7 @@ struct SiteCard: View {
             .padding(.leading, MenuMetrics.text)
             .padding(.trailing, MenuMetrics.trailing)
             .frame(height: MenuMetrics.row)
-            .onChange(of: on) { _, value in Autoplay.set(value, for: host) }
+            .onChange(of: on) { _, value in Autoplay.set(value, for: host, in: profile) }
         }
     }
 

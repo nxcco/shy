@@ -985,7 +985,8 @@ final class Browser: NSObject, ObservableObject {
         tab.fill(user: login.user, password: login.password, onlyOn: tab.pageAddress) { [weak self] worked in
             if !worked { self?.announce("Couldn't find the sign-in fields anymore") }
         }
-        Vault.touch(login)
+        // A private tab's sign-in leaves no date behind.
+        if !tab.shy { Vault.touch(login) }
     }
 
     /// One of the passkeys in the list: the Mac's sheet for it, and the
@@ -5287,8 +5288,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
                 self?.popupTab(for: webView)?.popupGesture.clear()
             }
             if policy == .allow, action.targetFrame?.isMainFrame ?? true, let url = action.request.url {
-                let shy = self?.tab(for: webView)?.shy == true || !webView.configuration.websiteDataStore.isPersistent
-                Autoplay.apply(to: preferences, for: url, shy: shy,
+                // The page's own store says whose sites may play: a peek or a
+                // little window is in no row (see scoped).
+                let store = webView.configuration.websiteDataStore
+                let profile = self?.tab(for: webView)?.shy == true || !store.isPersistent ? nil : Profiles.owner(of: store)
+                Autoplay.apply(to: preferences, for: url, profile: profile,
                                made: webView.configuration.mediaTypesRequiringUserActionForPlayback)
             }
             decisionHandler(policy, preferences)
@@ -5422,7 +5426,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             let host = curtain.host(of: url)
             tab.arm(hiding: Profiles.curtain(tab.profile).css(on: host), to: url)
             // And the blocker, on or off for where it is going.
-            Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.profile)
+            Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.shy ? nil : tab.profile)
             // The frames that were told about the last page's darkening go
             // with it.
             tab.duskFrames.removeAll()
