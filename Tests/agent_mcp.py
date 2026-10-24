@@ -244,6 +244,8 @@ def main():
         t.ok("type_at types into the field there, then Enter", "typed Hi enter" in words(mcp.tool("shy_text", tab_id=pp)))
         mcp.tool("shy_scroll", tab_id=pp, dy=700)
         t.ok("scroll moves the page", "scrolled 700" in words(mcp.tool("shy_text", tab_id=pp)))
+        stale = mcp.tool("shy_click_at", tab_id=pp, x=200 * k, y=130 * k)
+        t.ok("a point from before the page scrolled is refused", stale.get("isError") is True and "scrolled" in words(stale), stale)
         off = mcp.tool("shy_click_at", tab_id=pp, x=99999, y=5)
         t.ok("a point off the page is refused", off.get("isError") is True, off)
         mcp.tool("shy_scroll", tab_id=pp, dy=-700)
@@ -252,6 +254,9 @@ def main():
         time.sleep(2.2)
         kept = subprocess.run(["pbpaste"], capture_output=True).stdout
         t.ok("a page's write to the clipboard on an agent's click is undone", kept == b"mine", kept)
+        mcp.tool("shy_go", tab_id=pp, url=f"{base}/hello")
+        moved = mcp.tool("shy_click_at", tab_id=pp, x=200 * k, y=130 * k)
+        t.ok("a point from before the page went elsewhere is refused", moved.get("isError") is True and "somewhere else" in words(moved), moved)
 
         # On a handed-over page that asks: a click at a point waits for a
         # yes, with a look at the spot.

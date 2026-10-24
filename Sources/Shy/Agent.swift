@@ -156,6 +156,9 @@ final class Agent: NSObject, ObservableObject {
         @Published var presses = 0
         /// Screenshot pixels to the page's points, from the latest shot.
         var shotScale: CGFloat?
+        /// The page as the latest shot showed it: a point from that shot
+        /// means something only while the page still is.
+        var seen: (size: CGSize, scroll: CGPoint, url: URL?)?
         private var watching: [NSKeyValueObservation] = []
 
         init(id: String, web: WKWebView) {
@@ -338,7 +341,12 @@ final class Agent: NSObject, ObservableObject {
                           let png = bitmap.representation(using: .png, properties: [:])
                     else { return answer(["error": "nothing drawn yet"]) }
                     if page.web.bounds.width > 0 { page.shotScale = CGFloat(bitmap.pixelsWide) / page.web.bounds.width }
-                    answer(["png": png.base64EncodedString(), "width": bitmap.pixelsWide, "height": bitmap.pixelsHigh])
+                    let size = page.web.bounds.size, url = page.web.url
+                    self.run(Agent.scrolledTo, on: page) { value, _ in
+                        let at = (value as? [NSNumber])?.map { CGFloat($0.doubleValue) } ?? []
+                        page.seen = (size, at.count == 2 ? CGPoint(x: at[0], y: at[1]) : .zero, url)
+                        answer(["png": png.base64EncodedString(), "width": bitmap.pixelsWide, "height": bitmap.pixelsHigh])
+                    }
                 }
             }
 
@@ -378,26 +386,35 @@ final class Agent: NSObject, ObservableObject {
                 ? "Click\(place)"
                 : "Type \(text.isEmpty ? "" : Agent.quoted(text) + " ")\(key.map { "then \($0) " } ?? "")\(place.isEmpty ? "where the page has focus" : place.trimmingCharacters(in: .whitespaces))"
             permit(page, what, verb: verb, at: at, answer) {
-                page.note(what)
-                self.sparing(page) {
-                    if let at { self.press(page, at) }
-                    if verb == "typeat" { self.keyboard(text, then: key, on: page) }
+                self.still(page, at != nil) { trouble in
+                    if let trouble { return answer(["error": trouble]) }
+                    page.note(what)
+                    self.sparing(page) {
+                        if let at { self.press(page, at) }
+                        if verb == "typeat" { self.keyboard(text, then: key, on: page) }
+                    }
+                    // A moment for the page to take it in.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { answer(["ok": true]) }
                 }
-                // A moment for the page to take it in.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { answer(["ok": true]) }
             }
 
         case "scroll":
             let dy = min(20_000, max(-20_000, request["dy"] as? Double ?? 600))
             let dx = min(20_000, max(-20_000, request["dx"] as? Double ?? 0))
             let at = point(request, on: page)
-            if let at { page.cursor = at }
-            page.note("Scrolled \(dy >= 0 ? "down" : "up") \(Int(abs(dy)))")
-            var arguments: [String: Any] = ["dx": dx, "dy": dy]
-            if let at { arguments["x"] = at.x; arguments["y"] = at.y }
-            run(Agent.scrolling, on: page, arguments) { value, trouble in
-                let said = trouble ?? value as? String ?? "the page didn't answer"
-                answer(said == "ok" ? self.describe(page) : ["error": said])
+            if request["x"] != nil || request["y"] != nil, at == nil {
+                return answer(["error": "x and y must be a point on the page, in the latest screenshot's pixels"])
+            }
+            still(page, at != nil) { trouble in
+                if let trouble { return answer(["error": trouble]) }
+                if let at { page.cursor = at }
+                page.note("Scrolled \(dy >= 0 ? "down" : "up") \(Int(abs(dy)))")
+                var arguments: [String: Any] = ["dx": dx, "dy": dy]
+                if let at { arguments["x"] = at.x; arguments["y"] = at.y }
+                self.run(Agent.scrolling, on: page, arguments) { value, trouble in
+                    let said = trouble ?? value as? String ?? "the page didn't answer"
+                    answer(said == "ok" ? self.describe(page) : ["error": said])
+                }
             }
 
         case "close":
@@ -489,6 +506,27 @@ final class Agent: NSObject, ObservableObject {
         let size = page.web.bounds.size
         guard at.x >= 0, at.y >= 0, at.x < size.width, at.y < size.height else { return nil }
         return at
+    }
+
+    /// Nil when the page is as the latest shot showed it — the same
+    /// address, size and scroll, and done loading — or why a point from
+    /// that shot would land somewhere else now. Not asked without a point.
+    private func still(_ page: Page, _ needed: Bool, _ then: @escaping (String?) -> Void) {
+        guard needed else { return then(nil) }
+        guard let seen = page.seen else { return then("take a screenshot first (shy_shot): x and y are its pixels") }
+        guard page.web.url == seen.url else { return then("the page went somewhere else since the latest screenshot: take a new one") }
+        guard !page.web.isLoading else { return then("the page is still loading: wait for it (shy_wait), then take a new screenshot") }
+        let size = page.web.bounds.size
+        guard abs(size.width - seen.size.width) < 1, abs(size.height - seen.size.height) < 1 else {
+            return then("the page changed size since the latest screenshot (\(Int(seen.size.width))×\(Int(seen.size.height)) then, \(Int(size.width))×\(Int(size.height)) now): take a new one")
+        }
+        run(Agent.scrolledTo, on: page) { value, _ in
+            let at = (value as? [NSNumber])?.map { CGFloat($0.doubleValue) } ?? []
+            guard at.count == 2, abs(at[0] - seen.scroll.x) < 1, abs(at[1] - seen.scroll.y) < 1 else {
+                return then("the page scrolled since the latest screenshot: take a new one")
+            }
+            then(nil)
+        }
     }
 
     /// A mouse event at a point of the page, for its own window.
@@ -762,6 +800,9 @@ final class Agent: NSObject, ObservableObject {
         window.scrollBy(dx, dy);
         return 'ok';
         """
+
+    /// Where the page is scrolled to.
+    private static let scrolledTo = "return [window.scrollX, window.scrollY]"
 
     /// The words on the page, as it shows them.
     private static let reading = "return document.body ? document.body.innerText : ''"
