@@ -559,10 +559,6 @@ struct SettingsPanel: View {
                     .fixedSize()
                 }
                 Rule()
-                Line("Open a new tab when you close the last one", "Otherwise you land on a pinned tab") {
-                    Switch(on: $prefs.newTabAfterLast)
-                }
-                Rule()
                 Line("Load background tabs only when you open them", "Links opened with ⌘-click, the middle button or from other apps") {
                     Switch(on: $prefs.lazyTabs)
                 }

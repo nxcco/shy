@@ -41,7 +41,7 @@ def only(*keep):
 def main():
     t = sv.T()
     try:
-        sv.setup(**{"tabs.newAfterLast": True}); sv.launch()
+        sv.setup(); sv.launch()
         a = sv.page("a"); p = sv.page("p")
         sv.cmd({"do": "pin", "id": a}); sv.cmd({"do": "pin", "id": p})
         b = sv.page("b")
