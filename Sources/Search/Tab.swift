@@ -1419,18 +1419,25 @@ final class Tab: ObservableObject, Identifiable {
         discard()
     }
 
-    /// A page moved to another space must use that space's cookies. WebKit
-    /// binds the store when the view is made, so keep its restorable state
-    /// and build the view again with the destination's store.
+    /// A page moved to a space signed in another way — another profile, or
+    /// a space with sign-ins of its own — must start there afresh. WebKit
+    /// binds the store when the view is made, so the view goes and is built
+    /// again with the destination's store; and nothing of the old session
+    /// comes along: not its Back and Forward, its place or what was typed
+    /// (the view's interaction state, kept for a sleeping tab too), not a
+    /// picture of the page as it was signed in, not what the page was asking.
+    /// Only the address goes, and is loaded anew.
     func rehome(in space: UUID) {
         guard !shy, !bench, store !== Spaces.store(for: space) else { return }
-        if let built {
-            memory = built.isLoading ? nil : built.interactionState
-            pending = address ?? built.url
-            picture = nil
-            cover = nil
-            discard()
-        }
+        let url = address ?? built?.url ?? pending
+        if built != nil { discard() }
+        memory = nil
+        picture = nil
+        cover = nil
+        appleFill = nil
+        peeked = nil
+        popupSites = []
+        pending = url
         configuration = Web.configuration(space: space)
     }
 
