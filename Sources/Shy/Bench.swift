@@ -205,6 +205,14 @@ final class Bench {
             tab.go(to: url)
             answer(describe(tab))
 
+        case "shut":
+            // The window closed and kept, as the last one is when its close
+            // button is pressed with Shy running (Windows.closing), or back.
+            // Only on a SHY_PROBE run.
+            guard Store.testing else { answer(["error": "shut only works on a --test run"]); return }
+            browser.shut = request["on"] as? Bool ?? true
+            answer(["shut": browser.shut])
+
         case "handover":
             // A tab's sign-in handed to the agent's session as the card's
             // Hand Over would (see HandoverCard), without the card. Only on
@@ -3041,7 +3049,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage",
+                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "ai", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
             ]])
         }
     }

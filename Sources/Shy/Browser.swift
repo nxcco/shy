@@ -1986,7 +1986,29 @@ final class Browser: NSObject, ObservableObject {
         didSet { if window != nil { shut = false } }
     }
     /// Its window closed and kept: the last one, closed with the app running.
-    var shut = false
+    var shut = false {
+        didSet { if shut != oldValue { hush(shut) } }
+    }
+
+    /// A window closed and kept goes quiet: what was playing in any of its
+    /// tabs, every space's, stops; a call loses the camera and microphone;
+    /// the floating video lands; and nothing plays again until the window
+    /// is back. Kept, it was still playing behind a window you had closed.
+    private func hush(_ on: Bool) {
+        if on {
+            if floating != nil { land(covering: false) }
+            cancelCapture()
+        }
+        for tab in tabs + parkedTabs {
+            guard let web = tab.built else { continue }
+            if on {
+                web.pauseAllMediaPlayback()
+                web.setCameraCaptureState(.none, completionHandler: nil)
+                web.setMicrophoneCaptureState(.none, completionHandler: nil)
+            }
+            web.setAllMediaPlaybackSuspended(on)
+        }
+    }
     /// Its window is there to be seen — on screen, or behind a hidden app.
     var isOpen: Bool { window != nil && !shut }
     /// Its window fills the screen. macOS takes the window's buttons away
