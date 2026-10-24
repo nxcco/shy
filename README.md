@@ -2,7 +2,7 @@
 
 An indie browser for the Mac. Small, safe, and out of your way.
 
-macOS 14 or later · around 8 MB · MIT
+macOS 14 or later · 8.6 MB installed, 4.2 MB zipped · MIT
 
 ## Why Shy
 
