@@ -305,6 +305,7 @@ struct ProfilesPage: View {
                 Rule()
                 row(space, in: profile)
             }
+            ProfileData(profile: profile)
         }
     }
 

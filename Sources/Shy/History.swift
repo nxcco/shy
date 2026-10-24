@@ -329,6 +329,9 @@ final class History: ObservableObject {
 
     /// The last eight places, newest first; worked out again only once the
     /// history has changed.
+    /// How many pages it holds (Settings › Profiles & Spaces).
+    var size: Int { visits.count }
+
     func recent() -> [Trace] {
         if let recentCache { return recentCache }
         let made = Array(everything().prefix(8))
