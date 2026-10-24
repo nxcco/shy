@@ -3795,17 +3795,6 @@ final class Browser: NSObject, ObservableObject {
         return out
     }
 
-    @Published var commandHeld = false
-
-    /// Only nine hints, worked out once for the window rather than by each tab.
-    var tabShortcutNumbers: [UUID: Int] {
-        guard commandHeld else { return [:] }
-        let shown = tabShortcutTargets
-        var numbers = Dictionary(uniqueKeysWithValues: shown.prefix(8).enumerated().map { ($0.element.id, $0.offset + 1) })
-        if shown.count > 8, let last = shown.last { numbers[last.id] = 9 }
-        return numbers
-    }
-
     func clearTabSelection() {
         if !selectedTabIDs.isEmpty { selectedTabIDs.removeAll() }
         selectionAnchor = nil

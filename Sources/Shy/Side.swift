@@ -964,7 +964,6 @@ private struct PinGrid: Layout {
 /// room to spare turns into a wide, short button rather than a bigger icon.
 private struct PinSquare: View {
     @Environment(\.greys) private var greys
-    @Environment(\.tabShortcutNumbers) private var shortcutNumbers
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
@@ -983,9 +982,7 @@ private struct PinSquare: View {
 
     var body: some View {
         Group {
-            if let number = shortcutNumbers[tab.id] {
-                TabShortcutNumber(number: number)
-            } else if tab.loading {
+            if tab.loading {
                 // Its page on the way, as a row's ring says.
                 Ring(size: scale * 11 / 34)
             } else {
@@ -1050,7 +1047,6 @@ private struct PinSquare: View {
 /// One tab, as a line in the column.
 private struct SideRow: View {
     @Environment(\.greys) private var greys
-    @Environment(\.tabShortcutNumbers) private var shortcutNumbers
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
@@ -1133,11 +1129,6 @@ private struct SideRow: View {
                 // ring or the speaker already holds the end of the row.
                 PeekBadge(page: page, size: 16)
                     .opacity(hovering && !status ? 0 : 1)
-            }
-
-            if interactive, !editing, let number = shortcutNumbers[tab.id] {
-                TabShortcutNumber(number: number)
-                    .padding(.trailing, status ? 0 : 28)
             }
 
             if status {

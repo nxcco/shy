@@ -100,7 +100,6 @@ struct SplitTabItem: View {
 
 private struct SplitTabHalf: View {
     @Environment(\.greys) private var greys
-    @Environment(\.tabShortcutNumbers) private var shortcutNumbers
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
@@ -205,9 +204,6 @@ private struct SplitTabHalf: View {
                     browser.focusPane(tab)
                 })
             if !editing {
-                if interactive, let number = shortcutNumbers[tab.id] {
-                    TabShortcutNumber(number: number)
-                }
                 status
                 // In the column each line has its own cross at its own end,
                 // one under the other; across the top the item has one.
