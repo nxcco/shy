@@ -3103,6 +3103,9 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func newTab() {
+        // Off an agent's page: the new tab is what you'll see, even when it
+        // is the empty one already in front underneath.
+        if watchingAgent != nil { watchAgent(nil) }
         if websitePopup {
             if active?.shy == true { tabDestination.newShyTab() } else { tabDestination.newTab() }
             return
@@ -4203,6 +4206,7 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘⇧N. A tab that keeps nothing — its own cookies, its own sign-ins, no
     /// history, and no place in tomorrow's session.
     func newShyTab() {
+        if watchingAgent != nil { watchAgent(nil) }
         if websitePopup { tabDestination.newShyTab(); return }
         // Never two empty private tabs, as ⌘T never makes two empty ones:
         // one already open is moved to the chosen position.
