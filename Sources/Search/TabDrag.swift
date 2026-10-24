@@ -110,7 +110,6 @@ final class TabDrag: ObservableObject {
     }
 
     func update(browser: Browser, tab: Tab, translation: CGSize) -> Bool {
-        guard browser.prefs.splitView else { return false }
         if sourceBrowser !== browser || gestureTab !== tab {
             let pointer = pointer(in: browser)
             let origin = NSPoint(x: pointer.x - translation.width, y: pointer.y + translation.height)

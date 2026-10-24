@@ -138,20 +138,17 @@ struct SearchApp: App {
                     .shortcut("view.reader")
                 Button("Float Video") { browser.toggleFloat() }
                     .shortcut("view.float")
-                // Websites in the side panel, only once they are on
-                // (Settings › General).
-                if browser.prefs.sitesInPanel {
-                    Menu("Side Panel") {
-                        Button(browser.sidePanelShown ? "Close Side Panel" : "Show Side Panel") { browser.toggleSitePanel() }
-                            .shortcut("view.sitePanel")
-                        Divider()
-                        ForEach(PanelSites.offered, id: \.name) { site in
-                            Button(site.name) { browser.showSiteInPanel(site.url) }
-                        }
-                        Divider()
-                        Button("This Page") { if let tab = browser.active { browser.openInSidePanel(tab) } }
-                            .disabled(!(browser.active?.isWeb ?? false) || (browser.active?.shy ?? true))
+                // Websites in the side panel.
+                Menu("Side Panel") {
+                    Button(browser.sidePanelShown ? "Close Side Panel" : "Show Side Panel") { browser.toggleSitePanel() }
+                        .shortcut("view.sitePanel")
+                    Divider()
+                    ForEach(PanelSites.offered, id: \.name) { site in
+                        Button(site.name) { browser.showSiteInPanel(site.url) }
                     }
+                    Divider()
+                    Button("This Page") { if let tab = browser.active { browser.openInSidePanel(tab) } }
+                        .disabled(!(browser.active?.isWeb ?? false) || (browser.active?.shy ?? true))
                 }
                 // Dark pages, only once they are on (Settings › Appearance).
                 if browser.prefs.darkensPages {
@@ -214,28 +211,26 @@ struct SearchApp: App {
                 Button("Search Tabs…") { browser.summon() }
                     .shortcut("tabs.search")
                 Divider()
-                if browser.prefs.splitView {
-                    Button("Split Current Page") { browser.startSplit() }
-                        .shortcut("tabs.split")
-                        .disabled(browser.active == nil || browser.active?.bench == true)
-                    Button("Focus Left Page") { browser.focusPane(onLeft: true) }
-                        .shortcut("tabs.focusLeftPane")
-                        .disabled(browser.activeSplit == nil)
-                    Button("Focus Right Page") { browser.focusPane(onLeft: false) }
-                        .shortcut("tabs.focusRightPane")
-                        .disabled(browser.activeSplit == nil)
-                    Button("Swap Pages") { browser.swapSplit() }
-                        .shortcut("tabs.swapSplit")
-                        .disabled(browser.activeSplit == nil)
-                    Button("Separate Split Tabs") {
-                        if let tab = browser.active { browser.detachSplit(tab) }
-                    }
-                    .shortcut("tabs.separateSplit")
+                Button("Split Current Page") { browser.startSplit() }
+                    .shortcut("tabs.split")
+                    .disabled(browser.active == nil || browser.active?.bench == true)
+                Button("Focus Left Page") { browser.focusPane(onLeft: true) }
+                    .shortcut("tabs.focusLeftPane")
                     .disabled(browser.activeSplit == nil)
-                    Button("Close Both Pages") { browser.closeSplit() }
-                        .disabled(browser.activeSplit == nil)
-                    Divider()
+                Button("Focus Right Page") { browser.focusPane(onLeft: false) }
+                    .shortcut("tabs.focusRightPane")
+                    .disabled(browser.activeSplit == nil)
+                Button("Swap Pages") { browser.swapSplit() }
+                    .shortcut("tabs.swapSplit")
+                    .disabled(browser.activeSplit == nil)
+                Button("Separate Split Tabs") {
+                    if let tab = browser.active { browser.detachSplit(tab) }
                 }
+                .shortcut("tabs.separateSplit")
+                .disabled(browser.activeSplit == nil)
+                Button("Close Both Pages") { browser.closeSplit() }
+                    .disabled(browser.activeSplit == nil)
+                Divider()
                 if let tab = browser.active {
                     let rows = browser.prefs.showsPinRows
                     if tab.pin == nil {
@@ -456,7 +451,6 @@ struct ContentView: View {
             // top and on the column's side in the room (see chrome). Two pages
             // side by side are a card each (see PaneStage).
             stage
-                .modifier(CardEdge(on: cards && !browser.prefs.splitView))
                 .padding(.leading, sideOnRight ? farGap + panelRoom : 0)
                 .padding(.trailing, sideOnRight ? 0 : farGap + panelRoom)
                 .padding(.bottom, farGap)
@@ -504,49 +498,10 @@ struct ContentView: View {
         .onChange(of: chrome) { old, new in make(room: new, after: old) }
     }
 
-    // With Split View off, the stage is the one it always was: a single
-    // Page that is never rebuilt from one tab to the next (see Stage.swift).
-    @ViewBuilder
+    /// The page area: the stage that holds the page, or the two side by side
+    /// (see SplitView.swift).
     private var stage: some View {
-        if browser.prefs.splitView {
-            SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
-        } else if let tab = browser.active {
-            Page(tab: tab, corner: cards ? Metrics.cardRadius : 0, browser: browser)
-                .overlay {
-                    if browser.prefs.showsLinks { LinkBubble(status: browser.linkStatus) }
-                }
-                .overlay(alignment: .topTrailing) {
-                    if browser.finding {
-                        FindBar(browser: browser)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-                .overlay(alignment: .topTrailing) {
-                    if let assistant = browser.assisting, assistant.tab == tab.id {
-                        AssistantPanel(browser: browser, assistant: assistant)
-                            .padding(.top, browser.finding ? 64 : 14)
-                            .padding(.trailing, 14)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
-                }
-                .animation(Motion.settle, value: browser.assisting?.id)
-                .overlay(alignment: .topLeading) {
-                    if let asked = browser.suggesting, asked.tab == tab.id {
-                        AccountList(browser: browser, asked: asked)
-                            .transition(.opacity)
-                    }
-                }
-                .animation(Motion.quick, value: browser.suggesting)
-                .overlay(alignment: .topLeading) {
-                    if let pairing = browser.applePairing, pairing.tab == tab.id {
-                        ApplePairingCard(browser: browser, apple: browser.applePasswords, pairing: pairing)
-                            .transition(.opacity)
-                    }
-                }
-                .animation(Motion.quick, value: browser.applePairing)
-        } else {
-            Palette.ground
-        }
+        SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
     }
 
     /// What the column and the strip take from the page right now: animated
@@ -677,24 +632,6 @@ struct ContentView: View {
         .animation(Motion.settle, value: browser.offering)
     }
 
-    /// The address field: raised over a page by ⌘L or ⌘K, and standing on its
-    /// own whenever a tab has nowhere to be yet.
-    @ViewBuilder
-    private var field: some View {
-        // SplitStage owns the field whenever Split View is enabled, including
-        // an ordinary tab that is not currently paired. Drawing it here too
-        // leaves two offset address fields on a blank tab.
-        if browser.fieldShowing, !browser.prefs.splitView {
-            Omnibox(browser: browser, over: !(browser.active?.isBlank ?? true))
-                // Centred on the page, not on the window. The column of tabs
-                // is not what the field is standing over, and dimming it along
-                // with the page says otherwise.
-                .padding(.leading, sidebar && !sideOnRight ? browser.prefs.sideWidth : 0)
-                .padding(.trailing, sidebar && sideOnRight ? browser.prefs.sideWidth : 0)
-                .transition(.scale(scale: 0.97).combined(with: .opacity))
-        }
-    }
-
     /// What still comes over the page. Settings, History, Downloads,
     /// Bookmarks, Passwords, Bring Things Over and the release notes are
     /// tabs of their own now (see InternalPages.swift); what is left here
@@ -771,7 +708,6 @@ struct ContentView: View {
                     // the title bar's band is page too.
                     .ignoresSafeArea()
             }
-            .overlay { field }
             .overlay { panels }
             .overlay { switcherOverlay }
             .overlay(alignment: .topTrailing) {
@@ -956,7 +892,6 @@ struct ContentView: View {
     /// only the browser (see fullscreenWatch).
     private var fullscreenTab: Tab? {
         _ = immersionRevision
-        guard browser.prefs.splitView else { return browser.active?.immersed == true ? browser.active : nil }
         if let split = browser.activeSplit,
            let immersed = browser.tabs.first(where: { split.contains($0.id) && $0.immersed }) {
             return immersed
@@ -970,7 +905,7 @@ struct ContentView: View {
     /// the column was switched off and on again, as it was reported.
     @ViewBuilder
     private var fullscreenWatch: some View {
-        if browser.prefs.splitView, let split = browser.activeSplit {
+        if let split = browser.activeSplit {
             if let left = browser.tabs.first(where: { $0.id == split.left }) {
                 TabImmersionWatch(tab: left) { immersing() }.id(left.id)
             }
@@ -1107,7 +1042,7 @@ struct ContentView: View {
             // window).
             guard mine(event) else { return event }
             guard event.type == .keyDown else {
-                let held = browser.prefs.showsTabShortcuts && event.modifierFlags.contains(.command)
+                let held = event.modifierFlags.contains(.command)
                 if browser.commandHeld != held { browser.commandHeld = held }
                 // ⌃ let go of switches to the tab the switcher is on — or
                 // whichever its key is held with (Settings › Shortcuts).
@@ -1313,7 +1248,7 @@ struct ContentView: View {
             }
             // ⌃W, ⌃R, ⌃M, ⌃O, when Settings › Tabs has them on: the card
             // picked, closed, reloaded, muted or kept, and the switcher stays up.
-            if browser.prefs.switcherKeys, let action = TabSwitcher.Action(event), let id = browser.tabSwitcher.selectedID {
+            if let action = TabSwitcher.Action(event), let id = browser.tabSwitcher.selectedID {
                 if !event.isARepeat { browser.act(action, onCard: id, in: browser.tabSwitcher) }
                 return true
             }
@@ -1383,7 +1318,7 @@ struct ContentView: View {
         // Keep split focus ahead of WebKit's arrow-key handling. Its panes
         // remain native first responders, so the menu shortcut alone would
         // never see ⌃⌘→ on a page.
-        if browser.prefs.splitView, browser.activeSplit != nil, let combo = KeyCombo(event: event) {
+        if browser.activeSplit != nil, let combo = KeyCombo(event: event) {
             let store = ShortcutStore.shared
             if combo == store.key(for: "tabs.focusLeftPane") { browser.focusPane(onLeft: true); return true }
             if combo == store.key(for: "tabs.focusRightPane") { browser.focusPane(onLeft: false); return true }
@@ -1395,10 +1330,10 @@ struct ContentView: View {
         // Lock says. Not while typing in the peeked page — a comment box or
         // a mail there sends with the same keys — by the page's word or by
         // the caret being in something editable, in any frame.
-        // ⌥⌘Return, with Split View on, keeps it beside the page instead.
+        // ⌥⌘Return keeps it beside the page instead.
         if event.keyCode == 36 || event.keyCode == 76,
            flags.intersection([.command, .shift, .option, .control]) == .command
-            || (browser.prefs.splitView && flags.intersection([.command, .shift, .option, .control]) == [.command, .option]),
+            || (flags.intersection([.command, .shift, .option, .control]) == [.command, .option]),
            let peek = browser.peekTab, !peek.typing, peek.built?.inputContext == nil {
             browser.keepPeek(beside: flags.contains(.option))
             return true
@@ -1444,7 +1379,6 @@ struct ContentView: View {
         if ShortcutStore.shared.anyChanged || browser.prefs.usesSpaces, let combo = KeyCombo(event: event) {
             if let command = ShortcutStore.shared.customCommand(on: combo) {
                 if command.section == .spaces, !browser.prefs.usesSpaces { return false }
-                if Command.split.contains(command.id), !browser.prefs.splitView { return false }
                 if Command.ai.contains(command.id), !browser.prefs.ai { return false }
                 if Command.dusk.contains(command.id), !browser.prefs.darkensPages { return false }
                 command.run(browser)

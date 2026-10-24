@@ -77,20 +77,20 @@ final class Browser: NSObject, ObservableObject {
             linkStatus.dismiss()
             let left = tabs.first { $0.id == old }
             left?.touch()
-            if prefs.splitView, let pair = splits.first(where: { $0.contains(old) }),
+            if let pair = splits.first(where: { $0.contains(old) }),
                activeID.map({ !pair.contains($0) }) ?? true,
                let partner = tabs.first(where: { $0.id == pair.partner(of: old) }) {
                 partner.touch()
             }
             // The page to come back to, when the pair is chosen again.
-            if prefs.splitView, let id = activeID,
+            if let id = activeID,
                let index = splits.firstIndex(where: { $0.contains(id) }), splits[index].focused != id {
                 splits[index].focused = id
             }
             // The switcher's order and pictures, most recently used first.
             // Focus moving within a pair isn't leaving it; a pair left is
             // one entry, under its first page.
-            if prefs.splitView, let pair = splits.first(where: { $0.contains(old) }) {
+            if let pair = splits.first(where: { $0.contains(old) }) {
                 if let id = activeID, pair.contains(id) { return }
                 tabSwitcher.cancel()
                 if let first = tabs.first(where: { $0.id == pair.left }) {
@@ -104,14 +104,12 @@ final class Browser: NSObject, ObservableObject {
     }
 
     var activeSplit: TabSplit? {
-        guard prefs.splitView, let activeID else { return nil }
+        guard let activeID else { return nil }
         return splits.first { $0.contains(activeID) }
     }
 
-    /// The pair a tab is in, while Split View is on. Turned off, pairs are
-    /// kept, as groups are, and nothing acts on them until it is back on.
+    /// The pair a tab is in.
     func split(for tab: Tab) -> TabSplit? {
-        guard prefs.splitView else { return nil }
         return splits.first { $0.contains(tab.id) }
     }
 
@@ -122,7 +120,6 @@ final class Browser: NSObject, ObservableObject {
     }
 
     var displayedTabs: [Tab] {
-        guard prefs.splitView else { return tabs }
         return tabs.filter { tab in !splits.contains { $0.contains(tab.id) && $0.left != tab.id } }
     }
 
@@ -332,7 +329,7 @@ final class Browser: NSObject, ObservableObject {
     /// page you were on as it was.
     @Published private(set) var launching = false
     /// The site the list offers to search, for what has been typed so far
-    /// (Settings › General › Search a site from the address field).
+    /// (see SiteSearch.swift).
     @Published private(set) var siteOffer: SearchSite?
     /// The site Tab put in the field: what is typed next searches it.
     @Published var siteChip: SearchSite? {
@@ -1480,7 +1477,7 @@ final class Browser: NSObject, ObservableObject {
     var pinnedCount: Int { tabs.filter { $0.pin != nil }.count }
 
     /// The pins drawn as squares: those not kept as rows, and every pin
-    /// while the rows are off. They come first among the pins, so a
+    /// with the tabs across the top. They come first among the pins, so a
     /// square's place in the grid is its place in the row.
     var squarePins: [Tab] { tabs.filter { $0.pin != nil && !($0.listed && prefs.showsPinRows) } }
     /// The pins kept as rows, under the squares (see Tab.listed). None
@@ -1680,13 +1677,11 @@ final class Browser: NSObject, ObservableObject {
     func unpinDropped(_ tab: Tab, at slot: Int, group: UUID? = nil) -> Bool {
         guard tab.pin != nil, tabs.contains(where: { $0.id == tab.id }) else { return false }
         unpin(tab)
-        if let group, prefs.usesTabGroups, tabGroups.contains(where: { $0.id == group }) {
+        if let group, tabGroups.contains(where: { $0.id == group }) {
             move(tab, toGroup: group)
-        } else if prefs.usesTabGroups {
+        } else {
             let peers = tabs(in: nil).filter(standsInRow)
             move(tab, within: nil, to: min(max(0, slot), peers.count - 1))
-        } else {
-            moveDisplayedTab(tab, to: min(pinnedCount + max(0, slot), displayedTabs.count - 1))
         }
         writeSession(now: true)
         return true
@@ -2242,36 +2237,9 @@ final class Browser: NSObject, ObservableObject {
         // shared pins or lets them go. Received on the next turn of the run
         // loop, once the setting has changed, so the rows are built from
         // what it is now.
-        prefs.$sharesPins.dropFirst().map { _ in () }
-            .merge(with: prefs.$usesSpaces.dropFirst().map { _ in () })
+        prefs.$usesSpaces.dropFirst().map { _ in () }
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.sharedPinsChanged() }
-            .store(in: &bag)
-        prefs.$usesTabGroups
-            .dropFirst()
-            .sink { [weak self] on in
-                guard let self, on else { return }
-                // Sent before the setting changes, so it is passed on.
-                arrangeGroupedTabs(on)
-                writeSession(now: true)
-            }
-            .store(in: &bag)
-        prefs.$splitView
-            .dropFirst()
-            .sink { [weak self] on in
-                // Off, the pairs stay, as groups do; back on, the ones that
-                // came apart meanwhile go. The others' files are looked at
-                // when their spaces come back (see restoreRow).
-                guard let self else { return }
-                // Off, no page is drawn over on its own: what a page asked
-                // is answered as dismissed rather than left unanswered.
-                guard on else { return dropQuestions() }
-                splits = splits.filter { Browser.holds($0, in: self.tabs) }
-                for key in parked.keys {
-                    if let row = parked[key] { parked[key]?.splits = row.splits.filter { Browser.holds($0, in: row.tabs) } }
-                }
-                writeSession(now: true)
-            }
             .store(in: &bag)
         prefs.$shielded
             .dropFirst()
@@ -2333,19 +2301,6 @@ final class Browser: NSObject, ObservableObject {
         // A page darkened or let go: the View menu's line says which.
         Dusk.shared.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
-            .store(in: &bag)
-
-        // Every tab's next page, and the page each is showing now.
-        prefs.$showsLinks
-            .dropFirst()
-            .sink { [weak self] on in
-                guard let self else { return }
-                if !on { linkStatus.dismiss() }
-                for tab in tabs + parkedTabs {
-                    tab.arm(hiding: curtain.css(on: curtain.host(of: tab.address)))
-                    tab.built?.evaluateJavaScript(on ? HoveredLink.script : HoveredLink.off, in: nil, in: .defaultClient)
-                }
-            }
             .store(in: &bag)
 
         // Every open page that hasn't a size of its own takes the new one.
@@ -2640,9 +2595,8 @@ final class Browser: NSObject, ObservableObject {
             // keeps loose is a page you keep, which is what a row is for, so
             // it comes in as one. A page it filed in a folder stays a tab in a
             // group of that name, because a pin is never in a group and the
-            // folder is the thing that would be lost (see #478). With rows off
-            // nothing is split: the whole list comes in as tabs, as before.
-            let rows = prefs.listsPins ? pinned.filter { $0.folder == nil } : []
+            // folder is the thing that would be lost (see #478).
+            let rows = pinned.filter { $0.folder == nil }
             for page in rows where !had.contains(where: { Browser.samePin($0, page.item.url) })
                 && !defs.contains(where: { $0.home == page.item.url.absoluteString }) {
                 let host = page.item.url.host()?.replacingOccurrences(of: "www.", with: "") ?? ""
@@ -2939,7 +2893,7 @@ final class Browser: NSObject, ObservableObject {
     /// A pin can be split with: its page goes into the pair as a tab of its
     /// own, and the pin stays where it is (see splittable).
     func canSplit(_ first: Tab, with second: Tab) -> Bool {
-        prefs.splitView && first.id != second.id && !first.bench && !second.bench
+        first.id != second.id && !first.bench && !second.bench
             && first.shy == second.shy
             && tabs.contains(where: { $0.id == first.id })
             && tabs.contains(where: { $0.id == second.id })
@@ -2984,7 +2938,7 @@ final class Browser: NSObject, ObservableObject {
     func startSplit() {
         // Two tabs picked in the column: those two side by side.
         if pickedPair != nil { return pairPickedTabs() }
-        guard prefs.splitView, let shown = active, !shown.bench else { return }
+        guard let shown = active, !shown.bench else { return }
         if let pair = activeSplit {
             if let right = tabs.first(where: { $0.id == pair.right }) { focusPane(right) }
             return
@@ -3061,7 +3015,7 @@ final class Browser: NSObject, ObservableObject {
     /// A tab's menu › Open in Split View: that tab beside the page on
     /// screen. Asked of the page on screen itself, an empty page beside it.
     func openInSplit(_ tab: Tab) {
-        guard prefs.splitView, let current = active else { return }
+        guard let current = active else { return }
         if tab.id == current.id { return startSplit() }
         guard split(for: tab)?.contains(current.id) != true else { return focusPane(tab) }
         guard canSplit(tab, with: current) else { return }
@@ -3086,7 +3040,7 @@ final class Browser: NSObject, ObservableObject {
     /// without a selection.
     var pickedPair: (left: Tab, right: Tab)? {
         let picked = pickedTabs
-        guard prefs.splitView, picked.count == 2, !pickedTabsArePaired,
+        guard picked.count == 2, !pickedTabsArePaired,
               canSplit(picked[0], with: picked[1]) else { return nil }
         return (picked[0], picked[1])
     }
@@ -3318,9 +3272,8 @@ final class Browser: NSObject, ObservableObject {
             focusPane(tab)
             return
         }
-        // A folded group opens for the tab you go to in it. With groups off,
-        // they are kept as they were and nothing about them is saved.
-        if unfoldGroup, prefs.usesTabGroups, let id = tab.groupID,
+        // A folded group opens for the tab you go to in it.
+        if unfoldGroup, let id = tab.groupID,
            let index = tabGroups.firstIndex(where: { $0.id == id }), tabGroups[index].collapsed {
             tabGroups[index].collapsed = false
             writeSession(now: true)
@@ -3407,10 +3360,9 @@ final class Browser: NSObject, ObservableObject {
         // its place, the page is let go, and you land on whatever you were
         // looking at before. Only Unpin takes it out of the row.
         if tab.pin != nil {
-            // Put down is also gone home with Settings › Tabs › Pins stay on
-            // their site, as Arc's pins are: the pin wakes on the page it was
-            // pinned at, not wherever its links had taken it.
-            tab.rest(at: prefs.pinsGoHome || prefs.pinsPeek ? tab.home : nil)
+            // Put down is gone home, as Arc's pins are: the pin wakes on the
+            // page it was pinned at, not wherever its links had taken it.
+            tab.rest(at: tab.home)
             // Ordinary tabs first. Falling back to the most recent tab of any
             // kind meant closing one pin landed you on another pin, and ⌘W
             // bounced between the two instead of getting you out of them.
@@ -3646,20 +3598,20 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
-    /// The group a tab coming back goes into: its own, while groups are on
-    /// and it is there to go into. A group Close Group took comes back first
+    /// The group a tab coming back goes into: its own, while it is there to
+    /// go into. A group Close Group took comes back first
     /// (closedGroups), named as it was and where it was, opened; `back` says
     /// so, for the row to be arranged around it.
     private func regroup(_ ghost: Ghost) -> (id: UUID?, back: Bool) {
         var back = false
-        if prefs.usesTabGroups, let id = ghost.groupID, !tabGroups.contains(where: { $0.id == id }),
+        if let id = ghost.groupID, !tabGroups.contains(where: { $0.id == id }),
            let closed = closedGroups.removeValue(forKey: id) {
             var group = closed.group
             group.collapsed = false
             tabGroups.insert(group, at: min(closed.at, tabGroups.count))
             back = true
         }
-        let id = prefs.usesTabGroups && tabGroups.contains(where: { $0.id == ghost.groupID }) ? ghost.groupID : nil
+        let id = tabGroups.contains(where: { $0.id == ghost.groupID }) ? ghost.groupID : nil
         return (id, back)
     }
 
@@ -4055,9 +4007,7 @@ final class Browser: NSObject, ObservableObject {
     /// The row in the order it is shown: the pins, each group's tabs in the
     /// groups' order, then the tabs in none. The one place that order is
     /// made, run after every change to the row (see `tabs`) and to a group.
-    /// Nothing while groups are off: the row stays as you left it.
-    private func arrangeGroupedTabs(_ on: Bool? = nil) {
-        guard on ?? prefs.usesTabGroups else { return }
+    private func arrangeGroupedTabs() {
         let representatives = displayedTabs
         let pins = representatives.filter { $0.pin != nil }
         let grouped = tabGroups.flatMap { group in representatives.filter { self.group(of: $0) == group.id } }
@@ -4097,11 +4047,10 @@ final class Browser: NSObject, ObservableObject {
         if editingGroupID == id { editingGroupID = nil }
     }
 
-    /// The tabs as they are on screen: with groups on, the ones folded away
+    /// The tabs as they are on screen: the ones folded away
     /// in a group are not among them. Tab cycling and selection ranges count
     /// these; number shortcuts also give folded groups a place of their own.
     var shownTabs: [Tab] {
-        guard prefs.usesTabGroups else { return displayedTabs }
         return displayedTabs.filter { $0.pin != nil }
             + tabGroups.flatMap { visibleTabs(in: $0) }
             + tabs(in: nil).filter(standsInRow)
@@ -4111,7 +4060,6 @@ final class Browser: NSObject, ObservableObject {
     /// is shown below its heading. Other tab navigation keeps using shownTabs.
     var tabShortcutTargets: [(id: UUID, tab: Tab)] {
         let row = displayedTabs
-        guard prefs.usesTabGroups else { return row.map { ($0.id, $0) } }
         let groups = tabGroups.flatMap { group -> [(id: UUID, tab: Tab)] in
             let members = tabs(in: group.id).filter(standsInRow)
             guard group.collapsed else { return members.map { ($0.id, $0) } }
@@ -4128,7 +4076,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// Only nine hints, worked out once for the window rather than by each tab.
     var tabShortcutNumbers: [UUID: Int] {
-        guard prefs.showsTabShortcuts, commandHeld else { return [:] }
+        guard commandHeld else { return [:] }
         let shown = tabShortcutTargets
         var numbers = Dictionary(uniqueKeysWithValues: shown.prefix(8).enumerated().map { ($0.element.id, $0.offset + 1) })
         if shown.count > 8, let last = shown.last { numbers[last.id] = 9 }
@@ -4212,13 +4160,13 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// ⌘1–8: a tab or folded group in that place, without unfolding it.
-    /// With Settings › Tabs › A pin's number again goes back, the number of
-    /// the pin you're on takes you back to the tab you were on before it.
+    /// The number of the pin you're on takes you back to the tab you were on
+    /// before it, as a second press does in Arc.
     func select(index: Int) {
         let targets = tabShortcutTargets
         guard targets.indices.contains(index) else { return }
         let tab = entry(targets[index].tab)
-        if prefs.pinNumberGoesBack, tab.pin != nil, activeID == tab.id, let back = tabBefore(tab) {
+        if tab.pin != nil, activeID == tab.id, let back = tabBefore(tab) {
             select(back)
             return
         }
@@ -4244,7 +4192,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// A pair once, under its first page, pictured with its other one.
     var switcherPartners: [Tab.ID: Tab.ID] {
-        prefs.splitView ? Dictionary(splits.map { ($0.left, $0.right) }, uniquingKeysWith: { first, _ in first }) : [:]
+        Dictionary(splits.map { ($0.left, $0.right) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The row as the switcher's grid shows it, for a small window's
@@ -4360,7 +4308,7 @@ final class Browser: NSObject, ObservableObject {
         prepare(tab)
         // A link opened from a grouped tab joins its group, only while groups
         // are on: turned off, they sleep, and nothing new goes into one.
-        if prefs.usesTabGroups, let source, !tab.shy, !tab.bench { tab.groupID = source.groupID }
+        if let source, !tab.shy, !tab.bench { tab.groupID = source.groupID }
         tabs.insert(tab, at: atEnd ? tabs.count : placeForNew())
         if mayWait, !foreground, prefs.lazyTabs, page == nil {
             tab.restore(url: url, title: "")
@@ -4526,7 +4474,6 @@ final class Browser: NSObject, ObservableObject {
     /// Split View pairs it. Used, for one, by the bookmarks bar's Open in
     /// Split View.
     func openInSplit(_ url: URL) {
-        guard prefs.splitView else { return }
         openInSplit(open(url, foreground: false, from: active))
     }
 
@@ -4549,7 +4496,7 @@ final class Browser: NSObject, ObservableObject {
     /// already, so it doesn't. Used, for one, by the bookmarks bar's Open All
     /// in Tab Group.
     func openInTabGroup(_ urls: [URL], named name: String) {
-        guard prefs.usesTabGroups, !urls.isEmpty else { return }
+        guard !urls.isEmpty else { return }
         let opened = urls.enumerated().map { index, url in
             open(url, foreground: index == 0, atEnd: true, mayWait: true)
         }
@@ -4699,11 +4646,11 @@ final class Browser: NSObject, ObservableObject {
             // An empty page is never written; the first builds of Split View
             // on main wrote one for an empty half.
             guard let saved = URL(string: entry.url), entry.url != "about:blank" else { continue }
-            // A row read from disk is a browser or window opened afresh: with
-            // pins going home, a pin comes back at the page it was pinned at,
-            // wherever it had been taken since.
+            // A row read from disk is a browser or window opened afresh: a
+            // pin comes back at the page it was pinned at, wherever it had
+            // been taken since.
             let home = Browser.home(of: entry, at: saved)
-            let url = prefs.pinsGoHome ? home ?? saved : saved
+            let url = home ?? saved
             let tab = Tab(configuration: Web.configuration(space: space))
             prepare(tab)
             tab.restore(url: url, title: url == saved ? entry.title : url.host ?? "", name: entry.name)
@@ -4721,8 +4668,8 @@ final class Browser: NSObject, ObservableObject {
         }
         let said = bySavedIndex[saved.active]?.id
         row = reconcilePins(row, space: space)
-        // Pairs, whether Split View is on or not: off, they wait, as groups
-        // do. Each tab in one pair at most, and only a pair that still holds.
+        // Pairs: each tab in one pair at most, and only a pair that still
+        // holds.
         var restoredSplits: [TabSplit] = []
         var taken = Set<Tab.ID>()
         for saved in saved.splits {
@@ -5034,7 +4981,7 @@ final class Browser: NSObject, ObservableObject {
             focusPane(tab)
         }
         tab.onLink = { [weak self] tab, address in
-            guard let self, prefs.showsLinks, visibleTabIDs.contains(tab.id) else { return }
+            guard let self, visibleTabIDs.contains(tab.id) else { return }
             linkStatus.show(address, over: tab.built)
         }
         tab.onPick = { [weak self] tab, selector, label, note in
@@ -5240,7 +5187,7 @@ final class Browser: NSObject, ObservableObject {
             return
         }
         // "red": Reddit's search, a Tab away.
-        let site = prefs.searchesSites && !summoning ? SiteSearch.match(typed) : nil
+        let site = !summoning ? SiteSearch.match(typed) : nil
         if siteOffer != site { siteOffer = site }
 
         (offers, ending) = placeOffers(for: typed)
@@ -5330,7 +5277,7 @@ final class Browser: NSObject, ObservableObject {
         }
         // First, not last: typing "settings" to reach Settings is the whole
         // point, and it would otherwise sit under a search for the word.
-        let command = prefs.commandBar ? AddressCommand.matching(typed, in: self) : nil
+        let command = AddressCommand.matching(typed, in: self)
         if let command { list.insert(.command(command), at: 0) }
         // Neither a page already open nor a command has an address to
         // complete towards. And with a command on top, Return runs it: a
@@ -5395,7 +5342,7 @@ final class Browser: NSObject, ObservableObject {
     /// Tab with a site offered: the site goes into the field as a chip, and
     /// what was typed to name it is let go. True when it did.
     func lockSiteOffer() -> Bool {
-        guard prefs.searchesSites, siteChip == nil, let site = siteOffer else { return false }
+        guard siteChip == nil, let site = siteOffer else { return false }
         siteOffer = nil
         typed = ""
         siteChip = site
@@ -5970,7 +5917,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // pop-ups, takes the tab path as before. A window sized by the page,
         // "Sign in with…", is left alone, as is a modified click, and so is
         // anything that isn't a web page (about:blank, data:, blob:).
-        if clicked, !behind, !popup, prefs.pinsPeek, peekTab == nil, opener.pin != nil,
+        if clicked, !behind, !popup, peekTab == nil, opener.pin != nil,
            [.linkActivated, .other].contains(action.navigationType),
            action.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
            let url = action.request.url, Browser.peekable(url) {
@@ -6000,7 +5947,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         let destination = tabDestination
         destination.prepare(tab)
         if behind {
-            if prefs.usesTabGroups, !tab.shy, !tab.bench { tab.groupID = opener.groupID }
+            if !tab.shy, !tab.bench { tab.groupID = opener.groupID }
             destination.tabs.insert(tab, at: destination.placeForNew())
         } else {
             destination.tabs.insert(tab, at: destination.placeForFront())
@@ -6548,7 +6495,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         history.record(url, title: tab.title)
         // A site's home page that says where its search is (OpenSearch):
         // with Search a site on, it joins the list (see SiteSearch.learn).
-        if prefs.searchesSites, url.scheme == "https", url.path.isEmpty || url.path == "/" {
+        if url.scheme == "https", url.path.isEmpty || url.path == "/" {
             webView.evaluateInSearch(SiteSearch.lookup) { value in
                 guard let text = value as? String, let description = URL(string: text) else { return }
                 MainActor.assumeIsolated { SiteSearch.learn(from: url, description: description) }

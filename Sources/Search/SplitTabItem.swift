@@ -162,7 +162,7 @@ private struct SplitTabHalf: View {
                 if interactive { TabMenu(browser: browser, tab: tab, close: { browser.close(tab) }) }
             }
             .background {
-                if interactive && browser.prefs.splitView {
+                if interactive {
                     SplitDropZone(browser: browser, tab: tab, kind: .strip)
                 }
             }

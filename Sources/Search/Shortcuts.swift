@@ -213,27 +213,22 @@ struct Command: Identifiable {
         // ⌥⌘N, Chrome's on the Mac: ⌃⌘S is the Mac's own Show Sidebar, and
         // sits beside ⌘S, which folds the tabs away.
         Command("tabs.split", "Split Current Page", .tabs, KeyCombo("n", option: true)) { browser in
-            guard browser.prefs.splitView else { return }
             browser.startSplit()
         },
         Command("tabs.focusLeftPane", "Focus Left Page", .tabs, KeyCombo("left", control: true)) { browser in
-            guard browser.prefs.splitView else { return }
             browser.focusPane(onLeft: true)
         },
         Command("tabs.focusRightPane", "Focus Right Page", .tabs, KeyCombo("right", control: true)) { browser in
-            guard browser.prefs.splitView else { return }
             browser.focusPane(onLeft: false)
         },
         Command("tabs.focusOtherPane", "Focus Other Page", .tabs, nil) { browser in
-            guard browser.prefs.splitView else { return }
             browser.focusOtherPane()
         },
         Command("tabs.swapSplit", "Swap Pages", .tabs, nil) { browser in
-            guard browser.prefs.splitView else { return }
             browser.swapSplit()
         },
         Command("tabs.separateSplit", "Separate Split Tabs", .tabs, nil) { browser in
-            guard browser.prefs.splitView, let tab = browser.active else { return }
+            guard let tab = browser.active else { return }
             browser.detachSplit(tab)
         },
         Command("tabs.rename", "Rename Tab", .tabs, nil) { browser in

@@ -20,8 +20,8 @@ import WebKit
 // notifications, which a page asleep couldn't (#569). Five spaces of five
 // pins was twenty-five pages that never let go.
 //
-// Half an hour is Normal. Settings › Tabs › How soon tabs sleep makes it
-// two hours (Later) or ten minutes (Sooner).
+// Half an hour is Normal. Settings › Tabs › Sleep tabs you aren't using makes
+// it two hours (Later), ten minutes (Sooner) or never.
 //
 // When macOS says memory is short, the wait shrinks, whatever was chosen: to
 // five minutes on a warning, to nothing when it is critical.
@@ -30,7 +30,7 @@ import WebKit
 /// numbers: what someone decides is how much a waking tab bothers them, not
 /// how many minutes.
 enum SleepPace: String, CaseIterable, Identifiable {
-    case later, normal, sooner
+    case never, sooner, normal, later
 
     nonisolated static let key = "tabs.sleep.pace"
 
@@ -38,15 +38,17 @@ enum SleepPace: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .later: return "Later"
-        case .normal: return "Normal"
+        case .never: return "Never"
         case .sooner: return "Sooner"
+        case .normal: return "Normal"
+        case .later: return "Later"
         }
     }
 
     /// Away this long, a tab sleeps.
     var wait: TimeInterval {
         switch self {
+        case .never: return .greatestFiniteMagnitude
         case .later: return 2 * 60 * 60
         case .normal: return 30 * 60
         case .sooner: return 10 * 60
@@ -56,15 +58,18 @@ enum SleepPace: String, CaseIterable, Identifiable {
     /// What the line in Settings says under the choice.
     var detail: String {
         switch self {
-        case .later: return "After two hours away."
-        case .normal: return "After half an hour away."
-        case .sooner: return "After ten minutes away."
+        case .never: return "Tabs keep their pages however long they are left alone."
+        case .later: return "A tab left alone two hours lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
+        case .normal: return "A tab left alone half an hour lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
+        case .sooner: return "A tab left alone ten minutes lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake."
         }
     }
 
-    /// The one chosen, Normal until someone chooses.
+    /// The one chosen, Normal until someone chooses; Never for anyone who
+    /// turned off the switch that was here before ("tabs.sleep").
     nonisolated static var chosen: SleepPace {
-        Store.settings.string(forKey: key).flatMap(SleepPace.init) ?? .normal
+        Store.settings.string(forKey: key).flatMap(SleepPace.init)
+            ?? (Store.settings.object(forKey: "tabs.sleep") as? Bool == false ? .never : .normal)
     }
 }
 
@@ -128,7 +133,7 @@ extension Browser {
     }
 
     func keepsAwake(_ tab: Tab) -> Bool {
-        guard prefs.keepsSitesAwake, let host = tab.awakeHost else { return false }
+        guard let host = tab.awakeHost else { return false }
         return (tab.shy ? tab.awakeSites : prefs.awakeSites).contains(host)
     }
 

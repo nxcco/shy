@@ -201,235 +201,225 @@ struct SettingsPanel: View {
     // MARK: - general
 
     private var general: some View {
-        Card {
-            Line(
-                "Open links from other apps",
-                isDefault ? "Search is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
-            ) {
-                if isDefault {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Palette.ink)
-                        .frame(width: 24)
-                } else {
-                    Pill("Make default", filled: true) {
-                        Links.becomeDefault { worked in
-                            isDefault = Links.isDefault
-                            browser.announce(worked && isDefault ? "Links now open here" : "macOS didn't change it")
+        VStack(alignment: .leading, spacing: 18) {
+            Card {
+                Line(
+                    "Open links from other apps",
+                    isDefault ? "Search is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
+                ) {
+                    if isDefault {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                            .frame(width: 24)
+                    } else {
+                        Pill("Make default", filled: true) {
+                            Links.becomeDefault { worked in
+                                isDefault = Links.isDefault
+                                browser.announce(worked && isDefault ? "Links now open here" : "macOS didn't change it")
+                            }
                         }
                     }
                 }
-            }
-            Rule()
-            // Coming from another browser, now or any time later: the same
-            // sheet as File › Bring Things Over… and the Welcome's.
-            Line("Bring things over", "Bookmarks, history, passwords and extensions from another browser on this Mac, or from a file it exported") {
-                Pill("Bring Things Over…") { browser.lead(to: InternalPage(.importing)) }
-            }
-            Rule()
-            // What ⌘T opens to, and the way back after an extension took
-            // it. Only there while an extension offers a page; it brings
-            // its own hairline.
-            HomePageLine()
-            Line("Search with", searchDetail) {
-                Picker("", selection: $prefs.engine) {
-                    ForEach(Engine.allCases) { engine in
-                        Text(engine.title).tag(engine)
+                Rule()
+                // Coming from another browser, now or any time later: the same
+                // sheet as File › Bring Things Over… and the Welcome's.
+                Line("Bring things over", "Bookmarks, history, passwords and extensions from another browser on this Mac, or from a file it exported") {
+                    Pill("Bring Things Over…") { browser.lead(to: InternalPage(.importing)) }
+                }
+                Rule()
+                // What ⌘T opens to, and the way back after an extension took
+                // it. Only there while an extension offers a page; it brings
+                // its own hairline.
+                HomePageLine()
+                Line("Search with", searchDetail) {
+                    Picker("", selection: $prefs.engine) {
+                        ForEach(Engine.allCases) { engine in
+                            Text(engine.title).tag(engine)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                Rule()
+                Line("Suggestions from your search engine", suggestDetail) {
+                    Switch(on: $prefs.engineSuggests)
+                }
+                if prefs.engine == .custom {
+                    ZStack(alignment: .leading) {
+                        if prefs.customEngine.isEmpty {
+                            Text("https://example.com/search?q=%s")
+                                .foregroundStyle(Palette.muted.opacity(0.8))
+                        }
+                        TextField("", text: $prefs.customEngine)
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(Palette.ink)
+                    }
+                    .font(.system(size: 12.5))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 11)
+                }
+                Rule()
+                Line("Site shortcuts", keywordDetail) {
+                    if draft == nil {
+                        Pill("Add") { draft = Keyword() }
+                    } else {
+                        HStack(spacing: 6) {
+                            Pill("Cancel") { draft = nil }
+                            Pill("Save", filled: true) { saveDraft() }
+                                .disabled(draftProblem != nil)
+                                .opacity(draftProblem == nil ? 1 : 0.4)
+                        }
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .fixedSize()
-            }
-            Rule()
-            Line("Suggestions from your search engine", suggestDetail) {
-                Switch(on: $prefs.engineSuggests)
-            }
-            if prefs.engine == .custom {
-                ZStack(alignment: .leading) {
-                    if prefs.customEngine.isEmpty {
-                        Text("https://example.com/search?q=%s")
-                            .foregroundStyle(Palette.muted.opacity(0.8))
-                    }
-                    TextField("", text: $prefs.customEngine)
+                if let current = draft {
+                    HStack(spacing: 8) {
+                        TextField("yt", text: Binding(
+                            get: { current.keyword },
+                            set: { draft?.keyword = $0 }
+                        ))
                         .textFieldStyle(.plain)
-                        .foregroundStyle(Palette.ink)
-                }
-                .font(.system(size: 12.5))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .padding(.horizontal, 14)
-                .padding(.bottom, 11)
-            }
-            Rule()
-            Line("Site shortcuts", keywordDetail) {
-                if draft == nil {
-                    Pill("Add") { draft = Keyword() }
-                } else {
-                    HStack(spacing: 6) {
-                        Pill("Cancel") { draft = nil }
-                        Pill("Save", filled: true) { saveDraft() }
-                            .disabled(draftProblem != nil)
-                            .opacity(draftProblem == nil ? 1 : 0.4)
+                        .frame(width: 50)
+                        Text("→").foregroundStyle(Palette.muted)
+                        TextField("https://www.youtube.com/results?search_query=%s", text: Binding(
+                            get: { current.template },
+                            set: { draft?.template = $0 }
+                        ))
+                        .textFieldStyle(.plain)
+                        .onSubmit(saveDraft)
                     }
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
                 }
-            }
-            if let current = draft {
-                HStack(spacing: 8) {
-                    TextField("yt", text: Binding(
-                        get: { current.keyword },
-                        set: { draft?.keyword = $0 }
-                    ))
-                    .textFieldStyle(.plain)
-                    .frame(width: 50)
-                    Text("→").foregroundStyle(Palette.muted)
-                    TextField("https://www.youtube.com/results?search_query=%s", text: Binding(
-                        get: { current.template },
-                        set: { draft?.template = $0 }
-                    ))
-                    .textFieldStyle(.plain)
-                    .onSubmit(saveDraft)
-                }
-                .font(.system(size: 12.5))
-                .foregroundStyle(Palette.ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .padding(.horizontal, 14)
-                .padding(.bottom, 6)
-            }
-            ForEach(prefs.keywords) { entry in
-                HStack(spacing: 8) {
-                    Text(entry.keyword)
-                        .frame(width: 50, alignment: .leading)
-                    Text("→").foregroundStyle(Palette.muted)
-                    Text(entry.template)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button {
-                        prefs.keywords.removeAll { $0.id == entry.id }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Palette.faint)
+                ForEach(prefs.keywords) { entry in
+                    HStack(spacing: 8) {
+                        Text(entry.keyword)
+                            .frame(width: 50, alignment: .leading)
+                        Text("→").foregroundStyle(Palette.muted)
+                        Text(entry.template)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button {
+                            prefs.keywords.removeAll { $0.id == entry.id }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Palette.faint)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
                 }
-                .font(.system(size: 12.5))
-                .foregroundStyle(Palette.ink)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .padding(.horizontal, 14)
-                .padding(.bottom, 6)
-            }
-            Rule()
-            Line("Websites in the side panel", "Keep a site such as Claude or ChatGPT beside the page: View › Side Panel, or right-click a tab › Open in Side Panel. Signed in as the space's tabs are") {
-                Switch(on: $prefs.sitesInPanel)
-            }
-            Rule()
-            Line("Confirm before quitting", "Ask before ⌘Q or Quit Search closes the browser") {
-                Switch(on: $prefs.confirmsQuit)
-            }
-            Rule()
-            Line("Appearance", "Light, dark, or whatever the Mac is doing — pages follow it too") {
-                Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.look)
-            }
-            // Only where it can do something: in Light, nothing is darkened.
-            if prefs.look != .light {
                 Rule()
-                Line("Darken pages that stay light", "Sites with a dark look of their own already follow it; the rest are darkened too. ⇧⌘D for the site you're on, ⌥⇧⌘D to pause everywhere") {
-                    Switch(on: $prefs.darkensPages)
+                Line("Confirm before quitting", "Ask before ⌘Q or Quit Search closes the browser") {
+                    Switch(on: $prefs.confirmsQuit)
                 }
             }
-            Rule()
-            Line("Page zoom", "Where every site starts. ⌘+ and ⌘− are still remembered for each site.") {
-                // The number itself takes it back to 100%.
-                Steps(stops: Preferences.zooms, value: $prefs.pageZoom, home: 1) { "\(Int(($0 * 100).rounded()))%" }
+            Card {
+                Line("Appearance", "Light, dark, or whatever the Mac is doing — pages follow it too") {
+                    Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.look)
+                }
+                // Only where it can do something: in Light, nothing is darkened.
+                if prefs.look != .light {
+                    Rule()
+                    Line("Darken pages that stay light", "Sites with a dark look of their own already follow it; the rest are darkened too. ⇧⌘D for the site you're on, ⌥⇧⌘D to pause everywhere") {
+                        Switch(on: $prefs.darkensPages)
+                    }
+                }
+                Rule()
+                Line("Page zoom", "Where every site starts. ⌘+ and ⌘− are still remembered for each site.") {
+                    // The number itself takes it back to 100%.
+                    Steps(stops: Preferences.zooms, value: $prefs.pageZoom, home: 1) { "\(Int(($0 * 100).rounded()))%" }
+                }
+                Rule()
+                Line("Correct spelling as you type", "macOS's autocorrect inside pages — the one that capitalises for you") {
+                    Switch(on: $prefs.autocorrect)
+                }
+                Rule()
+                Line("Scroll with the middle button", "Click the wheel on a page, then move the mouse up or down to scroll, as on Windows. Click again to stop") {
+                    Switch(on: $prefs.autoScroll)
+                }
+                Rule()
+                Line("Pages at 120 Hz", "Animations and scrolling in pages at up to 120 frames a second on a screen that can, instead of 60 as in Safari. Uses more battery, so On power keeps it to when the Mac is plugged in") {
+                    Segmented(options: FastPages.allCases.map { ($0, $0.title) }, selection: $prefs.fastPages)
+                }
+                Rule()
+                Line("Reduce animations in Low Power Mode", "Quicker, simpler motion while the Mac is saving power or running hot") {
+                    Switch(on: $prefs.lightMotion)
+                }
             }
-            Rule()
-            Line("Correct spelling as you type", "macOS's autocorrect inside pages — the one that capitalises for you") {
-                Switch(on: $prefs.autocorrect)
+            Card {
+                Line("Peek at a link with a \(prefs.peekClick.title.lowercased())", "Its page opens in a panel over the one you're reading. Escape puts it away; the other button keeps it as a tab") {
+                    Switch(on: $prefs.peeksLinks)
+                }
+                Rule()
+                Line("Open links from other apps in a small window", "To read and close, or keep with Open in Search (⌘O)") {
+                    Switch(on: $prefs.littleLinks)
+                }
+                Rule()
+                Line("New tab in a floating field", "⌘T raises the address field over the page you're on, as in Arc. Return opens what you typed in a new tab; Escape, ⌘W or a click outside puts it away and leaves the page as it was") {
+                    Switch(on: $prefs.floatingNewTab)
+                }
+                Rule()
+                Line("Read the site's own Markdown", "When a page has a Markdown copy, Reading mode (⇧⌘R) shows that instead of working the article out. Most docs sites publish one") {
+                    Switch(on: $prefs.readsTwins)
+                }
+                Rule()
+                Line("Reading mode follows light and dark", "In a dark window the article is light on dark. A small switch in its corner makes an article light, dark or as the window is, and is kept for the next one") {
+                    Switch(on: $prefs.readerFollowsLook)
+                }
             }
-            Rule()
-            Line("Peek at a link with a \(prefs.peekClick.title.lowercased())", "Its page opens in a panel over the one you're reading. Escape puts it away; the other button keeps it as a tab") {
-                Switch(on: $prefs.peeksLinks)
+            Card {
+                Line("The floating video", "Search's own window floats a video without a click and keeps its page alive in it. Picture in picture is macOS's, the one Safari uses, with the system's controls") {
+                    Segmented(options: FloatStyle.allCases.map { ($0, $0.title) }, selection: $prefs.floatStyle)
+                }
+                Rule()
+                Line("Float a playing video by itself", prefs.floatWhen.detail) {
+                    Picker("", selection: $prefs.floatWhen) {
+                        ForEach(FloatWhen.allCases) { when in
+                            Text(when.title).tag(when)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                Rule()
+                Line("Videos wait for a click", "Videos don't start by themselves, even without sound; they play when you press play. Tabs already open follow from their next page, or once reloaded") {
+                    Switch(on: $prefs.waitsForPlay)
+                }
+                Rule()
+                Line("Press Esc twice to leave full screen", "As in Arc: the first press shows a reminder and leaves the video as it is; a second within two seconds leaves its full screen. Holding Escape down counts as one press") {
+                    Switch(on: $prefs.escapeTwice)
+                }
             }
-            Rule()
-            Line("Read the site's own Markdown", "When a page has a Markdown copy, Reading mode (⇧⌘R) shows that instead of working the article out. Most docs sites publish one") {
-                Switch(on: $prefs.readsTwins)
-            }
-            Rule()
-            Line("Reading mode follows light and dark", "In a dark window the article is light on dark. A small switch in its corner makes an article light, dark or as the window is, and is kept for the next one") {
-                Switch(on: $prefs.readerFollowsLook)
-            }
-            Rule()
-            Line("Open links from other apps in a small window", "To read and close, or keep with Open in Search (⌘O)") {
-                Switch(on: $prefs.littleLinks)
-            }
-            Rule()
-            Line("Address bar commands", "A word like \"settings\" or \"new tab\", typed alone in the address field, goes there instead of searching for it") {
-                Switch(on: $prefs.commandBar)
-            }
-            Rule()
-            Line("New tab in a floating field", "⌘T raises the address field over the page you're on, as in Arc. Return opens what you typed in a new tab; Escape, ⌘W or a click outside puts it away and leaves the page as it was") {
-                Switch(on: $prefs.floatingNewTab)
-            }
-            Rule()
-            Line("Show where links go", "Point at a link and its address shows at the bottom of the page") {
-                Switch(on: $prefs.showsLinks)
-            }
-            Rule()
-            Line("Scroll with the middle button", "Click the wheel on a page, then move the mouse up or down to scroll, as on Windows. Click again to stop") {
-                Switch(on: $prefs.autoScroll)
-            }
-            Rule()
-            Line("Pages at 120 Hz", "Animations and scrolling in pages at up to 120 frames a second on a screen that can, instead of 60 as in Safari. Uses more battery, so On power keeps it to when the Mac is plugged in") {
-                Segmented(options: FastPages.allCases.map { ($0, $0.title) }, selection: $prefs.fastPages)
-            }
-            Rule()
-            Line("Reduce animations in Low Power Mode", "Quicker, simpler motion while the Mac is saving power or running hot") {
-                Switch(on: $prefs.lightMotion)
-            }
-            Rule()
-            Line("Hold a swipe to pick from history", "Swipe back or forward and keep your fingers down: the pages that way appear, and moving up or down picks one to go to") {
-                Switch(on: $prefs.holdsHistory)
-            }
-            Rule()
-            Line("The floating video", "Search's own window floats a video without a click and keeps its page alive in it. Picture in picture is macOS's, the one Safari uses, with the system's controls") {
-                Segmented(options: FloatStyle.allCases.map { ($0, $0.title) }, selection: $prefs.floatStyle)
-            }
-            Rule()
-            Line("Flick the floating video to a corner", "Two fingers on it send it to the corner or edge they point at, instead of pushing it along; a strong swipe at the side of the screen it is against tucks it in there, a sliver left to bring it back by. Dragging still puts it anywhere") {
-                Switch(on: $prefs.floatFlicks)
-            }
-            Rule()
             if PageTranslator.available {
-                Line("Translate pages on this Mac", "Translate Page in a page's right-click menu, into your Mac's language. Done by macOS itself, on this Mac: nothing is sent anywhere. Each language is downloaded once, the first time") {
-                    Switch(on: $prefs.translatesPages)
+                Card {
+                        Line("Translate pages on this Mac", "Translate Page in a page's right-click menu, into your Mac's language. Done by macOS itself, on this Mac: nothing is sent anywhere. Each language is downloaded once, the first time") {
+                            Switch(on: $prefs.translatesPages)
+                        }
+                        if prefs.translatesPages { TranslateLanguageList(prefs: prefs) }
                 }
-                if prefs.translatesPages { TranslateLanguageList(prefs: prefs) }
-                Rule()
             }
-            Line("Videos wait for a click", "Videos don't start by themselves, even without sound; they play when you press play. Tabs already open follow from their next page, or once reloaded") {
-                Switch(on: $prefs.waitsForPlay)
-            }
-            Rule()
-            Line("Float the video when you switch tabs", "A video playing on YouTube and the like comes out into its floating window when you go to another tab, and back when you return. ⇧⌘P still floats one by hand") {
-                Switch(on: $prefs.floatsOnLeave)
-            }
-            Rule()
-            Line("Float the video when you switch apps", "A video playing on the site you're on comes out into its floating window as another app comes to the front, and goes back into its tab when you return") {
-                Switch(on: $prefs.floatsAway)
-            }
-            Rule()
-            Line("Press Esc twice to leave full screen", "As in Arc: the first press shows a reminder and leaves the video as it is; a second within two seconds leaves its full screen. Holding Escape down counts as one press") {
-                Switch(on: $prefs.escapeTwice)
-            }
-            Rule()
-            Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
-                Switch(on: $prefs.bench)
+            Card {
+                Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
+                    Switch(on: $prefs.bench)
+                }
             }
         }
     }
@@ -491,162 +481,117 @@ struct SettingsPanel: View {
     }
 
     private var tabs: some View {
-        Card {
-            Line("Tabs in a sidebar", "Down the \(prefs.sidePosition.rawValue) instead of across the top. Pull its edge to make it wider; double-click the edge to reset.") {
-                Switch(on: Binding(
-                    get: { prefs.sidebar },
-                    set: { on in withAnimation(Motion.glide) { prefs.sidebar = on } }
-                ))
-            }
-            if prefs.sidebar {
-                Rule()
-                Line("Sidebar position", "Tabs down the \(prefs.sidePosition.rawValue) edge of the window") {
-                    Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
-                }
-                Rule()
-                Line("Hide the sidebar until the pointer reaches the edge", "The page takes the whole window; push against its \(prefs.sidePosition.rawValue) edge for the tabs. ⌘S keeps them out.") {
-                    Switch(on: $prefs.sideHides)
-                }
-                Rule()
-                Line("The page as a card", "A little room around the page, with rounded corners. Off, the page reaches the window's edges") {
+        VStack(alignment: .leading, spacing: 18) {
+            Card {
+                Line("Tabs in a sidebar", "Down the \(prefs.sidePosition.rawValue) instead of across the top. Pull its edge to make it wider; double-click the edge to reset.") {
                     Switch(on: Binding(
-                        get: { prefs.cards },
-                        set: { on in withAnimation(Motion.glide) { prefs.cards = on } }
+                        get: { prefs.sidebar },
+                        set: { on in withAnimation(Motion.glide) { prefs.sidebar = on } }
                     ))
                 }
-                Rule()
-                Line("Roomier tabs", "Taller rows and larger titles in the sidebar") {
-                    Switch(on: Binding(
-                        get: { prefs.roomyTabs },
-                        set: { on in withAnimation(Motion.glide) { prefs.roomyTabs = on } }
-                    ))
-                }
-            }
-            Rule()
-            Line("Tabs show", "Beside the title, and on a pinned square") {
-                Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
-            }
-            Rule()
-            Line("Tabs give when pressed", "A tab sinks a little under the pointer while you press it and springs back when you let go, as in Arc") {
-                Switch(on: $prefs.tabsGive)
-            }
-            Rule()
-            Line("Open sized pop-ups in small windows", "A website asking for a window at its own size gets one, instead of a tab. Pop-up blocking still applies") {
-                Switch(on: $prefs.popupWindows)
-            }
-            Rule()
-            Line("Show the bookmarks bar", "Your bookmarks in a row above the page, folders opening as menus. It folds away with the tabs") {
-                Switch(on: $prefs.bookmarksBar)
-            }
-            Rule()
-            Line("Show tab shortcut numbers", "Hold ⌘ to see which tab each ⌘1–9 shortcut selects") {
-                Switch(on: $prefs.showsTabShortcuts)
-            }
-            Rule()
-            Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {
-                Switch(on: $prefs.showsReading)
-            }
-            Rule()
-            Line("Show the address on the tab you're on", "Its site in place of its title, so you can see where you are without a click; the title comes back under the pointer. Look-alike names in other alphabets show as they really are, and plain http says Not secure. Off, the tab you're on still says so for those two") {
-                Switch(on: Binding(
-                    get: { prefs.showsAddress },
-                    set: { on in withAnimation(Motion.glide) { prefs.showsAddress = on } }
-                ))
-            }
-            Rule()
-            Line("Sleep tabs you aren't using", "A tab left alone lets its page go and comes back where you left it. Pinned tabs, sound, calls and anything typed stay awake.") {
-                Switch(on: $prefs.sleepsTabs)
-            }
-            if prefs.sleepsTabs {
-                Rule()
-                Line("How soon tabs sleep", prefs.sleepPace.detail) {
-                    Segmented(options: SleepPace.allCases.map { ($0, $0.title) }, selection: $prefs.sleepPace)
-                }
-            }
-            Rule()
-            Line("Close tabs you leave alone", "Counted from when you last left the tab, while Search is quit too. Pin a tab, name it or put it in a group to keep it; private tabs, sound, calls and anything typed stay. ⇧⌘T and History bring one back.") {
-                Picker("", selection: $prefs.tabLife) {
-                    ForEach(TabLife.allCases) { life in
-                        Text(life.title).tag(life)
+                if prefs.sidebar {
+                    Rule()
+                    Line("Sidebar position", "Tabs down the \(prefs.sidePosition.rawValue) edge of the window") {
+                        Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
+                    }
+                    Rule()
+                    Line("Hide the sidebar until the pointer reaches the edge", "The page takes the whole window; push against its \(prefs.sidePosition.rawValue) edge for the tabs. ⌘S keeps them out.") {
+                        Switch(on: $prefs.sideHides)
+                    }
+                    Rule()
+                    Line("The page as a card", "A little room around the page, with rounded corners. Off, the page reaches the window's edges") {
+                        Switch(on: Binding(
+                            get: { prefs.cards },
+                            set: { on in withAnimation(Motion.glide) { prefs.cards = on } }
+                        ))
+                    }
+                    Rule()
+                    Line("Roomier tabs", "Taller rows and larger titles in the sidebar") {
+                        Switch(on: Binding(
+                            get: { prefs.roomyTabs },
+                            set: { on in withAnimation(Motion.glide) { prefs.roomyTabs = on } }
+                        ))
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .fixedSize()
-            }
-            Rule()
-            Line("Keep selected sites awake", "Adds Keep This Site Awake to the site card. Chosen sites use more memory: they neither sleep nor close automatically, even under memory pressure. Private choices last only in that tab.") {
-                Switch(on: $prefs.keepsSitesAwake)
-                    .accessibilityRepresentation { Toggle("Keep selected sites awake", isOn: $prefs.keepsSitesAwake) }
-                    .focusable()
-                    .onKeyPress(.space) { prefs.keepsSitesAwake.toggle(); return .handled }
-            }
-            Rule()
-            Line("Load background tabs when you go to them", "A link opened behind the page, with ⌘-click or the middle button, or a batch of links from another app, waits until you go to its tab. ⇧⌘-click still takes you there at once.") {
-                Switch(on: $prefs.lazyTabs)
-            }
-            Rule()
-            Line("Leave a new tab when the last tab closes", "Close the last tab that isn't pinned and a new tab takes its place, ready for an address. Otherwise you land on a pinned tab.") {
-                Switch(on: $prefs.newTabAfterLast)
-            }
-            Rule()
-            Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first; a link from a group stays in it.") {
-                Picker("New tab position", selection: $prefs.newTabPlace) {
-                    Text("After current").tag(NewTabPlace.next)
-                    Text(prefs.sidebar ? "Top" : "Leftmost").tag(NewTabPlace.top)
-                    Text(prefs.sidebar ? "Bottom" : "Rightmost").tag(NewTabPlace.end)
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .fixedSize()
-            }
-            Rule()
-            Line("Search a site from the address field", "Type the start of a site's name, like red or yout, then Tab, and what you type next searches that site. Sites you visit that offer a search join the list.") {
-                Switch(on: $prefs.searchesSites)
-            }
-            Rule()
-            Line("Start with a fresh window", "Each time Search opens, your pinned tabs, tab groups and named tabs are there and last time's other tabs aren't.") {
-                Switch(on: $prefs.startsFresh)
-            }
-            Rule()
-            Line("Spaces", "Separate sets of tabs, signed in where the others are or starting afresh, switched with ⌃1–⌃9, two fingers sideways over the column, or the space's icon. Mission Control's own ⌃1–⌃9, if you turned them on, take those keys first.") {
-                Switch(on: $prefs.usesSpaces)
-            }
-            if prefs.usesSpaces {
                 Rule()
-                Line("Pins in every space", "Keep a pin in every space: right-click it and choose Keep in Every Space. Each space signs in to it the way that space does.") {
-                    Switch(on: $prefs.sharesPins)
+                Line("Tabs show", "Beside the title, and on a pinned square") {
+                    Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
                 }
-            }
-            Rule()
-            Line("Tab groups", "Named sections in the sidebar. Right-click a tab to start a group; click its heading to hide or show its tabs.") {
-                Switch(on: $prefs.usesTabGroups)
-            }
-            if prefs.sidebar {
                 Rule()
-                Line("Pinned rows", "As in Arc: pins as squares for the sites you live in, pins as rows under them for pages you keep, and a line over the rest with Clear. Right-click a tab to pin it as a row.") {
-                    Switch(on: $prefs.listsPins)
+                Line("Tabs give when pressed", "A tab sinks a little under the pointer while you press it and springs back when you let go, as in Arc") {
+                    Switch(on: $prefs.tabsGive)
+                }
+                Rule()
+                Line("Show the bookmarks bar", "Your bookmarks in a row above the page, folders opening as menus. It folds away with the tabs") {
+                    Switch(on: $prefs.bookmarksBar)
+                }
+                Rule()
+                Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {
+                    Switch(on: $prefs.showsReading)
+                }
+                Rule()
+                Line("Show the address on the tab you're on", "Its site in place of its title, so you can see where you are without a click; the title comes back under the pointer. Look-alike names in other alphabets show as they really are, and plain http says Not secure. Off, the tab you're on still says so for those two") {
+                    Switch(on: Binding(
+                        get: { prefs.showsAddress },
+                        set: { on in withAnimation(Motion.glide) { prefs.showsAddress = on } }
+                    ))
                 }
             }
-            Rule()
-            Line("Pins go back home", "As in Arc: a pinned tab closed with ⌘W, or left open when Search quits, comes back at the page it was pinned at rather than wherever you went from there.") {
-                Switch(on: $prefs.pinsGoHome)
+            Card {
+                Line("New tab position", "After current puts a link beside the tab you're on, and ⌘T's new tab at the end. Pins stay first; a link from a group stays in it.") {
+                    Picker("New tab position", selection: $prefs.newTabPlace) {
+                        Text("After current").tag(NewTabPlace.next)
+                        Text(prefs.sidebar ? "Top" : "Leftmost").tag(NewTabPlace.top)
+                        Text(prefs.sidebar ? "Bottom" : "Rightmost").tag(NewTabPlace.end)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                Rule()
+                Line("Leave a new tab when the last tab closes", "Close the last tab that isn't pinned and a new tab takes its place, ready for an address. Otherwise you land on a pinned tab.") {
+                    Switch(on: $prefs.newTabAfterLast)
+                }
+                Rule()
+                Line("Load background tabs when you go to them", "A link opened behind the page, with ⌘-click or the middle button, or a batch of links from another app, waits until you go to its tab. ⇧⌘-click still takes you there at once.") {
+                    Switch(on: $prefs.lazyTabs)
+                }
+                Rule()
+                Line("Open sized pop-ups in small windows", "A website asking for a window at its own size gets one, instead of a tab. Pop-up blocking still applies") {
+                    Switch(on: $prefs.popupWindows)
+                }
+                Rule()
+                Line("Start with a fresh window", "Each time Search opens, your pinned tabs, tab groups and named tabs are there and last time's other tabs aren't.") {
+                    Switch(on: $prefs.startsFresh)
+                }
             }
-            Rule()
-            Line("A pin's number again goes back", "Press a pin's ⌘ number while you're on that pin and you're back on the tab you were on before it, as a second press does in Arc.") {
-                Switch(on: $prefs.pinNumberGoesBack)
+            Card {
+                Line("Sleep tabs you aren't using", prefs.sleepPace.detail) {
+                    Picker("", selection: $prefs.sleepPace) {
+                        ForEach(SleepPace.allCases) { pace in
+                            Text(pace.title).tag(pace)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                Rule()
+                Line("Close tabs you leave alone", "Counted from when you last left the tab, while Search is quit too. Pin a tab, name it or put it in a group to keep it; private tabs, sound, calls and anything typed stay. ⇧⌘T and History bring one back.") {
+                    Picker("", selection: $prefs.tabLife) {
+                        ForEach(TabLife.allCases) { life in
+                            Text(life.title).tag(life)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
             }
-            Rule()
-            Line("Pins stay on their site", "As in Arc: a link from a pinned tab to another site opens in a panel over it, and the pin stays on its page. Links within the site go as usual, and ⌘W takes the pin back to the page it was pinned at.") {
-                Switch(on: $prefs.pinsPeek)
-            }
-            Rule()
-            Line("Split View", "Show two tabs side by side. Drag a tab onto a page to pair them.") {
-                Switch(on: $prefs.splitView)
-            }
-            Rule()
-            Line("Keys in the tab switcher", "With ⌃ still held in the ⌃Tab switcher, ⌃W closes the tab picked, ⌃R reloads it, ⌃M mutes it, and ⌃O takes a small window into your tabs.") {
-                Switch(on: $prefs.switcherKeys)
+            Card {
+                Line("Spaces", "Separate sets of tabs, signed in where the others are or starting afresh, switched with ⌃1–⌃9, two fingers sideways over the column, or the space's icon. Mission Control's own ⌃1–⌃9, if you turned them on, take those keys first.") {
+                    Switch(on: $prefs.usesSpaces)
+                }
             }
         }
     }

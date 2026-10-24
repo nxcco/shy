@@ -174,12 +174,12 @@ struct Parked {
     /// front, if that is in it — then the loose tabs. Drawn flat, every tab
     /// in a folded group came out for the length of the swipe and went back
     /// in as the space landed. A pair's other half isn't a row of its own.
-    @MainActor func drawn(groupsOn: Bool, splitView: Bool) -> (groups: [DrawnGroup], loose: [Tab]) {
+    @MainActor func drawn() -> (groups: [DrawnGroup], loose: [Tab]) {
         let stands: (Tab) -> Bool = { tab in
-            !splitView || !splits.contains { $0.tabs.contains(tab.id) && $0.left != tab.id }
+            !splits.contains { $0.tabs.contains(tab.id) && $0.left != tab.id }
         }
         let front = splits.first { pair in active.map(pair.tabs.contains) ?? false }?.left ?? active
-        let kept = groupsOn ? (groups ?? []) : []
+        let kept = groups ?? []
         var shown: [DrawnGroup] = []
         var inGroups = Set<UUID>()
         for group in kept {

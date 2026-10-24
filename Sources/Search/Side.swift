@@ -118,9 +118,7 @@ struct SideBar: View {
         .background {
             ZStack {
                 landing ? greys.hover : onFrame ? Palette.frame : Palette.ground
-                if prefs.splitView {
-                    SplitDropZone(browser: browser, tab: nil, kind: .strip)
-                }
+                SplitDropZone(browser: browser, tab: nil, kind: .strip)
             }
         }
         .overlay(alignment: innerEdge) {
@@ -310,7 +308,7 @@ struct SideBar: View {
     private func preview(_ row: Parked, pill: Namespace.ID) -> some View {
         let pins = row.tabs.filter { $0.pin != nil && !($0.listed && prefs.showsPinRows) }
         let listed = prefs.showsPinRows ? row.tabs.filter { $0.pin != nil && $0.listed } : []
-        let (groups, rest) = row.drawn(groupsOn: prefs.usesTabGroups, splitView: prefs.splitView)
+        let (groups, rest) = row.drawn()
         let cells = pinCells(pins.count)
         return VStack(alignment: .leading, spacing: 0) {
             if !pins.isEmpty {
@@ -366,16 +364,14 @@ struct SideBar: View {
     private var rowsHeight: CGFloat {
         let displayed = browser.displayedTabs
         let listed = browser.listedPins.count
-        let ungrouped = displayed.filter { $0.pin == nil && (!prefs.usesTabGroups || browser.group(of: $0) == nil) }.count
+        let ungrouped = displayed.filter { $0.pin == nil && browser.group(of: $0) == nil }.count
         let listBlock = CGFloat(listed) * (rowHeight + SideBar.gap) + (listed > 0 ? SideBar.gap : 0)
             + (showsLine(listed: listed, loose: ungrouped) ? KeepLine.height + SideBar.gap : 0)
-        let rows = prefs.usesTabGroups
-            ? displayed.filter { $0.pin == nil && browser.group(of: $0) == nil }
-                + browser.tabGroups.flatMap { browser.visibleTabs(in: $0) }
-            : displayed.filter { $0.pin == nil }
+        let rows = displayed.filter { $0.pin == nil && browser.group(of: $0) == nil }
+            + browser.tabGroups.flatMap { browser.visibleTabs(in: $0) }
         // A pair is two lines (see SplitTabItem).
         let pairs = rows.filter { browser.split(for: $0) != nil }.count
-        let headings = prefs.usesTabGroups ? CGFloat(browser.tabGroups.count) * (GroupHeading.height + SideBar.gap) : 0
+        let headings = CGFloat(browser.tabGroups.count) * (GroupHeading.height + SideBar.gap)
         let loose = CGFloat(rows.count) * (rowHeight + SideBar.gap) + CGFloat(pairs) * rowHeight + headings
         return listBlock + loose + rowHeight + 8
     }
@@ -390,7 +386,7 @@ struct SideBar: View {
         pill: Namespace.ID,
         close: @escaping () -> Void
     ) -> some View {
-        let pair = prefs.splitView ? splits.first(where: { $0.left == tab.id }) : nil
+        let pair = splits.first(where: { $0.left == tab.id })
         if let pair, let right = tabs.first(where: { $0.id == pair.right }) {
             SplitTabItem(browser: browser, prefs: prefs, left: tab, right: right,
                          width: nil, height: rowHeight,
@@ -409,12 +405,12 @@ struct SideBar: View {
 
     private var pinnedTabs: [Tab] { browser.squarePins }
     private var looseTabs: [Tab] {
-        browser.displayedTabs.filter { $0.pin == nil && (!prefs.usesTabGroups || browser.group(of: $0) == nil) }
+        browser.displayedTabs.filter { $0.pin == nil && browser.group(of: $0) == nil }
     }
 
     /// The line between what is kept and what comes and goes, with the
     /// pinned rows on: over the tabs Clear would close, or under rows with
-    /// nothing below them yet. Not with the rows off, nor with nothing on
+    /// nothing below them yet. Not across the top, nor with nothing on
     /// either side of it.
     private func showsLine(listed: Int, loose: Int) -> Bool {
         prefs.showsPinRows && listed + loose > 0
@@ -535,11 +531,9 @@ struct SideBar: View {
 
     private var loose: some View {
         VStack(spacing: SideBar.gap) {
-            if prefs.usesTabGroups {
-                ForEach(browser.tabGroups) { group in
-                    GroupHeading(browser: browser, group: group, dragSpace: "rows")
-                    groupRows(group)
-                }
+            ForEach(browser.tabGroups) { group in
+                GroupHeading(browser: browser, group: group, dragSpace: "rows")
+                groupRows(group)
             }
             // See the grid: the drag is measured in the column's space, not
             // the row's, so a row that has just moved keeps its bearings.
@@ -572,11 +566,7 @@ struct SideBar: View {
                                           outside: { browser.dragOut(tab) }, browser: browser, tab: tab,
                                           cross: { cross(tab, $0, from: .rows) },
                                           land: { land(tab, $0) }, faded: crossing?.tab == tab.id) {
-                            if prefs.usesTabGroups {
-                                browser.move(tab, within: nil, to: $0)
-                            } else {
-                                browser.moveDisplayedTab(tab, to: $0 + browser.pinnedCount)
-                            }
+                            browser.move(tab, within: nil, to: $0)
                         })
                     }
                     if let ghost, ghost >= loose.count, let carried = crossingTab {
@@ -592,7 +582,7 @@ struct SideBar: View {
     }
 
     private func destination(_ tab: Tab, at point: CGPoint) -> GroupDropTarget? {
-        guard prefs.usesTabGroups, tab.pin == nil else { return nil }
+        guard tab.pin == nil else { return nil }
         return GroupDropFrames.resolve(point, frames: groupFrames, groups: browser.tabGroups,
                                        excluding: tab.id, vertical: true)
     }
@@ -691,7 +681,7 @@ struct SideBar: View {
         case .loose:
             guard tab.pin != nil else { return nil }
             let inRows = CGPoint(x: point.x - frames.rows.minX, y: point.y - frames.rows.minY)
-            if prefs.usesTabGroups, let id = groupFrames.values.first(where: { $0.rect.contains(inRows) })?.group {
+            if let id = groupFrames.values.first(where: { $0.rect.contains(inRows) })?.group {
                 return .group(id)
             }
             let loose = looseTabs
@@ -1096,7 +1086,7 @@ private struct SideRow: View {
         .onDisappear { if interactive { Bench.rowDisappeared(tab.id) } }
         .contextMenu { if interactive { TabMenu(browser: browser, tab: tab, close: close) } }
         .background {
-            if interactive && prefs.splitView {
+            if interactive {
                 SplitDropZone(browser: browser, tab: tab, kind: .strip)
             }
         }

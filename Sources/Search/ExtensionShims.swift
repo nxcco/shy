@@ -3674,9 +3674,8 @@ enum ExtensionShims {
         }
     }
 
-    /// The groups an extension is shown: never one without a tab. The same
-    /// with groups off in Settings, where they are kept without a heading
-    /// in the column (see the tab groups cases in `run`).
+    /// The groups an extension is shown: never one without a tab (see the
+    /// tab groups cases in `run`).
     private static func listedGroups(_ browser: Browser) -> [TabGroup] {
         browser.tabGroups.filter { !browser.tabs(in: $0.id).isEmpty }
     }

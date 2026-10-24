@@ -433,8 +433,8 @@ struct AddressField: NSViewRepresentable {
 
     /// The field, told when it lands in a window.
     ///
-    /// SwiftUI makes the view and updates it before it is in one, and with
-    /// Split View on it comes only once the stage has said where the page is,
+    /// SwiftUI makes the view and updates it before it is in one, and it
+    /// comes only once the stage has said where the page is,
     /// a turn of the run loop later. Asked for the keys before then, the
     /// field had no window to ask: the request went nowhere and nothing asked
     /// again, so ⌘T left a field with no caret and typing that went nowhere

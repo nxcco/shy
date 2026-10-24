@@ -87,7 +87,7 @@ struct GroupHeading: View {
             if !editing, group.collapsed {
                 if let number = shortcutNumbers[group.id] {
                     TabShortcutNumber(number: number)
-                } else if horizontal, browser.prefs.showsTabShortcuts {
+                } else if horizontal {
                     Color.clear.frame(width: 15, height: 15)
                 }
             }

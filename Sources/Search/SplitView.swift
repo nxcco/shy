@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// The page area while Split View is on: the AppKit stage that holds the
+/// The page area: the AppKit stage that holds the
 /// pages (see PaneStage.swift), and over each page what SwiftUI draws there —
 /// its cover, its trouble, the field, the find bar — placed from where the
 /// stage says the pages are.
@@ -139,9 +139,7 @@ private struct PaneLayers: View {
         .animation(Motion.quick, value: browser.paneQuestions.map(\.id))
         .overlay {
             // Over the page the link is on, focused or not.
-            if browser.prefs.showsLinks {
-                LinkBubble(status: browser.linkStatus, page: paired ? tab.built : nil)
-            }
+            LinkBubble(status: browser.linkStatus, page: paired ? tab.built : nil)
         }
         // The accounts under a sign-in box are the stage's (PaneStage.showAccounts):
         // drawn here, they were under the page. So is Apple Passwords' code card

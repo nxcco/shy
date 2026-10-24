@@ -248,7 +248,7 @@ struct SiteCard: View {
             sound
             grounded
             darken
-            if prefs.keepsSitesAwake, tab.awakeHost != nil {
+            if tab.awakeHost != nil {
                 HStack(spacing: 0) {
                     Text("Keep This Site Awake").font(MenuMetrics.font)
                     Spacer(minLength: 24)

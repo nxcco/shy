@@ -246,7 +246,7 @@ final class LittleWindow: NSObject, NSWindowDelegate {
             }
             // ⌃W, ⌃R, ⌃M, ⌃O on the card picked, a moon or a tab, when
             // Settings › Tabs has them on.
-            if Shared.prefs.switcherKeys, let action = TabSwitcher.Action(event), let id = switcher.selectedID {
+            if let action = TabSwitcher.Action(event), let id = switcher.selectedID {
                 guard !event.isARepeat else { return true }
                 if let little = LittleWindow.holding(id) {
                     little.act(action, in: switcher)

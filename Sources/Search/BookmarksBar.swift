@@ -66,9 +66,7 @@ struct BookmarksBar: View {
     private func bookmarkMenu(_ node: Bookmark, _ url: URL) -> some View {
         Button("Open in New Tab") { browser.pickBookmark(url, inNewTab: true) }
         Button("Open in New Window") { browser.openInNewWindow([url]) }
-        if browser.prefs.splitView {
-            Button("Open in Split View") { browser.openInSplit(url) }
-        }
+        Button("Open in Split View") { browser.openInSplit(url) }
         Button("Open in Private Tab") { browser.openShy(url) }
         Divider()
         Button("Rename…") { bookmarks.askRename(node) }
@@ -91,10 +89,8 @@ struct BookmarksBar: View {
         .disabled(urls.isEmpty)
         Button("Open All in New Window") { browser.openInNewWindow(urls) }
             .disabled(urls.isEmpty)
-        if browser.prefs.usesTabGroups {
-            Button("Open All in Tab Group") { browser.openInTabGroup(urls, named: node.title) }
-                .disabled(urls.isEmpty)
-        }
+        Button("Open All in Tab Group") { browser.openInTabGroup(urls, named: node.title) }
+            .disabled(urls.isEmpty)
         Divider()
         Button("Rename…") { bookmarks.askRename(node) }
         Button("New Folder Inside…") { bookmarks.askNewFolder(in: node.id) }

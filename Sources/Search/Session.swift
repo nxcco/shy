@@ -34,7 +34,6 @@ enum Session {
         /// or not groups are turned on, so turning them off loses nothing.
         var groups: [TabGroup]? = nil
         /// Indices in `tabs`, so restored tabs can have new live identities.
-        /// Written whether or not Split View is on, as groups are.
         var splits: [Split] = []
     }
 

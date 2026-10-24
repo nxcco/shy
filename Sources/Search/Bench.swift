@@ -1118,8 +1118,6 @@ final class Bench {
             // The ⌃Tab switcher as it stands: up or not, the pick, and where
             // the panel and each card are in the window (top-left points).
             let sw = browser.tabSwitcher
-            // "keys": Settings › Tabs › Keys in the tab switcher, on or off.
-            if let on = request["keys"] as? Bool { browser.prefs.switcherKeys = on }
             // A moon (a small window's tab) by its address.
             func short(_ id: Tab.ID?) -> String {
                 guard let id else { return "" }
@@ -2163,7 +2161,7 @@ final class Bench {
                 guard let group else { answer(["error": "no group “\(named)”"]); return }
                 browser.closeTabGroup(group.id)
             }
-            answer(["on": browser.prefs.usesTabGroups, "groups": browser.tabGroups.map { group in
+            answer(["on": true, "groups": browser.tabGroups.map { group in
                 ["id": String(group.id.uuidString.prefix(8)).lowercased(), "name": group.name, "collapsed": group.collapsed,
                  "tabs": browser.tabs(in: group.id).map(Bench.short)] as [String: Any]
             }])
@@ -2721,10 +2719,10 @@ final class Bench {
                                     switch via {
                                     case "switch": browser.select(out ? other! : tab)
                                     case "app":
-                                        let away = browser.prefs.floatsAway
-                                        browser.prefs.floatsAway = true
+                                        let when = browser.prefs.floatWhen
+                                        browser.prefs.floatWhen = .tabsOrApps
                                         if out { browser.appLeft() } else { browser.appBack() }
-                                        browser.prefs.floatsAway = away
+                                        browser.prefs.floatWhen = when
                                     default: browser.toggleFloat()
                                     }
                                 }
@@ -3014,7 +3012,7 @@ final class Bench {
                 // Each space off screen as a swipe draws it passing by
                 // (Parked.drawn): its groups, folded or not, and their tabs.
                 "drawn": Dictionary(uniqueKeysWithValues: browser.parked.map { id, row in
-                    let (groups, loose) = row.drawn(groupsOn: browser.prefs.usesTabGroups, splitView: browser.prefs.splitView)
+                    let (groups, loose) = row.drawn()
                     return (browser.spaces.first { $0.id == id }?.name ?? id.uuidString, [
                         "groups": groups.map { ["name": $0.group.name, "collapsed": $0.group.collapsed,
                                                 "tabs": $0.tabs.map(Bench.short)] as [String: Any] },
@@ -3094,8 +3092,6 @@ final class Bench {
             // "ask": the real question again, as a person gets it.
             if request["confirm"] as? String == "ask" { Ask.testing = nil }
             if let on = request["spaces"] as? Bool { browser.prefs.usesSpaces = on }
-            if let on = request["groups"] as? Bool, Store.testing { browser.prefs.usesTabGroups = on }
-            if let on = request["sharedpins"] as? Bool { browser.prefs.sharesPins = on }
             if let on = request["hides"] as? Bool { browser.prefs.sideHides = on }
             if let on = request["cards"] as? Bool { browser.prefs.cards = on }
             if let on = request["address"] as? Bool { browser.prefs.showsAddress = on }
@@ -3297,8 +3293,8 @@ final class Bench {
             reply()
 
         case "enabled":
-            guard let on = request["on"] as? Bool else { answer(["error": "split enabled needs on"]); return }
-            browser.prefs.splitView = on
+            // Split View is always there now; only "on" is still an answer.
+            guard request["on"] as? Bool == true else { answer(["error": "Split View is always on"]); return }
             reply()
 
         case "group":
@@ -3666,7 +3662,7 @@ final class Bench {
             "shownIDs": browser.shownTabs.map { Bench.short($0) },
             "groups": browser.tabGroups.map { ["id": $0.id.uuidString, "collapsed": $0.collapsed] as [String: Any] },
             "groupIDs": browser.tabs.map { $0.groupID?.uuidString ?? "" },
-            "enabled": browser.prefs.splitView,
+            "enabled": true,
             "finding": browser.finding,
             "needle": browser.needle,
             "findStatus": browser.findStatus ?? "",

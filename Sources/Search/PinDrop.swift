@@ -14,7 +14,7 @@ enum PinDrop {
     enum Target: Equatable {
         /// Among the squares, at this place.
         case squares(Int)
-        /// Among the pinned rows (Settings › Tabs › Pinned rows).
+        /// Among the pinned rows.
         case listed(Int)
         /// Among the tabs in no group.
         case loose(Int)

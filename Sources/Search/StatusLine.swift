@@ -3,20 +3,11 @@ import SwiftUI
 import WebKit
 
 // Where a link goes, at the bottom of the page while the pointer is on it.
-//
-// Off unless turned on in Settings › General. Off, not a line of it reaches
-// a page: the listener is only put into pages while the switch is on.
 
 /// Reports the destination under the pointer to the tab that owns the page.
 /// WebKit retains this relay; the tab is weak so closing it releases the page.
 final class HoveredLink: NSObject, WKScriptMessageHandler {
     static let name = "link"
-    /// Whether pages get the listener. Set from Settings.
-    @MainActor static var on = false
-
-    /// For a page already up when it is turned off: its listener goes quiet.
-    static let off = "if (window.__searchLinks) window.__searchLinks.on = false;"
-
     // One passive listener in every frame reports the resolved link address
     // only when it changes. The isolated client world keeps it out of the page's reach.
     static let script = """

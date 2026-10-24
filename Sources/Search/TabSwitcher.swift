@@ -11,8 +11,7 @@ final class TabSwitcher: ObservableObject {
     enum Direction { case left, right, up, down }
 
     /// A letter pressed with ⌃ still held, on the card picked: what its ⌘
-    /// key does to the tab on screen, done to that card instead. Only with
-    /// Settings › Tabs › Keys in the tab switcher on.
+    /// key does to the tab on screen, done to that card instead.
     enum Action {
         /// ⌃W: closed as ⌘W closes it (a pin is put down); a small window closed.
         case close
@@ -442,7 +441,7 @@ struct TabSwitcherOverlay: View {
                         }
                     }
                 }
-                if prefs.switcherKeys { legend }
+                legend
             }
         }
         .padding(12)

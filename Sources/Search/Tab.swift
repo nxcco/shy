@@ -716,8 +716,7 @@ final class Tab: ObservableObject, Identifiable {
     /// For a pin, kept as a row under the squares rather than as a square:
     /// Arc's pinned list, below its favourites. Still a pin in every other
     /// way: put down by ⌘W, the same in every window, never in a group.
-    /// Drawn as a square while Settings › Tabs › Pinned rows is off, or
-    /// with the tabs across the top.
+    /// Drawn as a square with the tabs across the top.
     @Published var listed = false
 
     /// The group that holds this ordinary tab in the sidebar.
@@ -1079,13 +1078,10 @@ final class Tab: ObservableObject, Identifiable {
                 WKUserScript(source: StoreRelay.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Web.world)
             )
         }
-        // Only while Settings says so: off, pages get nothing at all.
-        if HoveredLink.on {
-            controller.addUserScript(WKUserScript(
-                source: HoveredLink.script, injectionTime: .atDocumentStart,
-                forMainFrameOnly: false, in: .defaultClient
-            ))
-        }
+        controller.addUserScript(WKUserScript(
+            source: HoveredLink.script, injectionTime: .atDocumentStart,
+            forMainFrameOnly: false, in: .defaultClient
+        ))
         // The main frame only: a middle-click on a link inside an ad iframe is
         // that frame's own business, and its link is not this tab's to open.
         controller.addUserScript(
@@ -1382,7 +1378,7 @@ final class Tab: ObservableObject, Identifiable {
     /// address is remembered; everything the page was holding is let go, so a
     /// pin you are not reading costs a line in a file and nothing else.
     /// Given `home`, it is put down there instead of where it was: Arc's pin
-    /// that goes back to its pinned page once closed (see Preferences.pinsGoHome).
+    /// that goes back to its pinned page once closed (see Browser.close).
     func rest(at home: URL? = nil) {
         guard let url = home ?? address else { return }
         // The title was the page it is leaving; the host stands in until the
@@ -2344,9 +2340,6 @@ final class PageView: WKWebView {
     /// How far the fingers have gone up (or down, below nought) since the
     /// last step through the list.
     private var climbed: CGFloat = 0
-    /// Settings › General › Hold a swipe to pick from history. Off unless
-    /// asked for; off, a held swipe is a swipe like any other.
-    static var holdsHistory = false
     /// How long armed before the list, and how far up or down a step is.
     private static let hold: TimeInterval = 0.45
     private static let step: CGFloat = 22
@@ -2562,7 +2555,7 @@ final class PageView: WKWebView {
         }
 
         let armed = travel >= PageView.arm
-        if PageView.holdsHistory, stops == nil, armed != armedNow {
+        if stops == nil, armed != armedNow {
             holding?.cancel()
             holding = nil
             if armed {

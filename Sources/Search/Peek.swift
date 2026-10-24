@@ -35,7 +35,7 @@ extension Browser {
     /// the site go as they always have, so moving about Gmail or Notion
     /// stays in the pin.
     func peeksFromPin(_ url: URL, in tab: Tab, on page: URL?) -> Bool {
-        guard prefs.pinsPeek, tab.pin != nil, peekTab == nil, Browser.peekable(url),
+        guard tab.pin != nil, peekTab == nil, Browser.peekable(url),
               let there = url.host()?.lowercased(),
               let here = page?.host()?.lowercased()
         else { return false }
@@ -69,7 +69,7 @@ extension Browser {
     /// results do, when the click didn't take the page away by itself. The
     /// peek already has it, and the pin stays.
     func followsPeek(_ url: URL, in tab: Tab) -> Bool {
-        guard prefs.pinsPeek, tab.pin != nil, let peeked = tab.peeked,
+        guard tab.pin != nil, let peeked = tab.peeked,
               Date().timeIntervalSince(peeked.at) < 3,
               let host = url.host()?.lowercased()
         else { return false }
@@ -86,8 +86,8 @@ extension Browser {
         page.close()
     }
 
-    /// Kept: a tab beside the one it was opened from, and in front. With
-    /// Split View on, `beside` keeps it in a pair with that page instead —
+    /// Kept: a tab beside the one it was opened from, and in front.
+    /// `beside` keeps it in a pair with that page instead —
     /// the page and what it linked to, side by side.
     func keepPeek(beside: Bool = false) {
         guard let page = peekTab else { return }
@@ -95,13 +95,13 @@ extension Browser {
         let place = placeForNew()
         // Kept from a grouped tab, it joins that group, as a link opened
         // from there does (see open).
-        if prefs.usesTabGroups, !page.shy, let from = active { page.groupID = from.groupID }
+        if !page.shy, let from = active { page.groupID = from.groupID }
         withAnimation(Motion.quick) {
             peekTab = nil
             peekFrom = nil
         }
         insert(page, at: place)
-        if beside, prefs.splitView, let from, canSplit(page, with: from) {
+        if beside, let from, canSplit(page, with: from) {
             pair(page, with: from, onLeft: false)
         } else {
             select(page)
@@ -163,9 +163,7 @@ struct PeekPanel: View {
                         Knob("arrow.up.left.and.arrow.down.right", help: "Open as a tab (⌘↩)") {
                             browser.keepPeek(beside: NSEvent.modifierFlags.contains(.option))
                         }
-                        if browser.prefs.splitView {
-                            Knob("rectangle.split.2x1", help: "Keep beside this page (⌥⌘↩)") { browser.keepPeek(beside: true) }
-                        }
+                        Knob("rectangle.split.2x1", help: "Keep beside this page (⌥⌘↩)") { browser.keepPeek(beside: true) }
                     }
                 }
                 .frame(width: geo.size.width * 0.82, height: geo.size.height * 0.86)

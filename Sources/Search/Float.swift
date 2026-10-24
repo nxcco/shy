@@ -56,10 +56,6 @@ final class Float {
     /// in Bench.swift). Nil everywhere else.
     static var benchAway: NSPoint?
 
-    /// Two fingers flick the window to a corner instead of pushing it
-    /// along (Settings › General). Off unless asked for.
-    static var flicks = false
-
     /// Where a flick sends the window, a margin in from the edges of
     /// `area`. A swipe clearly both ways — between about 22° and 68° — takes
     /// it to the corner it points at; a straighter one along its stronger
@@ -511,43 +507,13 @@ final class Float {
             resize(to: origin.width + dx, from: origin)
         }
 
-        /// Two fingers on the trackpad move the window. There is nothing to
-        /// scroll here — the window holds one picture — so the gesture is free
-        /// to mean the thing you actually want it to mean.
-        ///
-        /// And the pointer travels with it. Moving the window alone leaves the
-        /// cursor behind: it drifts towards the edge, falls out, and the window
-        /// stops answering mid-gesture. Carrying it keeps it at the same place
-        /// in the frame, so the window can be pushed as far as the screen goes.
+        /// Two fingers on the trackpad flick the window (see flickWheel).
+        /// There is nothing to scroll here — the window holds one picture —
+        /// so the gesture is free to mean something else.
         override func scrollWheel(with event: NSEvent) {
-            guard let window else { return }
-            // Only while fingers are actually down. Letting the glide continue
-            // would fling the pointer across the screen after them.
+            // Only while fingers are actually down, not the glide after them.
             guard event.momentumPhase == [] else { return }
-            if Float.flicks { return flickWheel(with: event) }
-            // Docked, and flicks turned off since: out first, where it was.
-            if docked != nil { return undock() }
-
-            let dx = event.scrollingDeltaX
-            let dy = event.scrollingDeltaY
-            guard dx != 0 || dy != 0 else { return }
-
-            let spot = window.frame.origin
-            window.setFrameOrigin(NSPoint(x: spot.x + dx, y: spot.y - dy))
-
-            // Screen coordinates run up from the bottom, the cursor's run down
-            // from the top of the first display.
-            guard let ground = NSScreen.screens.first else { return }
-            let mouse = NSEvent.mouseLocation
-            CGWarpMouseCursorPosition(
-                CGPoint(
-                    x: mouse.x + dx,
-                    y: ground.frame.height - (mouse.y - dy)
-                )
-            )
-            // Without this the pointer and the physical trackpad stay parted
-            // for a moment, and the next flick arrives from the wrong place.
-            CGAssociateMouseAndMouseCursorPosition(1)
+            flickWheel(with: event)
         }
 
         /// Two fingers flick the window to a corner, as in Dia and Arc: a

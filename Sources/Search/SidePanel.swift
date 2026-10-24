@@ -112,11 +112,11 @@ extension Browser {
     }
 
     /// A website in this window's side panel, signed in as this space's tabs
-    /// are (Settings › General › Websites in the side panel). The same site
+    /// are (View › Side Panel, or a tab's Open in Side Panel). The same site
     /// again closes it, as a second press on an extension's button does.
     @discardableResult
     func showSiteInPanel(_ url: URL) -> Bool {
-        guard prefs.sitesInPanel, PanelSites.allowed(url), !isPopup else { return false }
+        guard PanelSites.allowed(url), !isPopup else { return false }
         if sidePanelShown, case .site = sidePanel, SidePanelPages.shared.siteArrived(in: self)?.host() == url.host() {
             closeSidePanel()
             return true
@@ -132,7 +132,6 @@ extension Browser {
     /// View › Side Panel › Show Side Panel: the site last there, or Claude,
     /// and closing whatever is there.
     func toggleSitePanel() {
-        guard prefs.sitesInPanel else { return }
         if sidePanelShown { return closeSidePanel() }
         let last = URL(string: prefs.panelSite).flatMap { PanelSites.allowed($0) ? $0 : nil }
         showSiteInPanel(last ?? PanelSites.offered[0].url)
@@ -228,8 +227,6 @@ extension Browser {
     /// same kind today (`canSplit` asks for `first.shy == second.shy`), so
     /// the pair's half says nothing the tab in front hasn't already said;
     /// it is written on what is on screen rather than on that rule holding.
-    /// `split(for:)` answers nothing while Split View is off, where a kept
-    /// pair shows one page as any other tab does.
     private func panelPanes(_ tab: Tab.ID? = nil) -> [Tab] {
         guard let here = tabs.first(where: { $0.id == (tab ?? activeID) }) else { return [] }
         guard let pair = split(for: here), let other = pair.partner(of: here.id),
