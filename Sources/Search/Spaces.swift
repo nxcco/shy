@@ -382,7 +382,8 @@ extension Browser {
 
 /// The space on screen, as its icon: at the column's foot, or before the
 /// tabs in the row. One icon however many spaces there are; a click opens
-/// the menu. When the space changes the icon turns over the way the spaces
+/// the drawer of spaces to go to (SpaceDrawer), a right-click the menu for
+/// the one on screen (SpaceMenu). When the space changes the icon turns over the way the spaces
 /// went — out on one side, the next one in from the other.
 struct SpaceDot: View {
     @ObservedObject var browser: Browser
@@ -394,6 +395,7 @@ struct SpaceDot: View {
     /// The space's name, for a moment after a switch (see naming()).
     @State private var named: String?
     @State private var naming = 0
+    @State private var drawer = false
 
     static let width: CGFloat = 26
 
@@ -401,7 +403,7 @@ struct SpaceDot: View {
     private var key: String { browser.makingSpace ? "new" : "\(browser.spaceID.uuidString)-\(browser.space.symbol)" }
 
     var body: some View {
-        Button { SpaceMenu.show(for: browser) } label: {
+        Button { drawer.toggle() } label: {
             ZStack {
                 Image(systemName: shown?.symbol ?? symbol)
                     .font(.system(size: 12, weight: .medium))
@@ -422,6 +424,10 @@ struct SpaceDot: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .overlay { RightClick { SpaceMenu.make(for: browser) } }
+        .popover(isPresented: $drawer, arrowEdge: browser.prefs.sidebar ? .top : .bottom) {
+            SpaceDrawer(browser: browser) { drawer = false }
+        }
         .onHover { hovering = $0 }
         .help("\(browser.space.name) — ⌃1–⌃9, or two fingers \(browser.prefs.sidebar ? "sideways" : "up or down") over the tabs, to switch")
         .onChange(of: key) { _, now in
@@ -469,7 +475,8 @@ struct SpaceDot: View {
     }
 }
 
-/// The dot's menu: the spaces, then what can be done to the one on screen.
+/// The dot's right-click menu: what can be done to the space on screen.
+/// Going to another, adding one and the order are the drawer's.
 @MainActor
 enum SpaceMenu {
     /// Menu items call back into Swift through this.
@@ -491,19 +498,9 @@ enum SpaceMenu {
         return item
     }
 
-    static func show(for browser: Browser) {
+    static func make(for browser: Browser) -> NSMenu {
         actions = []
         let menu = NSMenu()
-        for (index, space) in browser.spaces.enumerated() {
-            let entry = item(space.name, key: index < 9 ? "\(index + 1)" : "", checked: space.id == browser.spaceID) {
-                browser.switchSpace(to: space.id)
-            }
-            entry.image = NSImage(systemSymbolName: space.symbol, accessibilityDescription: nil)
-            menu.addItem(entry)
-        }
-        menu.addItem(.separator())
-        menu.addItem(item("New Space…") { browser.askForSpace() })
-        menu.addItem(.separator())
         let here = browser.space
         menu.addItem(item("Rename “\(here.name)”…") {
             Ask.name("Rename Space", placeholder: here.name, initial: here.name, confirm: "Rename") { browser.renameSpace(here.id, to: $0) }
@@ -517,11 +514,6 @@ enum SpaceMenu {
         let icon = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
         icon.submenu = icons
         menu.addItem(icon)
-        // The order is the swipe's, and ⌃1–⌃9's.
-        if let at = browser.spaces.firstIndex(where: { $0.id == here.id }) {
-            if at > 0 { menu.addItem(item("Move Left") { browser.moveSpace(here.id, to: at - 1) }) }
-            if at < browser.spaces.count - 1 { menu.addItem(item("Move Right") { browser.moveSpace(here.id, to: at + 1) }) }
-        }
         let folder = here.downloads.map { URL(fileURLWithPath: $0).lastPathComponent }
         menu.addItem(item(folder.map { "Downloads to “\($0)”…" } ?? "Downloads Folder…") {
             Ask.folder { browser.setSpaceDownloads(here.id, to: $0) }
@@ -537,7 +529,121 @@ enum SpaceMenu {
                 }
             })
         }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        return menu
+    }
+}
+
+/// The dot's drawer: every space with its icon, name and ⌃ number. A click
+/// goes there; dragging one up or down puts it in another place, which is
+/// the swipe's order and ⌃1–⌃9's; + makes a new one.
+struct SpaceDrawer: View {
+    @ObservedObject var browser: Browser
+    let close: () -> Void
+    /// The space being carried, and how far.
+    @State private var carried: UUID?
+    @State private var travel: CGFloat = 0
+    @State private var hovered: UUID?
+
+    static let row: CGFloat = 30
+
+    /// Where the carried space would land, from how far it has gone.
+    private func landing(_ from: Int) -> Int {
+        min(max(0, from + Int((travel / SpaceDrawer.row).rounded())), browser.spaces.count - 1)
+    }
+
+    var body: some View {
+        let spaces = browser.spaces
+        let from = carried.flatMap { id in spaces.firstIndex { $0.id == id } }
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(spaces.enumerated()), id: \.element.id) { index, space in
+                entry(space, number: index)
+                    .offset(y: offset(index, from: from))
+                    .zIndex(space.id == carried ? 1 : 0)
+                    .gesture(
+                        DragGesture(minimumDistance: 4)
+                            .onChanged { drag in
+                                carried = space.id
+                                travel = drag.translation.height
+                            }
+                            .onEnded { _ in
+                                if let from { browser.moveSpace(space.id, to: landing(from)) }
+                                carried = nil
+                                travel = 0
+                            }
+                    )
+            }
+            Rectangle().fill(Palette.hairline).frame(height: 1).padding(.vertical, 4)
+            Button {
+                close()
+                // Once the drawer is away: the card comes in where it was.
+                DispatchQueue.main.async { browser.askForSpace() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus").frame(width: 18)
+                    Text("New Space")
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 12.5))
+                .foregroundStyle(hovered == SpaceDrawer.adding ? Palette.ink : Palette.muted)
+                .padding(.horizontal, 8)
+                .frame(height: SpaceDrawer.row)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(hovered == SpaceDrawer.adding ? Palette.hover : .clear))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovered = $0 ? SpaceDrawer.adding : nil }
+        }
+        .padding(6)
+        .frame(width: 220)
+        .animation(Motion.quick, value: carried == nil ? 0 : landing(from ?? 0))
+    }
+
+    /// The + row's stand-in for a space under the pointer.
+    private static let adding = UUID()
+
+    /// The carried space follows the pointer; the ones it passes make room.
+    private func offset(_ index: Int, from: Int?) -> CGFloat {
+        guard let from else { return 0 }
+        if index == from { return travel }
+        let to = landing(from)
+        if from < to, index > from, index <= to { return -SpaceDrawer.row }
+        if from > to, index < from, index >= to { return SpaceDrawer.row }
+        return 0
+    }
+
+    private func entry(_ space: Space, number index: Int) -> some View {
+        let here = space.id == browser.spaceID
+        let lit = here || hovered == space.id || carried == space.id
+        return HStack(spacing: 8) {
+            Image(systemName: space.symbol)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 18)
+            Text(space.name)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 8)
+            if index < 9 {
+                Text("⌃\(index + 1)")
+                    .foregroundStyle(Palette.muted)
+                    .monospacedDigit()
+            }
+        }
+        .font(.system(size: 12.5, weight: here ? .medium : .regular))
+        .foregroundStyle(here ? Palette.ink : Palette.ink.opacity(0.85))
+        .padding(.horizontal, 8)
+        .frame(height: SpaceDrawer.row)
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(here ? Palette.wash : lit ? Palette.hover : .clear))
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 ? space.id : (hovered == space.id ? nil : hovered) }
+        .onTapGesture {
+            close()
+            if !here { browser.switchSpace(to: space.id) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(here ? "\(space.name), the space on screen" : space.name)
     }
 }
 

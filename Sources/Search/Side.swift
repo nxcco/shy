@@ -1291,7 +1291,7 @@ struct Door: View {
 /// list the pages as they were then. This view answers the hit test only for
 /// a right-click, so every other click and the hover fall through to the
 /// button beneath.
-private struct RightClick: NSViewRepresentable {
+struct RightClick: NSViewRepresentable {
     let menu: () -> NSMenu?
 
     func makeNSView(context: Context) -> Catcher { Catcher() }
