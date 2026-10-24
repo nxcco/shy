@@ -43,6 +43,47 @@ final class Agent: NSObject, ObservableObject {
     @Published private(set) var pages: [Page] = []
     private var room: NSWindow?
 
+    /// What can be taken away from Claude in Settings › Agents, and the
+    /// calls each covers. Waiting, listing and closing its own pages stay.
+    enum Ability: String, CaseIterable, Identifiable {
+        case open, read, picture, click, type
+        var id: String { rawValue }
+        var calls: Set<String> {
+            switch self {
+            case .open: return ["open", "go"]
+            case .read: return ["text"]
+            case .picture: return ["shot"]
+            case .click: return ["click"]
+            case .type: return ["type"]
+            }
+        }
+        var title: String {
+            switch self {
+            case .open: return "Open pages"
+            case .read: return "Read a page's text"
+            case .picture: return "Take pictures of pages"
+            case .click: return "Click"
+            case .type: return "Type into fields"
+            }
+        }
+        var detail: String {
+            switch self {
+            case .open: return "Open http and https addresses, and go to another in a page it has open"
+            case .read: return "The page's title, address and visible words"
+            case .picture: return "What the page shows, as an image"
+            case .click: return "A button, link or label, picked by a selector or its words"
+            case .type: return "Into a field or an editable part of the page"
+            }
+        }
+    }
+
+    /// The calls Settings lets through now.
+    static var allowed: Set<String> {
+        let denied = Shared.prefs.agentDenied
+        let taken = Ability.allCases.filter { denied.contains($0.rawValue) }.flatMap(\.calls)
+        return Set(["open", "go", "text", "shot", "click", "type", "wait", "close", "list", "tools"]).subtracting(taken)
+    }
+
     /// The world Claude's clicks and typing run in, apart from the page's
     /// own scripts, which can neither see nor change them.
     private static let world = WKContentWorld.world(name: "search-agent")
@@ -112,6 +153,13 @@ final class Agent: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 45) { answer(["error": "no answer within 45 s"]) }
 
         let verb = request["do"] as? String ?? ""
+        guard Agent.allowed.contains(verb) else {
+            return answer(["error": "“\(verb)” is turned off in Search's Settings › Agents"])
+        }
+        // What search-mcp offers Claude: only what is allowed now.
+        if verb == "tools" {
+            return answer(["allowed": Agent.allowed.sorted()])
+        }
         if verb == "open" {
             guard let url = Agent.web(request["url"]) else { return answer(["error": "open needs an http or https address"]) }
             guard pages.count < Agent.most else {

@@ -21,7 +21,7 @@ struct SettingsPanel: View {
     @State private var page: Page = Page(rawValue: Store.settings.string(forKey: "settings.page") ?? "") ?? .general
 
     enum Page: String, CaseIterable, Identifiable {
-        case general, tabs, profiles, shortcuts, extensions, passwords, downloads, privacy, ai, about
+        case general, tabs, profiles, shortcuts, extensions, passwords, downloads, privacy, agents, ai, about
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -33,6 +33,7 @@ struct SettingsPanel: View {
             case .passwords: return "Passwords"
             case .downloads: return "Downloads"
             case .privacy: return "Privacy"
+            case .agents: return "Agents"
             case .ai: return "AI"
             case .about: return "About"
             }
@@ -47,6 +48,7 @@ struct SettingsPanel: View {
             case .passwords: return "key"
             case .downloads: return "arrow.down.circle"
             case .privacy: return "hand.raised"
+            case .agents: return "cursorarrow.rays"
             case .ai: return "sparkles"
             case .about: return "info.circle"
             }
@@ -186,6 +188,7 @@ struct SettingsPanel: View {
                     case .extensions: ExtensionsPage(browser: browser)
                     case .passwords: passwords
                     case .downloads: downloads
+                    case .agents: agents
                     case .privacy: privacy
                     case .ai: if AI.shipped { AISettings(browser: browser, prefs: prefs) }
                     case .about: about
@@ -417,12 +420,37 @@ struct SettingsPanel: View {
                         if prefs.translatesPages { TranslateLanguageList(prefs: prefs) }
                 }
             }
+        }
+    }
+
+    // MARK: - agents
+
+    /// What may drive Search from outside it: Claude, through search-mcp
+    /// (Agent.swift), and what each of its calls may do; and the bench.
+    private var agents: some View {
+        VStack(alignment: .leading, spacing: 18) {
             Card {
                 Line("Let Claude open pages", "Claude Code and Claude's app can open web pages, read them, take pictures of them, click and type — in private pages of their own, out of sight. Never your tabs, your sign-ins or your passwords") {
                     Switch(on: $prefs.agent)
                 }
                 if prefs.agent { AgentLines(agent: .shared) }
-                Rule()
+            }
+            if prefs.agent {
+                Card {
+                    ForEach(Array(Agent.Ability.allCases.enumerated()), id: \.element) { index, ability in
+                        if index > 0 { Rule() }
+                        Line(ability.title, ability.detail) {
+                            Switch(on: Binding(
+                                get: { !prefs.agentDenied.contains(ability.rawValue) },
+                                set: { on in
+                                    if on { prefs.agentDenied.remove(ability.rawValue) } else { prefs.agentDenied.insert(ability.rawValue) }
+                                }
+                            ))
+                        }
+                    }
+                }
+            }
+            Card {
                 Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
                     Switch(on: $prefs.bench)
                 }

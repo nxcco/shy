@@ -157,14 +157,18 @@ func respond(_ message: [String: Any]) -> [String: Any]? {
     case "initialize":
         reply["result"] = [
             "protocolVersion": params["protocolVersion"] as? String ?? "2025-06-18",
-            "capabilities": ["tools": [String: Any]()],
+            "capabilities": ["tools": ["listChanged": false]],
             "serverInfo": ["name": "search", "version": "1.0"],
             "instructions": "Private web pages in the Search browser on this Mac, out of sight: open, read, picture, click, type. " + untrusted,
         ] as [String: Any]
     case "ping":
         reply["result"] = [String: Any]()
     case "tools/list":
-        reply["result"] = ["tools": tools.map { tool in
+        // Only what Settings › Agents allows now; everything while Search
+        // can't be asked, where each call then says why it can't be made.
+        let allowed = (ask(["do": "tools"]).answer?["allowed"] as? [String]).map(Set.init)
+        let offered = tools.filter { allowed?.contains($0.call) ?? true }
+        reply["result"] = ["tools": offered.map { tool in
             ["name": tool.name, "description": tool.description,
              "inputSchema": ["type": "object", "properties": tool.properties, "required": tool.required] as [String: Any]] as [String: Any]
         }]

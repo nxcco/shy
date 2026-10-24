@@ -147,6 +147,11 @@ final class Preferences: ObservableObject {
         }
     }
     private(set) var agentRefused = false
+    /// What Claude may not do in its pages (see Agent.Ability): each turned
+    /// off in Settings › Agents. Everything allowed unless taken away.
+    @Published var agentDenied: Set<String> {
+        didSet { store.set(Array(agentDenied).sorted(), forKey: "agent.denied") }
+    }
     /// Light, dark, or the Mac's own.
     @Published var look: Look {
         didSet {
@@ -532,6 +537,7 @@ final class Preferences: ObservableObject {
         let asked = store.bool(forKey: "agent")
         let marked = asked && (Store.testing || SwitchMark.given("agent"))
         agent = marked
+        agentDenied = Set(store.stringArray(forKey: "agent.denied") ?? [])
         if asked, !marked {
             agentRefused = true
             store.set(false, forKey: "agent")
