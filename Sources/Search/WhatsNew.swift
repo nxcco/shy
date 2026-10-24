@@ -48,24 +48,15 @@ enum WhatsNew {
                since: "1.0.5", get: { $0.startsFresh }, set: { $0.startsFresh = $1 }),
 
         Toggle(title: "Sidebar on the right", detail: "The tabs down the right edge of the window.",
-               since: "1.0.4", get: { $0.sidebar && $0.sidePosition == .right },
-               set: { prefs, on in
-                   if on { prefs.sidebar = true }
-                   prefs.sidePosition = on ? .right : .left
-               }),
+               since: "1.0.4", get: { $0.sidePosition == .right },
+               set: { prefs, on in prefs.sidePosition = on ? .right : .left }),
         Toggle(title: "Videos wait for a click", detail: "Videos don't start by themselves, even without sound.",
                since: "1.0.4", get: { $0.waitsForPlay }, set: { $0.waitsForPlay = $1 }),
         Toggle(title: "Always show the downloads button", detail: "Your downloads one click away, beside the other buttons.",
                since: "1.0.4", get: { $0.alwaysShowsDownloads }, set: { $0.alwaysShowsDownloads = $1 }),
 
         Toggle(title: "A sidebar that hides", detail: "The page takes the whole window; the tabs come out at the edge.",
-               since: "1.0.1", get: { $0.sidebar && $0.sideHides },
-               set: { prefs, on in
-                   if on { prefs.sidebar = true }
-                   prefs.sideHides = on
-               }),
-        Toggle(title: "Bookmarks bar", detail: "Your bookmarks in a row above the page.",
-               since: "1.0.2", get: { $0.bookmarksBar }, set: { $0.bookmarksBar = $1 }),
+               since: "1.0.1", get: { $0.sideHides }, set: { $0.sideHides = $1 }),
         Toggle(title: "Float the video when you switch apps", detail: "A playing video follows you out into a small window.",
                since: "1.0.2", get: { $0.floatsAway }, set: { $0.floatWhen = $1 ? .tabsOrApps : .tabs }),
         Toggle(title: "Pages at 120 Hz", detail: "Smoother scrolling and animations on screens that can. Uses more battery.",

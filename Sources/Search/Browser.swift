@@ -290,10 +290,6 @@ final class Browser: NSObject, ObservableObject {
     var bringingExtensions = false
 
     /// ⇧⌘S. The same tabs, down the left or across the top.
-    func toggleSidebar() {
-        withAnimation(Motion.glide) { prefs.sidebar.toggle() }
-    }
-
     func searchURL(for text: String) -> URL? {
         Engine.url(for: text, template: prefs.engine.template(custom: prefs.customEngine))
     }
@@ -5756,7 +5752,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // The chosen modified click: a peek at the link, over this
         // page (see Peek.swift). Only from a tab in the row — within a peek,
         // a link just goes.
-        if prefs.peeksLinks, action.navigationType == .linkActivated,
+        if action.navigationType == .linkActivated,
            ["http", "https"].contains(scheme),
            action.modifierFlags.intersection([.shift, .command, .option, .control]) == prefs.peekClick.flags,
            let from = tab(for: webView), peekTab == nil {

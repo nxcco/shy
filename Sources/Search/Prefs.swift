@@ -154,10 +154,9 @@ final class Preferences: ObservableObject {
             look.apply()
         }
     }
-    /// Titles down a side instead of across the top.
-    @Published var sidebar: Bool {
-        didSet { store.set(sidebar, forKey: "sidebar") }
-    }
+    /// The tabs down a side of the window: always, now. The strip across
+    /// the top is what the code still calls the other way.
+    var sidebar: Bool { true }
     /// The side panel's width, as you last left it (see SidePanel.swift).
     @Published var sidePanelWidth: CGFloat {
         didSet {
@@ -207,11 +206,6 @@ final class Preferences: ObservableObject {
     /// Keyword.swift). Empty until someone adds one.
     @Published var keywords: [Keyword] {
         didSet { store.set((try? JSONEncoder().encode(keywords)) ?? Data(), forKey: "search.keywords") }
-    }
-    /// A tab gives a little under the pointer while it is pressed, as Arc's
-    /// do (see Give). Off unless turned on.
-    @Published var tabsGive: Bool {
-        didSet { store.set(tabsGive, forKey: "tabs.give") }
     }
     @Published var awakeSites: Set<String> {
         didSet { store.set(Array(awakeSites).sorted(), forKey: "tabs.awakeSites") }
@@ -398,10 +392,6 @@ final class Preferences: ObservableObject {
     @Published var peekClick: PeekClick {
         didSet { store.set(peekClick.rawValue, forKey: "links.peekClick") }
     }
-    /// Open a clicked link over the page (see Peek.swift). On unless turned off.
-    @Published var peeksLinks: Bool {
-        didSet { store.set(peeksLinks, forKey: "links.peek") }
-    }
     /// Reading mode shows a site's own markdown copy of the page when it
     /// publishes one, and works the article out only when it doesn't (see
     /// Reader.twin). Off unless asked for.
@@ -423,11 +413,6 @@ final class Preferences: ObservableObject {
     /// downloads (see Fetching.swift). Off unless asked for.
     @Published var alwaysShowsDownloads: Bool {
         didSet { store.set(alwaysShowsDownloads, forKey: "downloads.button") }
-    }
-    /// The bookmarks bar above the page (see BookmarksBar.swift). Off
-    /// unless asked for.
-    @Published var bookmarksBar: Bool {
-        didSet { store.set(bookmarksBar, forKey: "bookmarks.bar") }
     }
     /// Videos wait for a click instead of starting by themselves, as Safari's
     /// Never Auto-Play has it (see Web.configuration). Off unless asked for.
@@ -560,8 +545,6 @@ final class Preferences: ObservableObject {
         NSApplication.shared.appearance = chosen.appearance
         sidePanelWidth = min(max(CGFloat(store.object(forKey: "sidepanel.width") as? Double ?? 380),
                                  Preferences.sidePanelWidths.lowerBound), Preferences.sidePanelWidths.upperBound)
-        sidebar = store.object(forKey: "sidebar") as? Bool
-            ?? (store.string(forKey: "manner") == "side")
         sidePosition = store.string(forKey: "sidebar.position").flatMap(SidebarPosition.init) ?? .left
         sideHides = store.bool(forKey: "sidebar.hides")
         roomyTabs = store.bool(forKey: "sidebar.roomy")
@@ -573,7 +556,6 @@ final class Preferences: ObservableObject {
         customEngine = store.string(forKey: "search.custom") ?? ""
         keywords = store.data(forKey: "search.keywords")
             .flatMap { try? JSONDecoder().decode([Keyword].self, from: $0) } ?? []
-        tabsGive = store.bool(forKey: "tabs.give")
         awakeSites = Set(store.stringArray(forKey: "tabs.awakeSites") ?? [])
         popupWindows = store.bool(forKey: "tabs.popupWindows")
         popupSites = Set(store.stringArray(forKey: "privacy.popupSites") ?? [])
@@ -644,12 +626,10 @@ final class Preferences: ObservableObject {
         translatesPages = store.bool(forKey: PageTranslator.key)
         translateAlways = Set(store.stringArray(forKey: PageTranslator.alwaysKey) ?? [])
         installsUpdates = store.object(forKey: Updater.installKey) as? Bool ?? true
-        peeksLinks = store.object(forKey: "links.peek") as? Bool ?? true
         peekClick = store.string(forKey: "links.peekClick").flatMap(PeekClick.init(rawValue:)) ?? .shift
         readsTwins = store.bool(forKey: "reader.twins")
         readerFollowsLook = store.bool(forKey: "reader.follows")
         littleLinks = store.bool(forKey: "links.little")
-        bookmarksBar = store.bool(forKey: "bookmarks.bar")
         alwaysShowsDownloads = store.bool(forKey: "downloads.button")
         let dusk = store.bool(forKey: "pages.dusk")
         darkensPages = dusk
@@ -677,7 +657,8 @@ final class Preferences: ObservableObject {
         // tab groups, Split View, pins as in Arc, and the rest.
         for key in ["tabs.groups", "splitView", "panel.sites", "tabs.keepAwake", "pins.shared",
                     "links.show", "swipe.history", "switcher.keys", "tabs.shortcuts", "float.flicks",
-                    "commandbar", "search.sites", "spaces", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
+                    "commandbar", "search.sites", "spaces", "sidebar", "manner",
+                    "tabs.give", "bookmarks.bar", "links.peek", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
             store.removeObject(forKey: key)
         }
         // Left behind by an assistant this browser no longer has.

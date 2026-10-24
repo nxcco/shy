@@ -367,10 +367,6 @@ struct SettingsPanel: View {
                 }
             }
             Card {
-                Line("Peek at a link with a \(prefs.peekClick.title.lowercased())", "Its page opens in a panel over the one you're reading. Escape puts it away; the other button keeps it as a tab") {
-                    Switch(on: $prefs.peeksLinks)
-                }
-                Rule()
                 Line("Open links from other apps in a small window", "To read and close, or keep with Open in Search (⌘O)") {
                     Switch(on: $prefs.littleLinks)
                 }
@@ -491,47 +487,30 @@ struct SettingsPanel: View {
     private var tabs: some View {
         VStack(alignment: .leading, spacing: 18) {
             Card {
-                Line("Tabs in a sidebar", "Down the \(prefs.sidePosition.rawValue) instead of across the top. Pull its edge to make it wider; double-click the edge to reset.") {
+                Line("Sidebar position", "Tabs down the \(prefs.sidePosition.rawValue) edge of the window. Pull its edge to make it wider; double-click the edge to reset.") {
+                    Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
+                }
+                Rule()
+                Line("Hide the sidebar until the pointer reaches the edge", "The page takes the whole window; push against its \(prefs.sidePosition.rawValue) edge for the tabs. ⌘S keeps them out.") {
+                    Switch(on: $prefs.sideHides)
+                }
+                Rule()
+                Line("The page as a card", "A little room around the page, with rounded corners. Off, the page reaches the window's edges") {
                     Switch(on: Binding(
-                        get: { prefs.sidebar },
-                        set: { on in withAnimation(Motion.glide) { prefs.sidebar = on } }
+                        get: { prefs.cards },
+                        set: { on in withAnimation(Motion.glide) { prefs.cards = on } }
                     ))
                 }
-                if prefs.sidebar {
-                    Rule()
-                    Line("Sidebar position", "Tabs down the \(prefs.sidePosition.rawValue) edge of the window") {
-                        Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
-                    }
-                    Rule()
-                    Line("Hide the sidebar until the pointer reaches the edge", "The page takes the whole window; push against its \(prefs.sidePosition.rawValue) edge for the tabs. ⌘S keeps them out.") {
-                        Switch(on: $prefs.sideHides)
-                    }
-                    Rule()
-                    Line("The page as a card", "A little room around the page, with rounded corners. Off, the page reaches the window's edges") {
-                        Switch(on: Binding(
-                            get: { prefs.cards },
-                            set: { on in withAnimation(Motion.glide) { prefs.cards = on } }
-                        ))
-                    }
-                    Rule()
-                    Line("Roomier tabs", "Taller rows and larger titles in the sidebar") {
-                        Switch(on: Binding(
-                            get: { prefs.roomyTabs },
-                            set: { on in withAnimation(Motion.glide) { prefs.roomyTabs = on } }
-                        ))
-                    }
+                Rule()
+                Line("Roomier tabs", "Taller rows and larger titles in the sidebar") {
+                    Switch(on: Binding(
+                        get: { prefs.roomyTabs },
+                        set: { on in withAnimation(Motion.glide) { prefs.roomyTabs = on } }
+                    ))
                 }
                 Rule()
                 Line("Tabs show", "Beside the title, and on a pinned square") {
                     Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
-                }
-                Rule()
-                Line("Tabs give when pressed", "A tab sinks a little under the pointer while you press it and springs back when you let go, as in Arc") {
-                    Switch(on: $prefs.tabsGive)
-                }
-                Rule()
-                Line("Show the bookmarks bar", "Your bookmarks in a row above the page, folders opening as menus. It folds away with the tabs") {
-                    Switch(on: $prefs.bookmarksBar)
                 }
                 Rule()
                 Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {

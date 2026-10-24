@@ -110,11 +110,6 @@ struct SearchApp: App {
                 }
             }
             CommandGroup(replacing: .toolbar) {
-                Toggle("Show Tabs in Sidebar", isOn: Binding(
-                    get: { browser.prefs.sidebar },
-                    set: { _ in browser.toggleSidebar() }
-                ))
-                .shortcut("view.sidebar")
                 // Folded away, not moved (see Fold.swift) — the column, or the
                 // strip across the top.
                 Button(browser.prefs.sidebar
@@ -277,11 +272,6 @@ struct SearchApp: App {
                     .disabled(!(browser.active?.isWeb ?? false))
                 Button("Show Bookmarks…") { browser.bookmarking = true }
                     .shortcut("bookmarks.show")
-                Toggle("Show Bookmarks Bar", isOn: Binding(
-                    get: { browser.prefs.bookmarksBar },
-                    set: { on in withAnimation(Motion.glide) { browser.prefs.bookmarksBar = on } }
-                ))
-                .shortcut("bookmarks.bar")
                 // The bookmarks themselves follow, put in by AppKit (see
                 // BookmarkMenu in Bookmarks.swift).
             }
@@ -478,15 +468,6 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // The bookmarks bar, under the strip or beside the column's top —
-            // there on the window's ground above the page's card, and no wider.
-            if barShown {
-                BookmarksBar(browser: browser, bookmarks: browser.bookmarks, onFrame: cards)
-                    .padding(.leading, sideOnRight ? farGap : chrome.width)
-                    .padding(.trailing, sideOnRight ? chrome.width : farGap)
-                    .padding(.top, band)
-                    .transition(.opacity)
-            }
         }
         .ignoresSafeArea()
         .background { fullscreenWatch }
@@ -506,15 +487,12 @@ struct ContentView: View {
 
     /// What the column and the strip take from the page right now: animated
     /// as they come and go. With the page as a card, the column folded away
-    /// still leaves the card's gap, and so does the top, unless the bookmarks
-    /// bar is there.
+    /// still leaves the card's gap, and so does the top.
     private var chrome: CGSize {
-        let bar = barShown ? BookmarksBar.height : 0
         if cards {
-            return CGSize(width: sidebar ? browser.prefs.sideWidth : Metrics.cardGap,
-                          height: barShown ? bar : Metrics.cardGap)
+            return CGSize(width: sidebar ? browser.prefs.sideWidth : Metrics.cardGap, height: Metrics.cardGap)
         }
-        return CGSize(width: sidebar ? browser.prefs.sideWidth : 0, height: band + bar)
+        return CGSize(width: sidebar ? browser.prefs.sideWidth : 0, height: band)
     }
 
     /// The page as a card on the window's ground: with the tabs down the
@@ -559,12 +537,6 @@ struct ContentView: View {
             .transition(.opacity)
     }
 
-    /// The bookmarks bar is up: asked for, there are bookmarks, and the tabs
-    /// aren't folded away or under a video filling the screen.
-    private var barShown: Bool {
-        browser.prefs.bookmarksBar && !browser.bookmarks.isEmpty && !browser.folded
-            && fullscreenTab == nil
-    }
 
     /// The room the page is laid out to leave them, which is not animated.
     private var roomed: CGSize { room ?? chrome }
@@ -1514,8 +1486,6 @@ struct ContentView: View {
             } else {
                 browser.summon()
             }
-        case "s" where shifted:
-            browser.toggleSidebar()
         case "s" where !shifted:
             // The column or the strip, folded away (see Fold.swift).
             browser.toggleFold()

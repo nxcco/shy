@@ -26,7 +26,7 @@ struct ShortcutsPage: View {
 
     private var showsPeek: Bool {
         let words = hunt.trimmingCharacters(in: .whitespaces)
-        return prefs.peeksLinks && (words.isEmpty || "Peek at a link".localizedCaseInsensitiveContains(words)
+        return (words.isEmpty || "Peek at a link".localizedCaseInsensitiveContains(words)
             || prefs.peekClick.title.localizedCaseInsensitiveContains(words))
     }
 

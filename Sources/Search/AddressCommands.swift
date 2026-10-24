@@ -19,7 +19,6 @@ enum AddressCommand: CaseIterable, Equatable {
     case history
     case downloads
     case passwords
-    case toggleSidebar
 
     /// What you'd type to reach it. The first is what the list shows.
     var aliases: [String] {
@@ -32,7 +31,6 @@ enum AddressCommand: CaseIterable, Equatable {
         case .history: return ["history"]
         case .downloads: return ["downloads"]
         case .passwords: return ["passwords"]
-        case .toggleSidebar: return ["toggle sidebar", "sidebar"]
         }
     }
 
@@ -56,7 +54,6 @@ enum AddressCommand: CaseIterable, Equatable {
         case .history: browser.recalling = true
         case .downloads: browser.hoarding = true
         case .passwords: browser.managing = true
-        case .toggleSidebar: browser.toggleSidebar()
         }
     }
 

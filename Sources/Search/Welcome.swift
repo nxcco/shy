@@ -142,15 +142,7 @@ struct WelcomePanel: View {
 
     private var hold: some View {
         VStack(alignment: .leading, spacing: 22) {
-            heading("Two ways to hold it.", "Titles across the top, or down the side. The grey slides to the tab you pick either way, and you can change your mind with ⇧⌘S.")
-            HStack(spacing: 12) {
-                Way(title: "Tab strip", sidebar: false, chosen: !prefs.sidebar) {
-                    withAnimation(Motion.glide) { prefs.sidebar = false }
-                }
-                Way(title: "Sidebar", sidebar: true, chosen: prefs.sidebar) {
-                    withAnimation(Motion.glide) { prefs.sidebar = true }
-                }
-            }
+            heading("Tabs down the side.", "Pins at the top, the tabs you keep under them, the ones that come and go below. The grey slides to the tab you pick.")
             HStack(spacing: 12) {
                 Text("Tabs wear")
                     .font(.system(size: 13))
