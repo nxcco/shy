@@ -15,12 +15,12 @@ final class BlockedPopupsTests: XCTestCase {
     override func setUp() {
         _ = NSApplication.shared
         browser = Browser(record: WindowRecord())
-        browser.prefs.popupSites = []
+        browser.prefs.setPopupSites([], in: browser.profileID)
     }
 
     override func tearDown() {
         browser.closeAll()
-        browser.prefs.popupSites = []
+        browser.prefs.setPopupSites([], in: browser.profileID)
         browser = nil
     }
 
@@ -98,11 +98,11 @@ final class BlockedPopupsTests: XCTestCase {
         page.noteBlocked(URL(string: "https://app.hark.com/answer/1"))
         XCTAssertEqual(page.blockedPopups.count, 1)
         browser.allowPopups(from: page)
-        XCTAssertEqual(browser.prefs.popupSites, ["hark.com"])
-        XCTAssertEqual(Preferences().popupSites, ["hark.com"])
+        XCTAssertEqual(browser.prefs.popupSites(in: browser.profileID), ["hark.com"])
+        XCTAssertEqual(Preferences().popupSites(in: browser.profileID), ["hark.com"])
         XCTAssertTrue(page.blockedPopups.isEmpty)
-        browser.prefs.popupSites.remove("hark.com")
-        XCTAssertTrue(Preferences().popupSites.isEmpty)
+        browser.prefs.setPopupSites(browser.prefs.popupSites(in: browser.profileID).subtracting(["hark.com"]), in: browser.profileID)
+        XCTAssertTrue(Preferences().popupSites(in: browser.profileID).isEmpty)
     }
 
     func testPrivateTabAllowsOnlyForItselfAndWritesNothing() {
@@ -110,11 +110,11 @@ final class BlockedPopupsTests: XCTestCase {
         page.noteBlocked(URL(string: "https://app.hark.com/answer/1"))
         browser.allowPopups(from: page)
         XCTAssertEqual(page.popupSites, ["hark.com"])
-        XCTAssertTrue(browser.prefs.popupSites.isEmpty)
-        XCTAssertTrue(Preferences().popupSites.isEmpty)
+        XCTAssertTrue(browser.prefs.popupSites(in: browser.profileID).isEmpty)
+        XCTAssertTrue(Preferences().popupSites(in: browser.profileID).isEmpty)
         // But the saved list does apply in a private tab.
-        browser.prefs.popupSites = ["example.com"]
-        XCTAssertTrue(BlockedPopups.allows(browser.prefs.popupSites.union(tab("https://example.com", privateMode: true).popupSites),
+        browser.prefs.setPopupSites(["example.com"], in: browser.profileID)
+        XCTAssertTrue(BlockedPopups.allows(browser.prefs.popupSites(in: browser.profileID).union(tab("https://example.com", privateMode: true).popupSites),
                                            top: URL(string: "https://example.com"), frameScheme: "https", frameHost: "example.com"))
     }
 

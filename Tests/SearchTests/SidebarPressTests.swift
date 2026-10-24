@@ -258,7 +258,6 @@ final class SidebarPressTests: XCTestCase {
 
     func testStripPillStillSelectsOnClick() async throws {
         let browser = makeBrowser()
-        browser.prefs.sidebar = false
         let second = browser.tabs[1]
         let window = makeStripWindow(browser)
         try await settle()
@@ -269,7 +268,6 @@ final class SidebarPressTests: XCTestCase {
 
     func testStripPillPressThenDragStillReorders() async throws {
         let browser = makeBrowser()
-        browser.prefs.sidebar = false
         let first = browser.tabs[0]
         let window = makeStripWindow(browser)
         try await settle()
@@ -288,13 +286,12 @@ final class SidebarPressTests: XCTestCase {
         activationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.prohibited)
         let prefs = Shared.prefs
-        let previous = (prefs.sidebar, prefs.roomyTabs)
+        let previous = prefs.roomyTabs
         restorePreferences = {
-            (prefs.sidebar, prefs.roomyTabs) = previous
+            prefs.roomyTabs = previous
         }
         let browser = Browser(record: WindowRecord())
         browsers.append(browser)
-        browser.prefs.sidebar = true
         browser.prefs.roomyTabs = false
         for word in ["one", "two", "three"] {
             if browser.tabs.last?.isBlank == false { browser.newTab() }

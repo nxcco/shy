@@ -10,7 +10,7 @@ import XCTest
 final class PinSleepTests: XCTestCase {
     private var browser: Browser!
     private let site = "https://pinned.example"
-    private var notifying: String { SiteNotifications.key(site) }
+    private var notifying: String { SiteNotifications.key(site, in: browser?.profileID ?? Profile.personalID) }
 
     override class func setUp() {
         setenv("SEARCH_PROBE", "gh18b-pinsleep-\(getpid())", 1)

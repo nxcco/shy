@@ -13,7 +13,8 @@ enum Session {
         var name: String?
         /// A pin's own page, the one it was pinned at (see Browser.goHome).
         var home: String?
-        /// The group this ordinary tab belongs to, if any.
+        /// The tab group it was in, in a session from before folders: read
+        /// to make the group a folder (see Browser.foldGroups), never written.
         var groupID: UUID? = nil
         /// A pin's identity, the same in every window (see Pins.swift).
         var pinID: UUID? = nil
@@ -30,8 +31,8 @@ enum Session {
     struct Shape: Codable {
         var tabs: [Entry]
         var active: Int
-        /// Nil in sessions written before tab groups existed. Written whether
-        /// or not groups are turned on, so turning them off loses nothing.
+        /// The tab groups of a session from before folders, which made them
+        /// folders (see Browser.foldGroups). Never written now.
         var groups: [TabGroup]? = nil
         /// Indices in `tabs`, so restored tabs can have new live identities.
         var splits: [Split] = []
@@ -55,9 +56,10 @@ enum Session {
     /// Settings › General › Start with a fresh window, at launch, before any
     /// window reads its row: each space's file keeps what you said to keep,
     /// as tabs that close themselves count it (see Closing.swift) — its
-    /// pins, their letters, names, homes, whole; the tabs in its groups,
-    /// with the groups (Arc's folders come in as groups, and a folder is
-    /// never last time's leftovers); and a tab you named — and nothing else.
+    /// pins, their letters, names, homes, whole, the ones in folders among
+    /// them; the tabs in its groups, in a file from before folders, with the
+    /// groups, for them to be made folders; and a tab you named — and
+    /// nothing else.
     /// A Split View pair stays only when both its pages do. No tab is marked
     /// as in front, so the window opens on an empty tab beside the pins (see
     /// Browser.restoreSession).

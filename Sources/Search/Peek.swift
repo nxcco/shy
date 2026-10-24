@@ -93,9 +93,6 @@ extension Browser {
         guard let page = peekTab else { return }
         let from = active
         let place = placeForNew()
-        // Kept from a grouped tab, it joins that group, as a link opened
-        // from there does (see open).
-        if !page.shy, let from = active { page.groupID = from.groupID }
         withAnimation(Motion.quick) {
             peekTab = nil
             peekFrom = nil
