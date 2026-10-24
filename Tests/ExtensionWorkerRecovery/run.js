@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const source = process.argv[2] ? fs.readFileSync(process.argv[2], 'utf8') : fs.readFileSync(path.join(__dirname, '../../Sources/Search/ExtensionShims.swift'), 'utf8');
+const source = process.argv[2] ? fs.readFileSync(process.argv[2], 'utf8') : fs.readFileSync(path.join(__dirname, '../../Sources/Shy/ExtensionShims.swift'), 'utf8');
 const script = source.split('nonisolated static let script = #"""\n')[1].split('\n    """#')[0];
 const harness = fs.readFileSync(path.join(__dirname, 'shim-harness.js'), 'utf8');
 const fixture = vm.runInNewContext(harness + '\nrecoveryFixture', { console });
@@ -10,7 +10,7 @@ const drain = async () => { for (let i = 0; i < 40; i++) await Promise.resolve()
 function load(content, generation = 0, alter = () => {}) {
   const state = fixture(content, generation);
   alter(state);
-  vm.runInNewContext(script.replaceAll('__SEARCH_WORKER_GENERATION__', String(generation)), state.root);
+  vm.runInNewContext(script.replaceAll('__SHY_WORKER_GENERATION__', String(generation)), state.root);
   return state;
 }
 let passed = 0;

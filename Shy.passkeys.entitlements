@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The hardened runtime refuses the camera and the microphone unless the
+       app says up front that pages may ask for them. -->
+  <key>com.apple.security.device.camera</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <!-- Likewise for a page asking where you are, which Shy puts to you
+       first, site by site (see Browser.askedForLocation). -->
+  <key>com.apple.security.personal-information.location</key><true/>
+  <!-- Passkeys, for any site. Apple grants this to browsers on request; it
+       only works with the matching Developer ID provisioning profile
+       embedded in the app, which build.sh does when Shy.provisionprofile
+       is next to it. The two identifiers are how macOS ties the app to that
+       profile: without them the restricted entitlement is refused. TEAMID is
+       a placeholder for your own Apple Developer team id; build.sh refuses
+       to use this file while it is still there. -->
+  <key>com.apple.application-identifier</key><string>TEAMID.io.github.nxcco.shy</string>
+  <key>com.apple.developer.team-identifier</key><string>TEAMID</string>
+  <key>com.apple.developer.web-browser.public-key-credential</key><true/>
+</dict>
+</plist>

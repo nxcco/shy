@@ -32,7 +32,7 @@ and routingHint are all SameSite=Lax (read from the cookie store's attribute
 bits, never the values), so the panel looks signed out. WebKit's own fix
 landed on its main branch on 5 Oct 2026 (322707@main, "Give extension page
 subframes unpartitioned cookie access", then storage access on 7 Oct); no
-shipping macOS has it yet, and Search has no switch that reaches it. The
+shipping macOS has it yet, and Shy has no switch that reaches it. The
 "Lax withheld" checks below hold that line: once a macOS carries the fix
 the frame's fail (the fetch's may stay: the fix is for frames), and the
 panel's frame should be signed in as in Chrome.
@@ -87,7 +87,7 @@ class Site(BaseHTTPRequestHandler):
 srv = ThreadingHTTPServer(("127.0.0.1", 0), Site)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 SITE = f"http://localhost:{srv.server_port}"
-work = Path(tempfile.mkdtemp(prefix="search-panelcookies-"))
+work = Path(tempfile.mkdtemp(prefix="shy-panelcookies-"))
 
 PANEL_JS = f"""
 window.result = {{}};
@@ -157,7 +157,7 @@ def main():
             t.ok(f"with access: the panel's frame is sent {c}", c in (frame or ""), (got, frame))
         t.ok("with access: the fetch's answer reads (no CORS needed)", got.get("fetch", "").startswith("none=1"), got)
         t.ok("with access: the frame's script reads its cookies", "plain=1" in got.get("frame", ""), got)
-        # WebKit's limit, not Search's: see the top of this file.
+        # WebKit's limit, not Shy's: see the top of this file.
         t.ok("with access: Lax withheld from the fetch (WebKit: cross-site)", "lax=1" not in (api or ""), api)
         t.ok("with access: Lax withheld from the frame (WebKit: cross-site)", "lax=1" not in (frame or ""), frame)
 

@@ -3,7 +3,7 @@
 
 Build first (`./build.sh`), then `python3 Tests/open_html_file.py`. WebKit
 lets a file: page read its own folder only, and dropped a click on a link
-out of it before Search was asked: the page stayed put, and only the address
+out of it before Shy was asked: the page stayed put, and only the address
 pasted into a new window opened it. Pages are written into the test world's
 own folder, links are clicked with real (trusted) clicks, and what each tab
 shows is read back. Nothing is drawn.

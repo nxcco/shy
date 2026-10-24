@@ -3,7 +3,7 @@
 
 Build first (`./build.sh`), then `python3 Tests/media_keys.py`. It uses the
 split suite's harness: started hidden, no window made or shown, everything
-removed afterwards. Whether Search is the Mac's Now Playing app, the one the
+removed afterwards. Whether Shy is the Mac's Now Playing app, the one the
 play/pause keys and AirPods taps go to, is read from WebKit (`nowplaying`).
 The sound is a quiet tone the page makes itself. The last part plays a
 YouTube video, and is skipped when YouTube doesn't load.
@@ -48,15 +48,15 @@ try:
     ev("var u = document.createElement('audio'); u.id = 'u'; u.src = document.getElementById('t').src; document.body.appendChild(u); 1")
 
     audio("a.play(), 1"); time.sleep(1.5)
-    t.ok("playing: Search has the keys", keys())
+    t.ok("playing: Shy has the keys", keys())
     t.ok("playing: no timer", np()["hushing"] is False)
 
-    # Paused, then played again with the key a moment later: still Search's.
+    # Paused, then played again with the key a moment later: still Shy's.
     audio("a.pause(), 1"); time.sleep(2)
-    t.ok("paused a moment: Search keeps the keys", keys())
+    t.ok("paused a moment: Shy keeps the keys", keys())
     t.ok("paused a moment: one timer counting", np()["hushing"] is True)
     audio("a.play(), 1"); time.sleep(1.5)
-    t.ok("played again: still Search's, and the timer gone", keys() and np()["hushing"] is False)
+    t.ok("played again: still Shy's, and the timer gone", keys() and np()["hushing"] is False)
 
     # Paused for longer: the keys go back, and the page reads what's so.
     audio("a.pause(), 1"); time.sleep(KEEP + 2)
@@ -65,10 +65,10 @@ try:
     t.ok("paused a while: the timer gone once it has run", np()["hushing"] is False)
     t.ok("paused a while: a player that never played is left alone", ev("document.getElementById('u').muted") is False)
 
-    # Played again: with its sound, and the keys are Search's again.
+    # Played again: with its sound, and the keys are Shy's again.
     audio("a.play(), 1"); time.sleep(1.5)
     t.ok("played after a while: with its sound", audio("!a.paused && !a.muted") is True)
-    t.ok("played after a while: Search has the keys again", keys())
+    t.ok("played after a while: Shy has the keys again", keys())
 
     # Held, then taken out of the page and played there: its sound back.
     audio("a.pause(), 1"); time.sleep(KEEP + 2)
@@ -82,8 +82,8 @@ try:
     audio("a.play(), 1"); time.sleep(1.5)
     t.ok("muted by the page: still muted after a pause and a play", audio("a.muted") is True)
 
-    # Unmuted by the page while Search holds it: the page's answer wins, and
-    # Search forgets it, so a mute of the page's own afterwards stays.
+    # Unmuted by the page while Shy holds it: the page's answer wins, and
+    # Shy forgets it, so a mute of the page's own afterwards stays.
     audio("a.muted = false, 1"); time.sleep(1.5); audio("a.pause(), 1"); time.sleep(KEEP + 2)
     t.ok("held: the keys go back", not keys())
     audio("a.muted = false, 1"); time.sleep(1)
@@ -96,7 +96,7 @@ try:
     ev(f"var f = document.createElement('iframe'); f.src = '{sv.BASE}/inner'; document.body.appendChild(f); 1"); time.sleep(2.5)
     ev(f"({MAKE})(document.querySelector('iframe').contentDocument)")
     audio("a.play(), 1", inner=True); time.sleep(1.5)
-    t.ok("in a frame, playing: Search has the keys", keys())
+    t.ok("in a frame, playing: Shy has the keys", keys())
     audio("a.pause(), 1", inner=True); time.sleep(KEEP + 2)
     t.ok("in a frame, paused a while: the keys go back", not keys())
     audio("a.play(), 1", inner=True); time.sleep(1.5)
@@ -111,7 +111,7 @@ try:
         ev(f"{V}.play(), 1"); time.sleep(4)
         playing = keys()
         ev(f"{V}.pause(), 1"); time.sleep(KEEP + 3)
-        t.ok("YouTube: playing, Search has the keys; paused a while, they go back", playing and not keys())
+        t.ok("YouTube: playing, Shy has the keys; paused a while, they go back", playing and not keys())
         ev(f"{V}.play(), 1"); time.sleep(3)
         t.ok("YouTube: played again, with its sound and the keys", ev(f"!{V}.paused && !{V}.muted") is True and keys())
     else:

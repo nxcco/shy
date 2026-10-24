@@ -81,7 +81,7 @@ CHAT_OPEN = "!!document.querySelector('.right-column:not(.right-column--collapse
 
 
 def main():
-    pages = tempfile.mkdtemp(prefix="search-float-")
+    pages = tempfile.mkdtemp(prefix="shy-float-")
     for name, style in CASES.items():
         Path(pages, f"{name}.html").write_text(PAGE.format(name=name, style=style, video_style=""))
     for name, style in VIDEO_CASES.items():
@@ -97,7 +97,7 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}"
-    source = (ROOT / "Sources/Search/Float.swift").read_text()
+    source = (ROOT / "Sources/Shy/Float.swift").read_text()
     start = source.index('static let on = """') + len('static let on = """')
     isolate = source[start:source.index('"""', start)].strip().replace("\\\\", "\\")
     start = source.index('static let off = """') + len('static let off = """')
@@ -110,7 +110,7 @@ def main():
             tab = sv.sp("open", url=f"{base}/{name}.html")["resultID"]
             time.sleep(1.5)
             before = sv.cmd({"do": "eval", "id": tab, "js": styling})["value"]
-            said = sv.cmd({"do": "eval", "id": tab, "js": isolate, "world": "search"}).get("value")
+            said = sv.cmd({"do": "eval", "id": tab, "js": isolate, "world": "shy"}).get("value")
             for width, height in [(1180, 780), (700, 500), (900, 900)]:
                 sv.cmd({"do": "resize", "width": width, "height": height, "steps": 2})
                 p = json.loads(sv.cmd({"do": "eval", "id": tab, "js": PROBE}).get("value"))
@@ -120,7 +120,7 @@ def main():
                 tall = abs(p["y"]) < 1 and abs(p["h"] - p["ih"]) < 1 and abs(2 * p["x"] + p["w"] - p["iw"]) < 2 and p["w"] <= p["iw"] + 1
                 floating = isinstance(said, dict) and said.get("floating") is True
                 t.ok(f"{name} {width}x{height}: video fits without clipping", floating and (wide or tall) and p["seen"] and p["playing"] and p["fit"] == "contain" and p["clip"] == "none" and p["mask"] == "none", p)
-            sv.cmd({"do": "eval", "id": tab, "js": restore, "world": "search"})
+            sv.cmd({"do": "eval", "id": tab, "js": restore, "world": "shy"})
             time.sleep(1.1)
             after = sv.cmd({"do": "eval", "id": tab, "js": styling})["value"]
             t.ok(f"{name}: returning restores the player's styles", before == after, after)
@@ -132,10 +132,10 @@ def main():
         tab = sv.sp("open", url=f"{base}/twitch-chat.html")["resultID"]
         sv.cmd({"do": "resize", "width": 1180, "height": 780, "steps": 2})
         time.sleep(1.5)
-        sv.cmd({"do": "eval", "id": tab, "js": isolate, "world": "search"})
+        sv.cmd({"do": "eval", "id": tab, "js": isolate, "world": "shy"})
         sv.cmd({"do": "resize", "width": 700, "height": 500, "steps": 2})
         shut = sv.cmd({"do": "eval", "id": tab, "js": CHAT_OPEN})["value"]
-        sv.cmd({"do": "eval", "id": tab, "js": restore, "world": "search"})
+        sv.cmd({"do": "eval", "id": tab, "js": restore, "world": "shy"})
         sv.cmd({"do": "resize", "width": 1180, "height": 780, "steps": 2})
         time.sleep(1.1)
         opened = sv.cmd({"do": "eval", "id": tab, "js": CHAT_OPEN})["value"]

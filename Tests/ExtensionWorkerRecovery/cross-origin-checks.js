@@ -18,7 +18,7 @@ listeners.message({ source: {}, origin: 'http://127.0.0.1:12345', data: report }
 listeners.message({ source: childWindow, origin: 'http://localhost:12345', data: report });
 assert.equal(attributes.size, 0);
 listeners.message({ source: childWindow, origin: 'http://127.0.0.1:12345', data: report });
-assert.deepEqual(JSON.parse(attributes.get('data-search-port-fixture')), state);
+assert.deepEqual(JSON.parse(attributes.get('data-shy-port-fixture')), state);
 buttons['connect-content'].click();
 assert.deepEqual(JSON.parse(JSON.stringify(sent[0])), { value: { kind: 'child-port-command', button: 'connect-content', token: 'fixture-token', scheduledAt: null }, origin: 'http://127.0.0.1:12345' });
 const parentWindow = {}, childListeners = {}, clicked = [];

@@ -42,7 +42,7 @@ try:
     t.ok("file: the tab's last look is written", left and "touched" in left[0], left)
     sv.quit()
 
-    # On: the time ran out while Search was quit, and the tab is gone at launch.
+    # On: the time ran out while Shy was quit, and the tab is gone at launch.
     on(); sv.launch(); st = sv.sp("state")
     t.ok("launch: a tab whose time ran out while quit is closed", at(st, "a") is None, urls(st))
     t.ok("launch: the tab in front stays", at(st, "front") is not None, urls(st))
@@ -63,7 +63,7 @@ try:
     t.ok("⇧⌘T brings the closed tab back", at(st, "old") is not None, urls(st))
 
     # Something typed and not sent keeps a tab however long it is left. Typed
-    # as real keys: Search's form watch is in its own content world, out of
+    # as real keys: Shy's form watch is in its own content world, out of
     # eval's reach, and counts only what a person would have typed.
     ty = sv.page("typed")
     sv.ev(ty, "var box = document.createElement('textarea'); document.body.appendChild(box); box.focus(); true")

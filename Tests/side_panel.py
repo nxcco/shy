@@ -34,7 +34,7 @@ WIDTH = 380
 # The panel's own line above its page: the extension's name and a close button.
 HEAD = 43
 PICTURES = sys.argv[1] if len(sys.argv) > 1 else None
-work = Path(tempfile.mkdtemp(prefix="search-sidepanel-"))
+work = Path(tempfile.mkdtemp(prefix="shy-sidepanel-"))
 
 
 def make(name, panel, pages=()):

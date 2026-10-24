@@ -9,7 +9,7 @@ function recoveryFixture(content, generation = 0) {
   };
   const state = { nativePorts: [], cancellations: 0, subscriptions: [], calls: [], timers: [], handlers: {}, now: 100000 };
   const runtime = Object.assign(Object.create({
-    sendMessage: message => Promise.resolve(message && message.__searchPing ? 'pong' : undefined)
+    sendMessage: message => Promise.resolve(message && message.__shyPing ? 'pong' : undefined)
   }), {
     id: 'fixture', getURL: path => 'webkit-extension://fixture/' + path,
     getManifest: () => ({ background: { service_worker: 'worker.js' } }),
@@ -38,8 +38,8 @@ function recoveryFixture(content, generation = 0) {
     setTimeout: (callback, delay) => { state.timers.push({ callback, delay }); return state.timers.length; },
     clearTimeout: () => {}, addEventListener: (name, callback) => { (state.handlers[name] ||= []).push(callback); },
     Date: class extends Date { static now() { return state.now; } },
-    console, __SEARCH_EVENTS__: [], __SEARCH_SCRIPTS__: [], __SEARCH_VERBOSE__: false,
-    webkit: { messageHandlers: { searchWorkerRecovery: { postMessage: message => message.cancel ? (state.cancellations++, Promise.resolve()) : subscribe(message.generation) } } }
+    console, __SHY_EVENTS__: [], __SHY_SCRIPTS__: [], __SHY_VERBOSE__: false,
+    webkit: { messageHandlers: { shyWorkerRecovery: { postMessage: message => message.cancel ? (state.cancellations++, Promise.resolve()) : subscribe(message.generation) } } }
   };
   root.window = root; root.top = root;
   state.root = root; state.runtime = runtime; state.makePort = runtime.connect; state.initialGeneration = generation;

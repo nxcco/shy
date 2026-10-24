@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Settings › Tabs › Pins go back home: a pin closed with ⌘W, or open when
-Search quits, comes back at the page it was pinned at, as in Arc.
+Shy quits, comes back at the page it was pinned at, as in Arc.
 
 Build first (`./build.sh`), then `python3 Tests/pins_home.py`. It uses the
 split suite's harness: started hidden, no window made or shown, everything
@@ -51,7 +51,7 @@ try:
     sv.sp("select", id=a); sv.cmd({"do": "wait", "id": a}); time.sleep(0.3)
     t.ok("on: picked again, it opens its pinned page", last(tab(sv.sp("state"), a)["url"]) == "a", tab(sv.sp("state"), a)["url"])
 
-    # Taken somewhere and left open when Search quits.
+    # Taken somewhere and left open when Shy quits.
     wander(a, "later")
     st = relaunch(True)
     t.ok("on: left elsewhere at quit, it opens again at home", pinned(st) == ["a"], pinned(st))

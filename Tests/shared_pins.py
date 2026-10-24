@@ -15,8 +15,8 @@ import split_view as sv  # noqa: E402
 
 # A world of its own, its socket included: launch() waits on SOCK.
 sv.W = "shared-pins"
-sv.SUPPORT = f"{sv.HOME}/Library/Application Support/Search ({sv.W})"
-sv.SUITE = f"com.officecommun.search.test.{sv.W}"
+sv.SUPPORT = f"{sv.HOME}/Library/Application Support/Shy ({sv.W})"
+sv.SUITE = f"io.github.nxcco.shy.test.{sv.W}"
 sv.SOCK = f"{sv.SUPPORT}/bench.sock"
 
 t = sv.T()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Popup security regressions in Search's own hidden, checkout-specific world.
+"""Popup security regressions in Shy's own hidden, checkout-specific world.
 
 Build on macOS (`./build.sh`), then `python3 Tests/popups.py`. Native
 tap delivers trusted input. This does not use element.click() as proof
@@ -9,7 +9,7 @@ checked at the local server. No accounts, external sites or model APIs.
 The >5-second native-menu case is a MANUAL check, NOT RUN by this hidden
 suite: its isolation guard hides any menu entering the screen. For an
 interactive Mac check, run `python3 Tests/popups.py --serve`, open the printed
-/menu URL in Search, right-click the link, wait at least six seconds, then
+/menu URL in Shy, right-click the link, wait at least six seconds, then
 choose Open Link in New Tab (WebKit's Open Link in New Window). Expect one
 new tab for /opened-menu. Repeat with Open Link in New Tab and Go to It if
 checking the foreground variant. Do not disable the hidden-probe guard.
@@ -146,12 +146,12 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--serve", action="store_true", help="serve local fixtures for an interactive Search check; do not launch or drive an app")
+    parser.add_argument("--serve", action="store_true", help="serve local fixtures for an interactive Shy check; do not launch or drive an app")
     args = parser.parse_args()
     if args.serve:
-        print(f"Open {sv.BASE}/menu in Search on a Mac.", flush=True)
+        print(f"Open {sv.BASE}/menu in Shy on a Mac.", flush=True)
         print("Right-click the link, wait at least six seconds, then choose Open Link in New Tab.")
-        print("Expect one new tab for /opened-menu. This command does not launch or control Search.")
+        print("Expect one new tab for /opened-menu. This command does not launch or control Shy.")
         print("Press Ctrl-C to stop the fixture server.", flush=True)
         try:
             while True:
@@ -160,5 +160,5 @@ if __name__ == "__main__":
             sv.srv.shutdown()
     else:
         if sys.platform != "darwin":
-            sys.exit("Tests/popups.py requires macOS and a built Search.app")
+            sys.exit("Tests/popups.py requires macOS and a built Shy.app")
         sys.exit(main())

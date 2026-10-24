@@ -1,6 +1,6 @@
 #!/bin/bash
 # engine.sh — builds the AI add-on's engine: the small program that runs the
-# model for "On this Mac" (see Engine/search-ai-engine.cpp and AIEngine.swift).
+# model for "On this Mac" (see Engine/shy-ai-engine.cpp and AIEngine.swift).
 #
 #   ./engine.sh            both: arm64 (Metal) and x86_64 (CPU)
 #   ./engine.sh arm64      one of them
@@ -9,8 +9,8 @@
 # against it, built static with nothing that reaches the network compiled
 # in, linked with the helper, stripped, and signed with the hardened runtime
 # and the App Sandbox (Engine/engine.entitlements) — the Developer ID when
-# there is one (SEARCH_SIGN_IDENTITY, or the first found; "-" for none), ad-hoc otherwise,
-# which Search accepts only in a test run. Everything goes to build/engine/.
+# there is one (SHY_SIGN_IDENTITY, or the first found; "-" for none), ad-hoc otherwise,
+# which Shy accepts only in a test run. Everything goes to build/engine/.
 # Notarizing and publishing are the release's, not this script's.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -19,7 +19,7 @@ LLAMA_TAG="v0.5.0"
 LLAMA_COMMIT="7fe450e19305b828c199d602c23a8337aaa1f03b"
 OUT="build/engine"
 SRC="$OUT/llama.cpp"
-IDENTIFIER="com.officecommun.search.ai-engine"
+IDENTIFIER="io.github.nxcco.shy.ai-engine"
 JOBS=$(sysctl -n hw.logicalcpu)
 which="${1:-all}"
 
@@ -46,7 +46,7 @@ COMMON=(
   -DLLAMA_BUILD_COMMON=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_SERVER=OFF
 )
 
-IDENTITY="${SEARCH_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+IDENTITY="${SHY_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
   | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)}"
 
 build() {
@@ -67,10 +67,10 @@ build() {
   libs+=("$dir/ggml/src/ggml-blas/libggml-blas.a" "$dir/ggml/src/libggml-cpu.a" "$dir/ggml/src/libggml-base.a"
          "$dir/vendor/hash/libvendor-hash.a")
 
-  local exe="$OUT/search-ai-engine-$arch"
+  local exe="$OUT/shy-ai-engine-$arch"
   clang++ -std=c++17 -O2 -arch "$arch" -mmacosx-version-min=14.0 \
     -I"$SRC/include" -I"$SRC/ggml/include" -I"$SRC/vendor" \
-    Engine/search-ai-engine.cpp -o "$exe" -Wl,-dead_strip \
+    Engine/shy-ai-engine.cpp -o "$exe" -Wl,-dead_strip \
     -Wl,-sectcreate,__TEXT,__info_plist,Engine/Info.plist \
     "${libs[@]}" "${frameworks[@]}"
   strip -x "$exe"
@@ -80,7 +80,7 @@ build() {
   else
     codesign --force --options runtime --entitlements Engine/engine.entitlements \
       --identifier "$IDENTIFIER" --sign - "$exe"
-    echo "note: signed ad-hoc — only a test run of Search will start it"
+    echo "note: signed ad-hoc — only a test run of Shy will start it"
   fi
   printf '%s  %s bytes  sha256 %s\n' "$exe" "$(stat -f %z "$exe")" "$(shasum -a 256 "$exe" | cut -d' ' -f1)"
 }

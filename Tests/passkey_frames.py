@@ -7,7 +7,7 @@ everything removed afterwards. A test run never shows the Mac's sheet; it
 answers with a made-up credential after the same checks (Passkeys.perform).
 
 Apple's sign-in is a frame from idmsa.apple.com in account.apple.com, the
-same site. Search refused any frame whose host wasn't the page's, so Apple
+same site. Shy refused any frame whose host wasn't the page's, so Apple
 said the browser needed updating. Which hosts are one site is checked in
 Tests/RegistrableRegression (nothing on this Mac's loopback has a public
 suffix); here, a frame of the page's own host on another port (another

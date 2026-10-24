@@ -3,7 +3,7 @@
 
 Build first (`./build.sh`), then `python3 Tests/bookmarks_menu.py`. SwiftUI
 updates an open menu through its own delegate whenever anything it shows may
-have changed, which took out the bookmarks Search adds after its items: a
+have changed, which took out the bookmarks Shy adds after its items: a
 download page counting its speed in its title emptied the menu under the
 pointer. The menu is only ever told it opened and closed; nothing is drawn.
 """

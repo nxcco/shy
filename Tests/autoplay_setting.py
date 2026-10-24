@@ -6,7 +6,7 @@ Build first (`./build.sh`), then `python3 Tests/autoplay_setting.py`. Needs
 ffmpeg for the test video. The app starts hidden in a world of its own (see
 split_view.use), is driven through ./bench's socket and quit; its world is
 removed afterwards. Local pages only. `--app PATH` runs another build (a
-release's Search.app) for the cases a relaunch can show.
+release's Shy.app) for the cases a relaunch can show.
 
 The page holds a muted <video autoplay>, an unmuted one, and two that the
 page's own script starts with play(), no click: one muted, one not. With
@@ -153,7 +153,7 @@ def by_link(tab):
 
 
 def reload(tab):
-    """The tab's next page, loaded as Search loads one. Not location.reload()
+    """The tab's next page, loaded as Shy loads one. Not location.reload()
     from eval: a script the bench runs counts as a click, and the page it
     reloads may play anything."""
     # On screen first: a page out of the window holds every video back,
@@ -235,5 +235,5 @@ def main():
 
 if __name__ == "__main__":
     if sys.platform != "darwin":
-        sys.exit("Tests/autoplay_setting.py requires macOS and a built Search.app")
+        sys.exit("Tests/autoplay_setting.py requires macOS and a built Shy.app")
     sys.exit(main())

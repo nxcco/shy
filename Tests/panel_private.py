@@ -28,7 +28,7 @@ import split_view as sv  # noqa: E402
 
 sv.use("panel-private")
 PICTURES = sys.argv[1] if len(sys.argv) > 1 else None
-work = Path(tempfile.mkdtemp(prefix="search-panelprivate-"))
+work = Path(tempfile.mkdtemp(prefix="shy-panelprivate-"))
 
 PANEL = """<!doctype html><title>The panel</title>
 <p>Panel</p>

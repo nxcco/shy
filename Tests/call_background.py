@@ -91,11 +91,11 @@ sv.BASE = f"http://127.0.0.1:{srv.server_port}"
 
 
 def launch():
-    """sv.launch, with SEARCH_MEASURE: hidden pages slowed as WebKit slows
+    """sv.launch, with SHY_MEASURE: hidden pages slowed as WebKit slows
     them in the shipped browser, which test runs otherwise turn off."""
     if os.path.exists(sv.SOCK): os.remove(sv.SOCK)
     before = sv.running()
-    subprocess.run(["open", "-n", "-g", "-j", "--env", f"SEARCH_PROBE={sv.W}", "--env", "SEARCH_MEASURE=1", sv.APP])
+    subprocess.run(["open", "-n", "-g", "-j", "--env", f"SHY_PROBE={sv.W}", "--env", "SHY_MEASURE=1", sv.APP])
     for _ in range(150):
         if os.path.exists(sv.SOCK): break
         time.sleep(0.1)

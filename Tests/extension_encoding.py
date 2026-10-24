@@ -58,7 +58,7 @@ def main():
     thread.start()
     tabs = []
     try:
-        with tempfile.TemporaryDirectory(prefix="search-encoding-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="shy-encoding-") as temporary:
             folder = Path(temporary).resolve()
             manifest = {
                 "manifest_version": 3, "name": "Script encoding test", "version": "1.0",
@@ -113,13 +113,13 @@ document.documentElement.appendChild(script);
                 sv.cmd({"do": "close", "id": tab})
             tabs.clear()
             sv.quit()
-            (prepared / ".search-shim").write_text("previous-preparation-version")
+            (prepared / ".shy-shim").write_text("previous-preparation-version")
             sv.launch()
             reloaded = until(lambda: sv.cmd({"do": "extensions"}),
                              lambda r: any(e["id"] == extension["id"] and e["loaded"] for e in r["extensions"]))
             checks.ok("the installed extension is prepared and loaded again",
                       any(e["id"] == extension["id"] and e["loaded"] for e in reloaded["extensions"])
-                      and (prepared / ".search-shim").read_text() != "previous-preparation-version", reloaded)
+                      and (prepared / ".shy-shim").read_text() != "previous-preparation-version", reloaded)
             checks.ok("repreparing an installed extension preserves its scripts",
                       all((prepared / name).read_bytes() == content for name, content in before.items()))
     finally:

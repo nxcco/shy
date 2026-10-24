@@ -1,5 +1,5 @@
 (() => {
-  const key = '__searchPortRecoveryFixtureV1';
+  const key = '__shyPortRecoveryFixtureV1';
   const previous = globalThis[key];
   // WebKit reinjects declared content scripts when the extension reloads.
   // A rerun in the same world must retain the actual ports and callbacks.
@@ -8,16 +8,16 @@
     return;
   }
   const element = document.documentElement;
-  const documentID = element.getAttribute('data-search-port-document');
-  const worldReplaced = element.hasAttribute('data-search-port-content-seen');
+  const documentID = element.getAttribute('data-shy-port-document');
+  const worldReplaced = element.hasAttribute('data-shy-port-content-seen');
   const held = [];
   const state = { kind: 'content', instance: Math.random().toString(36).slice(2),
     document: documentID, reinjections: 0, worldReplaced,
     opened: 0, disconnected: 0, replies: 0, ports: [], roundtrips: [], errors: [] };
   const report = (reason, port = null) => {
-    element.setAttribute('data-search-port-fixture', JSON.stringify(state));
+    element.setAttribute('data-shy-port-fixture', JSON.stringify(state));
     // Strings cross isolated-world boundaries without exporting extension APIs.
-    document.dispatchEvent(new CustomEvent('search-port-fixture-report', {
+    document.dispatchEvent(new CustomEvent('shy-port-fixture-report', {
       detail: JSON.stringify({ reason, port, state })
     }));
   };
@@ -32,7 +32,7 @@
     report(worldReplaced ? 'world-replaced' : 'error');
     return;
   }
-  element.setAttribute('data-search-port-content-seen', state.instance);
+  element.setAttribute('data-shy-port-content-seen', state.instance);
   report('boot');
   const fail = error => { state.errors.push(String(error && error.message || error)); report('error'); };
   const send = (token) => {

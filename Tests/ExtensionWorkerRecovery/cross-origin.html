@@ -8,7 +8,7 @@
   const frame = document.createElement('iframe');
   frame.id = 'fixture-child';
   const bridge = { parentOrigin: location.origin, childOrigin, reports: 0, rejected: 0 };
-  globalThis.__searchCrossOriginFixture = bridge;
+  globalThis.__shyCrossOriginFixture = bridge;
   addEventListener('message', event => {
     if (event.source !== frame.contentWindow || event.origin !== childOrigin) { bridge.rejected++; return; }
     const value = event.data;
@@ -16,8 +16,8 @@
     // Relay observations only. The child's real ports, callbacks and independent
     // page audit remain authoritative; the parent never reconstructs counters.
     bridge.reports++;
-    document.documentElement.setAttribute('data-search-port-fixture', JSON.stringify(value.state));
-    globalThis.__searchPortDocumentFixture = value.audit;
+    document.documentElement.setAttribute('data-shy-port-fixture', JSON.stringify(value.state));
+    globalThis.__shyPortDocumentFixture = value.audit;
   });
   for (const id of ['connect-content', 'send-content', 'roundtrip-content']) {
     const button = document.getElementById(id);

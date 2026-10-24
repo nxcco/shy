@@ -8,7 +8,7 @@ forward. The keys go through the window's own key handling with the page
 holding the keyboard (`keyeq`), as a hidden probe has no key window for a
 posted press to reach.
 
-Checked here: ⌘W still closes only the tab; ⇧⌘W is Search's before the
+Checked here: ⌘W still closes only the tab; ⇧⌘W is Shy's before the
 page's; with Close Window moved off its key in Settings › Shortcuts, ⇧⌘W is
 the page's again. Not checked here: the window actually going. Closing is
 `performClose`, the red button's path, and AppKit doesn't close a window
@@ -27,7 +27,7 @@ sv.use("close-window")
 
 
 def w_key():
-    """The key code that types w on this Mac's keyboard layout: Search reads
+    """The key code that types w on this Mac's keyboard layout: Shy reads
     a shortcut by what its key types (13 on QWERTY, 6 on AZERTY)."""
     js = ('ObjC.import("AppKit"); var c = -1; for (var k = 0; k < 51 && c < 0; k++) {'
           ' var e = $.NSEvent.keyEventWithTypeLocationModifierFlagsTimestampWindowNumberContextCharactersCharactersIgnoringModifiersIsARepeatKeyCode('
@@ -73,12 +73,12 @@ def main():
         sv.page("a"); sv.page("b"); sv.page("c")
         before = len(tabs())
         a = press()
-        t.ok("⌘W is Search's", a.get("firstPass") == "search", a)
+        t.ok("⌘W is Shy's", a.get("firstPass") == "shy", a)
         t.ok("⌘W closes one tab", len(tabs()) == before - 1, (before, tabs()))
         t.ok("⌘W leaves the window", len(windows()) == 1, windows())
 
         a = press(shift=True)
-        t.ok("⇧⌘W is Search's, not the page's", a.get("firstPass") == "search", a)
+        t.ok("⇧⌘W is Shy's, not the page's", a.get("firstPass") == "shy", a)
         left = windows()
         t.ok("the app stays up", bool(sv.pids()), sv.pids())
         t.ok("nothing is on screen", not any(w.get("shown") for w in left), left)

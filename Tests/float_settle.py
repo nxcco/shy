@@ -130,7 +130,7 @@ def round_trip(t, out, via):
 
 
 def main():
-    pages = tempfile.mkdtemp(prefix="search-float-settle-")
+    pages = tempfile.mkdtemp(prefix="shy-float-settle-")
     Path(pages, "late.html").write_text(PAGE)
     Path(pages, "other.html").write_text("<!doctype html><meta charset=utf-8><title>other</title><p>another page")
 
@@ -139,7 +139,7 @@ def main():
             pass
     server = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=pages))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    out = tempfile.mkdtemp(prefix="search-float-film-")
+    out = tempfile.mkdtemp(prefix="shy-float-film-")
     t = sv.T()
     try:
         sv.setup(); sv.launch()

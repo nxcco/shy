@@ -22,7 +22,7 @@ import split_view as sv  # noqa: E402
 sv.use("newtab-choice")
 
 t = sv.T()
-work = Path(tempfile.mkdtemp(prefix="search-newtab-"))
+work = Path(tempfile.mkdtemp(prefix="shy-newtab-"))
 def make(name):
     folder = work / name.replace(" ", "")
     folder.mkdir()

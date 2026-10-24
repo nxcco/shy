@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import split_view as sv  # noqa: E402
 
 sv.W = "dark-pages"
-sv.SUPPORT = f"{sv.HOME}/Library/Application Support/Search ({sv.W})"
-sv.SUITE = f"com.officecommun.search.test.{sv.W}"
+sv.SUPPORT = f"{sv.HOME}/Library/Application Support/Shy ({sv.W})"
+sv.SUITE = f"io.github.nxcco.shy.test.{sv.W}"
 sv.SOCK = f"{sv.SUPPORT}/bench.sock"
 SHOTS = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -54,7 +54,7 @@ t = sv.T()
 def tab(id): return next(x for x in sv.cmd({"do": "tabs"})["tabs"] if x["id"] == id)
 def dusked(id): return tab(id)["dusked"]
 def seen(id): return tab(id)["duskNative"]
-def state(id): return sv.cmd({"do": "eval", "id": id, "js": "window.__officeDusk ? window.__officeDusk.state() : null", "world": "search"}).get("value")
+def state(id): return sv.cmd({"do": "eval", "id": id, "js": "window.__officeDusk ? window.__officeDusk.state() : null", "world": "shy"}).get("value")
 def open_(url, **f):
     id = sv.cmd({"do": "open", "url": url, **f})["id"]
     sv.cmd({"do": "wait", "id": id}); time.sleep(0.8)

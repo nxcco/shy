@@ -16,7 +16,7 @@ ordering. These VM checks validate observation mechanics, not native recovery.
 To reproduce the missing notification on upstream main:
 
 ```
-git show 35aa0516fc300031733bb843f334b47baff72232:Sources/Search/ExtensionShims.swift >/tmp/upstream-shim.swift
+git show 35aa0516fc300031733bb843f334b47baff72232:Sources/Shy/ExtensionShims.swift >/tmp/upstream-shim.swift
 node Tests/ExtensionWorkerRecovery/run.js /tmp/upstream-shim.swift
 ```
 
@@ -34,13 +34,13 @@ isolation, late subscribers, and old-worker versus newly waking-port lifetime bi
 ## Live WebKit fixture
 
 After building, run `python3 Tests/ExtensionWorkerRecovery/live.py` on macOS
-15.4 or newer. On Intel, copy `build/intel/Search.app` to `build/Search.app`
+15.4 or newer. On Intel, copy `build/intel/Shy.app` to `build/Shy.app`
 first, as the existing hidden bench harness expects. It creates and removes
 its own disposable profile and serves only the local fixture. The suite has
 an eight-minute deadline plus bounded cleanup. It prints environment/version,
 per-port counts, PASS/FAIL and explicit NOT COVERED entries.
 
-The fixture waits for Search's initial extension scan before admission. Its
+The fixture waits for Shy's initial extension scan before admission. Its
 manifest includes the description WebKit requires, and a native regression
 checks that parsing creates no manifest errors. Earlier fixture versions omitted
 it and exposed a crash while Swift read WebKit's proxy error objects on Intel
@@ -69,7 +69,7 @@ Before opening initial ports, the fixture now requires its worker's one-shot
 `fixture-worker-ready:<bootNonce>` diagnostic after both application listeners
 have registered. Initial echoes must match that nonce. Explicit revives require
 a new readiness nonce before the existing manual fresh connections; old-port
-counts and message-replay checks are unchanged. The diagnostic uses Search's
+counts and message-replay checks are unchanged. The diagnostic uses Shy's
 existing `debug.error` route, so it appears under reported diagnostics; it is
 fixture evidence rather than a native failure. A separate one-shot worker-entry
 note distinguishes code reaching the fixture from completing registration; both
@@ -96,7 +96,7 @@ failed-start wake recovery still require separate checks. Cross-origin child
 frames and actual content-message overlap are now covered as described below.
 
 For manual inspection: Use a disposable
-Search test profile, not a signed-in extension or model service. No model calls
+Shy test profile, not a signed-in extension or model service. No model calls
 are involved. Build with the repository's `./build.sh` instructions.
 
 1. Serve this directory with `python3 -m http.server 8765 --bind 127.0.0.1`.
@@ -104,7 +104,7 @@ are involved. Build with the repository's `./build.sh` instructions.
 2. Open `http://127.0.0.1:8765/site.html` and the extension's `page.html` in a tab.
    Open a **second** copy of `page.html` for the independent recovery requester.
    Each starts one port and receives an echo. Record the html attribute
-   `data-search-port-fixture` in the site and the log in the first extension tab.
+   `data-shy-port-fixture` in the site and the log in the first extension tab.
 3. The “Withhold application replies” button stops application-level replies.
    It does NOT disable the shim's ping and is not evidence of a dead worker.
    Click “Request native recovery” in the second extension tab. Record exactly
@@ -171,7 +171,7 @@ the read-only `_backgroundWebView` getter. Both exist in the
 [March 2025 source](https://github.com/WebKit/WebKit/blob/8b6bee932bfd57c53cbe234e87cb820d8328cff5/Source/WebKit/UIProcess/Extensions/Cocoa/WebExtensionContextCocoa.mm#L3636-L3644)
 and current WebKit. The getter is guarded with `responds(to:)`; the callback
 is optional to WebKit. These are new dependencies for this recovery path,
-although Search already uses guarded private getters and delegate callbacks in
+although Shy already uses guarded private getters and delegate callbacks in
 ExtensionPopup, ExtensionCapture, Inspector and Tab. The callback occurs before
 worker script loading. Views and contexts are held weakly; no delegate, system
 setting or extension permission is changed.

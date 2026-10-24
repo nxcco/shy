@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the Search you already have open, from the shell.
+"""Drive the Shy you already have open, from the shell.
 
     ./bench tabs                       every tab, yours and the bench's
     ./bench find TEXT [next N] [back N] [case] [words]
@@ -21,7 +21,7 @@
     ./bench text ID                    the page's text
     ./bench translate ID [LANG]        Translate Page on a tab → what it measured
     ./bench translate ID original|state|toggle|always LANG|never LANG
-    ./bench eval ID JS [search]        run JavaScript, print what it returns; search: in Search's own world
+    ./bench eval ID JS [shy]           run JavaScript, print what it returns; shy: in Shy's own world
     ./bench click ID SELECTOR
     ./bench type ID SELECTOR TEXT
     ./bench submit ID SELECTOR         the form around SELECTOR
@@ -145,10 +145,10 @@
                                        cards on|off (the page as a card), fullscreen on|off (test run: the
                                        window's full screen as the chrome sees it, the window staying put)
 
-Needs Settings › General › "Let a script drive Search" switched on in the
+Needs Settings › General › "Let a script drive Shy" switched on in the
 running app. IDs are the first characters of a tab's id, as `tabs` prints
-them. With --test, talks to a SEARCH_PROBE run instead of the real one;
-with --world NAME, to a SEARCH_PROBE=NAME run, the world "Search (NAME)".
+them. With --test, talks to a SHY_PROBE run instead of the real one;
+with --world NAME, to a SHY_PROBE=NAME run, the world "Shy (NAME)".
 """
 
 import json
@@ -163,7 +163,7 @@ def clean(text):
     return re.sub(r"[\x00-\x1f\x7f\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", str(text or ""))
 
 def folder(world):
-    name = f"Search ({world})" if world else "Search"
+    name = f"Shy ({world})" if world else "Shy"
     return os.path.expanduser(f"~/Library/Application Support/{name}")
 
 def ask(path, request):
@@ -171,8 +171,8 @@ def ask(path, request):
         try:
             s.connect(path)
         except (FileNotFoundError, ConnectionRefusedError):
-            sys.exit("Search isn't listening — is it open, with Settings › General › "
-                     "“Let a script drive Search” on?")
+            sys.exit("Shy isn't listening — is it open, with Settings › General › "
+                     "“Let a script drive Shy” on?")
         s.sendall((json.dumps(request) + "\n").encode())
         chunks = []
         while True:
@@ -227,9 +227,9 @@ def main(argv):
             else: request["lang"] = args[1]
         if len(args) == 3: request["lang"] = args[2]
     elif verb == "eval":
-        if len(args) not in (2, 3) or (len(args) == 3 and args[2] != "search"): sys.exit("usage: bench eval ID JS [search]")
+        if len(args) not in (2, 3) or (len(args) == 3 and args[2] != "shy"): sys.exit("usage: bench eval ID JS [shy]")
         request["id"], request["js"] = args[0], args[1]
-        if len(args) == 3: request["world"] = "search"
+        if len(args) == 3: request["world"] = "shy"
     elif verb in ("click", "submit", "tap"):
         mods = [a for a in args[2:] if a in ("shift", "cmd", "opt")] if verb == "tap" else []
         if len(args) != 2 + len(mods): sys.exit(f"usage: bench {verb} ID SELECTOR" + (" [shift] [cmd] [opt]" if verb == "tap" else ""))

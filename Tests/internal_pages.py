@@ -42,7 +42,7 @@ def case_open_focus(t):
     t.ok("⌘, opens one Settings tab", len(s) == 1, [x["internal"] for x in tabs()])
     t.ok("…in front", s and active() == s[0]["id"], (active(), s))
     t.ok("…with no web view behind it", s and not s[0]["built"] and not s[0]["blank"], s)
-    t.ok("…with an address of its own", s and s[0]["internal"].startswith("search://settings"), s)
+    t.ok("…with an address of its own", s and s[0]["internal"].startswith("shy://settings"), s)
     t.ok("the probe still says Settings is up", sv.cmd({"do": "probe"}).get("settings") is True)
     settings = s[0]["id"]
     sv.sp("select", id=a); time.sleep(0.5)
@@ -63,10 +63,10 @@ def case_open_focus(t):
         t.ok(f"{k} opens in a tab of its own", len(of(k)) == 1 and active() == of(k)[0]["id"], [x["internal"] for x in tabs()])
     sv.cmd({"do": "ui", "import": "on"}); time.sleep(0.5)
     t.ok("Bring Things Over opens in a tab", len(of("import")) == 1 and active() == of("import")[0]["id"])
-    sv.cmd({"do": "ui", "show": "search://settings/privacy"}); time.sleep(0.6)
+    sv.cmd({"do": "ui", "show": "shy://settings/privacy"}); time.sleep(0.6)
     s = of("settings")
-    t.ok("search://settings/privacy goes to the open Settings tab, at Privacy",
-         len(s) == 1 and active() == s[0]["id"] and s[0]["internal"] == "search://settings/privacy", s)
+    t.ok("shy://settings/privacy goes to the open Settings tab, at Privacy",
+         len(s) == 1 and active() == s[0]["id"] and s[0]["internal"] == "shy://settings/privacy", s)
     # ⌘W closes the tab in front, and only it.
     before = [x["id"] for x in tabs()]
     press(W, "w", "cmd")
@@ -81,7 +81,7 @@ def case_blank_and_private(t):
     blank = active()
     t.ok("starts on an empty tab", one(blank)["blank"], tabs())
     press(COMMA, ",", "cmd")
-    t.ok("⌘, on an empty tab: that tab becomes Settings", len(tabs()) == 1 and one(blank)["internal"].startswith("search://settings"), tabs())
+    t.ok("⌘, on an empty tab: that tab becomes Settings", len(tabs()) == 1 and one(blank)["internal"].startswith("shy://settings"), tabs())
     sv.sp("private"); time.sleep(0.5)
     shy = active()
     t.ok("a private tab in front", one(shy)["shy"] and one(shy)["blank"])
@@ -100,20 +100,20 @@ def case_back_forward(t):
     sv.page("a")
     press(Y, "y", "cmd")
     h = of("history")[0]["id"]
-    sv.cmd({"do": "ui", "show": "search://downloads"}); time.sleep(0.5)
+    sv.cmd({"do": "ui", "show": "shy://downloads"}); time.sleep(0.5)
     d = of("downloads")[0]["id"]
     t.ok("a third kind: a tab of its own", d != h)
     # In-page links: Settings › Passwords… goes in the same tab (lead).
     sv.cmd({"do": "ui", "settings": True}); time.sleep(0.5)
     s = of("settings")[0]["id"]
     sv.cmd({"do": "ui", "lead": "passwords"}); time.sleep(0.5)
-    t.ok("Settings › Passwords…: the same tab goes to Passwords", one(s)["internal"] == "search://passwords" and not of("settings"), one(s))
+    t.ok("Settings › Passwords…: the same tab goes to Passwords", one(s)["internal"] == "shy://passwords" and not of("settings"), one(s))
     t.ok("…and can go back", one(s)["canBack"])
     press(LBRACKET, "[", "cmd")
-    t.ok("⌘[ comes back to Settings", one(s)["internal"].startswith("search://settings"), one(s))
+    t.ok("⌘[ comes back to Settings", one(s)["internal"].startswith("shy://settings"), one(s))
     t.ok("…and can go forward", one(s)["canForward"])
     press(RBRACKET, "]", "cmd")
-    t.ok("⌘] goes to Passwords again", one(s)["internal"] == "search://passwords")
+    t.ok("⌘] goes to Passwords again", one(s)["internal"] == "shy://passwords")
     press(LBRACKET, "[", "cmd")
     # Onto the web from Settings, as a typed address does, then Back.
     sv.cmd({"do": "ui", "go": f"{sv.BASE}/web"}); time.sleep(1.2)
@@ -123,22 +123,22 @@ def case_back_forward(t):
     press(LBRACKET, "[", "cmd")
     x = one(s)
     t.ok("Back from the first web page: Settings again, the web view let go",
-         x["internal"].startswith("search://settings") and not x["built"], x)
+         x["internal"].startswith("shy://settings") and not x["built"], x)
 
 
 def case_restore(t):
     """kept in the session, back after a relaunch"""
     sv.setup(); sv.launch()
     sv.page("a")
-    sv.cmd({"do": "ui", "show": "search://settings/privacy"}); time.sleep(0.6)
+    sv.cmd({"do": "ui", "show": "shy://settings/privacy"}); time.sleep(0.6)
     sv.cmd({"do": "ui", "history": True}); time.sleep(0.6)
     sv.quit(); time.sleep(1)
     urls = [e["url"] for e in sv.session()["tabs"]]
-    t.ok("the session keeps them by address", "search://settings/privacy" in urls and "search://history" in urls, urls)
+    t.ok("the session keeps them by address", "shy://settings/privacy" in urls and "shy://history" in urls, urls)
     sv.launch()
     k = [x["internal"] for x in tabs()]
-    t.ok("relaunched: Settings at Privacy and History come back", "search://settings/privacy" in k and "search://history" in k, k)
-    t.ok("…History in front, as it was", one(active())["internal"] == "search://history")
+    t.ok("relaunched: Settings at Privacy and History come back", "shy://settings/privacy" in k and "shy://history" in k, k)
+    t.ok("…History in front, as it was", one(active())["internal"] == "shy://history")
     t.ok("…with no web view built for either", all(not x["built"] for x in tabs() if x["internal"]))
 
 
@@ -151,7 +151,7 @@ def case_split(t):
     sv.sp("pair", id=s, **{"with": a}, side="right"); time.sleep(0.8)
     x = st()
     t.ok("Settings pairs with a web page", x["splits"] and set(x["splits"][0]["tabs"]) == {a, s}, x["splits"])
-    t.ok("…and is still Settings, with no web view", one(s)["internal"].startswith("search://settings") and not one(s)["built"])
+    t.ok("…and is still Settings, with no web view", one(s)["internal"].startswith("shy://settings") and not one(s)["built"])
     sv.sp("select", id=a); time.sleep(0.4)
     press(COMMA, ",", "cmd")
     x = st()

@@ -28,15 +28,15 @@ function documentFixture() {
       listeners.get(name).push(listener);
     },
     dispatchEvent(value) {
-      if (value.type === 'search-port-fixture-report') payloads.push(value.detail);
+      if (value.type === 'shy-port-fixture-report') payloads.push(value.detail);
       for (const listener of [...(listeners.get(value.type) || [])]) listener(value);
     },
   };
   const page = vm.createContext({ document, performance: { timeOrigin: 12345 } });
   vm.runInContext(siteSource, page);
   return { document, page, listeners, payloads,
-    audit: () => plain(page.__searchPortDocumentFixture),
-    state: () => JSON.parse(attributes.get('data-search-port-fixture')) };
+    audit: () => plain(page.__shyPortDocumentFixture),
+    state: () => JSON.parse(attributes.get('data-shy-port-fixture')) };
 }
 function contentWorld(fixture, ports) {
   const runtime = { connect() {
@@ -70,12 +70,12 @@ const click = (fixture, id, token) => fixture.document.dispatchEvent({ type: 'cl
     assert.equal(fixture.state().instance, originalInstance);
     assert.equal(fixture.state().reinjections, 2);
     assert.equal(fixture.state().replies, 1);
-    assert.equal(world.__searchPortRecoveryFixtureV1.held[0], ports[0]);
+    assert.equal(world.__shyPortRecoveryFixtureV1.held[0], ports[0]);
     assert.equal(fixture.audit().counts.reinjection, 2);
   });
   test('DOM or page audit data never reconstructs isolated port counters', () => {
-    fixture.document.documentElement.setAttribute('data-search-port-fixture', '{"opened":999}');
-    fixture.page.__searchPortDocumentFixture.instances[originalInstance].opened = 888;
+    fixture.document.documentElement.setAttribute('data-shy-port-fixture', '{"opened":999}');
+    fixture.page.__shyPortDocumentFixture.instances[originalInstance].opened = 888;
     inject(world);
     assert.equal(fixture.state().opened, 1);
     assert.equal(fixture.audit().instances[originalInstance].opened, 1);
@@ -115,7 +115,7 @@ const click = (fixture, id, token) => fixture.document.dispatchEvent({ type: 'cl
     assert.equal(Object.keys(fixture.audit().instances).length, 2);
   });
   test('serialized observations expose no isolated fixture closures or ports', () => {
-    assert.equal(fixture.page.__searchPortRecoveryFixtureV1, undefined);
+    assert.equal(fixture.page.__shyPortRecoveryFixtureV1, undefined);
     for (const payload of fixture.payloads) {
       assert.equal(typeof payload, 'string');
       const record = JSON.parse(payload);
@@ -153,7 +153,7 @@ const click = (fixture, id, token) => fixture.document.dispatchEvent({ type: 'cl
       } },
       onMessage: { addListener() { order.push('message'); } },
       sendNativeMessage(host, payload) {
-        assert.equal(host, 'search'); assert.equal(payload.api, 'debug.error');
+        assert.equal(host, 'shy'); assert.equal(payload.api, 'debug.error');
         const [phase, nonce] = payload.args[0].split(':');
         assert.match(nonce, /^[0-9]+-[a-z0-9]+$/);
         if (phase === 'fixture-worker-ready') assert.deepEqual(order, ['connect', 'message']);

@@ -63,7 +63,7 @@ def wander(to):
 
 
 def pin_by_hand(home):
-    """A pin of your own, not from Arc, as if pinned in Search before."""
+    """A pin of your own, not from Arc, as if pinned in Shy before."""
     path = f"{sv.SUPPORT}/pins.json"
     kept = json.load(open(path))
     row = next(iter(kept.values()))

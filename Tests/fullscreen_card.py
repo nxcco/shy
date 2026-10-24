@@ -4,7 +4,7 @@ in a hidden probe.
 
 Build first (`./build.sh`), then `python3 Tests/fullscreen_card.py`.
 Nothing goes full screen: the page's own word that it is going, and that it
-is back (Forms.swift, "fullscreen"), is sent from Search's world, as in
+is back (Forms.swift, "fullscreen"), is sent from Shy's world, as in
 full_screen_chrome.py. With Split View on, the pages' frames from the full
 screen used to hold the stage at the whole window's width afterwards, and
 the window's content, too wide, was centred in the window: the column cut
@@ -25,7 +25,7 @@ sv.use("fullscreen-card")
 
 
 def immerse(tab, on):
-    sv.cmd({"do": "eval", "id": tab, "world": "search",
+    sv.cmd({"do": "eval", "id": tab, "world": "shy",
             "js": f"window.webkit.messageHandlers.officeForms.postMessage({{kind: 'fullscreen', on: {'true' if on else 'false'}}}); 1"})
     time.sleep(1.5)
 

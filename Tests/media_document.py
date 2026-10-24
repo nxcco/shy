@@ -10,7 +10,7 @@ only.
 A download site's "Download 1920x1080: mp4" link opens the .mp4 itself in
 a new tab, on another site (video.twimg.com). WebKit shows a file like that
 in its own player, and ends the page's load with "Plug-in handled load"
-(WebKitErrorDomain 204), which is how that looks, not a failure. Search
+(WebKitErrorDomain 204), which is how that looks, not a failure. Shy
 took it for one and covered the playing video with "The page didn't load"
 (18 Oct 2026). A file the server calls an attachment still downloads, and
 a video that truly can't be reached still says so.
@@ -187,5 +187,5 @@ def main():
 
 if __name__ == "__main__":
     if sys.platform != "darwin":
-        sys.exit("Tests/media_document.py requires macOS and a built Search.app")
+        sys.exit("Tests/media_document.py requires macOS and a built Shy.app")
     sys.exit(main())

@@ -3,7 +3,7 @@
   const state = { kind: 'extension-page', instance: Math.random().toString(36).slice(2),
     opened: 0, disconnected: 0, replies: 0, ports: [], native: [], roundtrips: [], errors: [] };
   const log = message => { document.querySelector('#log').textContent += JSON.stringify(message) + '\n'; };
-  const report = () => document.documentElement.setAttribute('data-search-port-fixture', JSON.stringify(state));
+  const report = () => document.documentElement.setAttribute('data-shy-port-fixture', JSON.stringify(state));
   const fail = error => { const message = String(error && error.message || error); state.errors.push(message); log({ error: message }); report(); };
   const send = message => {
     try {
@@ -47,7 +47,7 @@
   for (const action of ['wake', 'revive']) button(action, token => {
     const record = { token, action, status: 'pending', startedAt: Date.now() };
     state.native.push(record); report();
-    Promise.resolve().then(() => chrome.runtime.sendNativeMessage('search', { api: 'background.' + action, args: [] }))
+    Promise.resolve().then(() => chrome.runtime.sendNativeMessage('shy', { api: 'background.' + action, args: [] }))
       .then(reply => { if (reply?.error) throw new Error(reply.error); return reply?.value; })
       .then(value => { record.status = 'fulfilled'; record.value = value ?? null; },
         error => { record.status = 'rejected'; record.error = String(error); })

@@ -2,7 +2,7 @@
 """Per-extension private consent, checked in a hidden, isolated probe.
 
 Build first (`./build.sh`), then `python3 Tests/private_extensions.py`.
-Content scripts, blocking rules, native WebKit APIs and Search's shims must
+Content scripts, blocking rules, native WebKit APIs and Shy's shims must
 all respect the same consent, including IDs cached before revocation.
 """
 import json
@@ -63,7 +63,7 @@ MARKS = "[document.title, document.documentElement.getAttribute('data-marked'), 
 
 
 # From an extension page, call WebKit's original prototype methods as well
-# as the public methods patched by Search. A shim must not hide a native leak.
+# as the public methods patched by Shy. A shim must not hide a native leak.
 BOOT = """window.nativeAPI = (space, method, args) => {
   for (let p = Object.getPrototypeOf(chrome[space]); p; p = Object.getPrototypeOf(p)) {
     const d = Object.getOwnPropertyDescriptor(p, method);
@@ -72,7 +72,7 @@ BOOT = """window.nativeAPI = (space, method, args) => {
   throw new Error('Missing native API: ' + space + '.' + method);
 };
 window.native = async (api, args) => {
-  const r = await chrome.runtime.sendNativeMessage('search', {api, args});
+  const r = await chrome.runtime.sendNativeMessage('shy', {api, args});
   if (r && r.error) throw new Error(r.error);
   return r && r.value;
 };
@@ -361,7 +361,7 @@ def main():
             """)
             t.ok("normal native mutations still work", got["ok"] and abs(got["value"] - 1.2) < 0.01, got)
             # WebKit exposes an unimplemented public tabs.move stub on some
-            # releases. Exercise Search's existing handlers directly as well.
+            # releases. Exercise Shy's existing handlers directly as well.
             target = by_url(queries(a)["native"], "ordinary")
             run(a, f"await native('tabs.move', [{{i: {target['index']}}}, 0]);")
             moved = by_url(queries(a)["native"], "ordinary")

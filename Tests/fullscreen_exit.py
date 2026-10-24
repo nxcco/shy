@@ -30,7 +30,7 @@ import split_view as sv  # noqa: E402
 
 sv.use("fullscreen-exit")
 VERBOSE = "-v" in sys.argv
-work = Path(tempfile.mkdtemp(prefix="search-fsexit-"))
+work = Path(tempfile.mkdtemp(prefix="shy-fsexit-"))
 
 
 def layouts(tab, on, seconds=1.2):

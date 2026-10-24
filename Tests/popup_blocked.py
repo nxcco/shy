@@ -114,7 +114,7 @@ def main():
         made = opened("auto")
         t.ok("Open makes exactly one tab", len(tabs()) == before + 1 and len(made) == 1, (before, len(tabs())))
         t.ok("at the address WebKit gave", st.get("opened", {}).get("url") == f"{SITE}/opened-auto", st)
-        t.ok("with no opener in Search", st.get("openedOpener") == "", st)
+        t.ok("with no opener in Shy", st.get("openedOpener") == "", st)
         t.ok("and none in the page", made and sv.ev(made[0]["id"], "window.opener === null") is True)
         t.ok("in front", made and made[0]["active"] is True)
         t.ok("the sign goes once nothing is left", state(page)["sign"] is False)

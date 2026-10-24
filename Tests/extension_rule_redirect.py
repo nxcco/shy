@@ -3,11 +3,11 @@
 as Norma sends a blocked site to its block page — in a hidden probe.
 
 Build first (`./build.sh`), then `python3 Tests/extension_rule_redirect.py`.
-It runs a copy of build/Search.app under a bundle id of its own, in a world
+It runs a copy of build/Shy.app under a bundle id of its own, in a world
 of its own with split_view.py's harness, started hidden; the copy, its
 WebKit folders and the world are removed afterwards.
 
-Norma showed Search's "No connection." instead of its page. Its rule asks
+Norma showed Shy's "No connection." instead of its page. Its rule asks
 only "declarativeNetRequest", and WebKit carries out a redirect only for
 "declarativeNetRequestWithHostAccess", so the site went to the network,
 where Norma's Mac filter dropped it. Then WebKit's redirect lands in the
@@ -48,8 +48,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import split_view as sv  # noqa: E402
 
 sv.use("sec-dnr-rule-redirect")
-BUNDLE = "com.officecommun.search.ruleredirect"
-work = Path(tempfile.mkdtemp(prefix="search-ruleredirect-"))
+BUNDLE = "io.github.nxcco.shy.ruleredirect"
+work = Path(tempfile.mkdtemp(prefix="shy-ruleredirect-"))
 PORT = sv.srv.server_port
 
 FILES = {
@@ -135,12 +135,12 @@ sv.srv.RequestHandlerClass = CSP
 
 
 def probe_copy():
-    """build/Search.app under a bundle id of its own, signed ad hoc."""
-    app = work / "Search.app"
-    shutil.copytree(Path(sv.ROOT, "build", "Search.app"), app, symlinks=True)
+    """build/Shy.app under a bundle id of its own, signed ad hoc."""
+    app = work / "Shy.app"
+    shutil.copytree(Path(sv.ROOT, "build", "Shy.app"), app, symlinks=True)
     subprocess.run(["/usr/libexec/PlistBuddy", "-c", f"Set :CFBundleIdentifier {BUNDLE}", str(app / "Contents/Info.plist")], check=True)
     (app / "Contents/embedded.provisionprofile").unlink(missing_ok=True)
-    subprocess.run(["codesign", "-f", "-s", "-", "--entitlements", str(Path(sv.ROOT, "Search.entitlements")), "--deep", str(app)],
+    subprocess.run(["codesign", "-f", "-s", "-", "--entitlements", str(Path(sv.ROOT, "Shy.entitlements")), "--deep", str(app)],
                    check=True, capture_output=True)
     return str(app)
 

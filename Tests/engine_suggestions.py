@@ -161,7 +161,7 @@ def main():
         # Nothing that looks like an address, a file, an email, a key or a paragraph.
         before = count()
         for text in ["https://example.com/private?token=1", "example.com", "localhost:3000", "192.168.1.1",
-                     "/Users/drice/Documents/taxes.pdf", "~/Desktop/notes.txt", "drice@officecommun.com",
+                     "/Users/drice/Documents/taxes.pdf", "~/Desktop/notes.txt", "drice@example.com",
                      "gh" + "p_0000Fake1111Token2222Shape3333Only44", "hunter2hunter2x", "4111111111111111",
                      "javascript:alert(1)", "mailto:someone@example.com", "word " * 17]:
             field(text)

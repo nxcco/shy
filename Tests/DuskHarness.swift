@@ -8,7 +8,7 @@ import WebKit
 //
 // The page script is read out of Dusk.swift, with the colour engine from
 // DuskColours.swift in its slot, so this runs what ships.
-// Each fixture is loaded in a dark web view, as Search's are while its frame
+// Each fixture is loaded in a dark web view, as Shy's are while its frame
 // is dark, with the script put in before the document as Tab.arm puts it;
 // then what the page measured and whether it was darkened are checked. With
 // a folder named, a PNG of each page goes there, to look at by eye.
@@ -45,7 +45,7 @@ private final class DuskHarness: NSObject, NSApplicationDelegate, WKScriptMessag
         var served = false
     }
 
-    private static let world = WKContentWorld.world(name: "Search")
+    private static let world = WKContentWorld.world(name: "Shy")
     private var failures = 0
     private var told: [[String: Any]] = []
     /// As DuskRelay keeps them: the frames that asked, and whether the page
@@ -305,7 +305,7 @@ private final class DuskHarness: NSObject, NSApplicationDelegate, WKScriptMessag
 
     private static func constant(_ name: String, in file: String) -> String {
         let here = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let source = (try? String(contentsOf: here.appendingPathComponent("../Sources/Search/" + file), encoding: .utf8)) ?? ""
+        let source = (try? String(contentsOf: here.appendingPathComponent("../Sources/Shy/" + file), encoding: .utf8)) ?? ""
         guard let start = source.range(of: name + " = #\"\"\"\n"),
               let end = source.range(of: "\"\"\"#", range: start.upperBound..<source.endIndex) else {
             print("FAIL no \(name) in \(file)"); exit(1)

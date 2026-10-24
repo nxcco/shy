@@ -5,9 +5,9 @@
   // Only serialized fixture observations enter this log, never extension APIs.
   const audit = { document: Date.now() + '-' + Math.random().toString(36).slice(2),
     timeOrigin: performance.timeOrigin, observations: 0, counts: {}, instances: {}, events: [], omittedEvents: 0, errors: [] };
-  globalThis.__searchPortDocumentFixture = audit;
-  document.documentElement.setAttribute('data-search-port-document', audit.document);
-  document.addEventListener('search-port-fixture-report', event => {
+  globalThis.__shyPortDocumentFixture = audit;
+  document.documentElement.setAttribute('data-shy-port-document', audit.document);
+  document.addEventListener('shy-port-fixture-report', event => {
     try {
       const { reason, port, state } = JSON.parse(event.detail);
       if (!state || state.kind !== 'content' || state.document !== audit.document || typeof state.instance !== 'string') {
@@ -31,9 +31,9 @@
 (() => {
   if (parent === window) return;
   const expectedParent = `http://localhost:${location.port}`;
-  document.addEventListener('search-port-fixture-report', event => {
+  document.addEventListener('shy-port-fixture-report', event => {
     parent.postMessage({ kind: 'child-port-observation', state: JSON.parse(event.detail).state,
-      audit: globalThis.__searchPortDocumentFixture }, expectedParent);
+      audit: globalThis.__shyPortDocumentFixture }, expectedParent);
   });
   addEventListener('message', event => {
     if (event.source !== parent || event.origin !== expectedParent) return;

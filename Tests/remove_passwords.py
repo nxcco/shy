@@ -4,7 +4,7 @@
 Build first (`./build.sh`), then `python3 Tests/remove_passwords.py`. It uses
 the split suite's harness: started hidden, no window made or shown, everything
 removed afterwards. The accounts are made up and kept under this test world's
-own label ("Search (remove-passwords-<checkout>)"), never among the ones Search keeps for
+own label ("Shy (remove-passwords-<checkout>)"), never among the ones Shy keeps for
 the person. Anything a crashed run left under that label is removed first,
 and the last step removes whatever is left of this run's.
 """
@@ -23,7 +23,7 @@ import split_view as sv  # noqa: E402
 sv.use("remove-passwords")
 
 t = sv.T()
-LABEL = f"Search ({sv.W})"  # Vault's label in this world
+LABEL = f"Shy ({sv.W})"  # Vault's label in this world
 
 def sweep():
     """Leftovers of a run that crashed before its cleanup: this world's own

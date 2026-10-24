@@ -28,7 +28,7 @@ enum AddressCommand {
 
 enum Store {
     private static let testRoot: URL = {
-        guard let path = ProcessInfo.processInfo.environment["SEARCH_HISTORY_TEST_ROOT"] else {
+        guard let path = ProcessInfo.processInfo.environment["SHY_HISTORY_TEST_ROOT"] else {
             fatalError("Run through Tests/HistoryRegression/run.sh to isolate history storage")
         }
         return URL(fileURLWithPath: path, isDirectory: true)
@@ -64,5 +64,5 @@ enum Disk {
     }
 }
 
-/// Address.swift names Search's own pages' scheme (see InternalPages.swift).
-enum InternalPage { static let scheme = "search" }
+/// Address.swift names Shy's own pages' scheme (see InternalPages.swift).
+enum InternalPage { static let scheme = "shy" }

@@ -1,4 +1,4 @@
-// Ordinary extension code, without overriding any WebKit or Search API. The
+// Ordinary extension code, without overriding any WebKit or Shy API. The
 // shim's ping listener is untouched. Withholding application replies is NOT
 // evidence of an unresponsive shim ping or a genuinely dead worker.
 const worker = Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -6,7 +6,7 @@ const reportWorker = phase => {
   // Defer native IPC until this startup task completes. An entry note still
   // runs if listener registration throws; only successful registration can
   // schedule the ready note below. Neither note affects the worker's listeners.
-  Promise.resolve().then(() => chrome.runtime.sendNativeMessage('search', {
+  Promise.resolve().then(() => chrome.runtime.sendNativeMessage('shy', {
     api: 'debug.error', args: ['fixture-worker-' + phase + ':' + worker]
   })).then(reply => {
     if (reply?.error) throw new Error(reply.error);

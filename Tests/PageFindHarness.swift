@@ -3,8 +3,8 @@ import Darwin
 import Foundation
 import WebKit
 
-/// Search's own world, as the app defines it (Web.swift).
-enum Web { @MainActor static let world = WKContentWorld.world(name: "Search") }
+/// Shy's own world, as the app defines it (Web.swift).
+enum Web { @MainActor static let world = WKContentWorld.world(name: "Shy") }
 
 @MainActor
 private final class PageFindHarness: NSObject, NSApplicationDelegate {
@@ -134,7 +134,7 @@ private final class PageFindHarness: NSObject, NSApplicationDelegate {
         let wrapsForward = await update("orchid")
         expect(wrapsForward, count: 17, index: 1, "Next wraps from the last hit to the first")
         let painted = (try? await evaluate(
-            "[CSS.highlights.get('search-find-match')?.size ?? 0, CSS.highlights.get('search-find-current')?.size ?? 0]"
+            "[CSS.highlights.get('shy-find-match')?.size ?? 0, CSS.highlights.get('shy-find-current')?.size ?? 0]"
         )) as? [Int]
         check((painted?[0] ?? 0) > 1 && painted?[1] == 1, "Matches are painted, the current one on its own (got \(painted ?? []))")
 
@@ -189,12 +189,12 @@ private final class PageFindHarness: NSObject, NSApplicationDelegate {
         })()
         """)
         let frameHit = await update("frameword")
-        expect(frameHit, count: 1, index: 1, "Search includes a same-origin iframe")
+        expect(frameHit, count: 1, index: 1, "Shy includes a same-origin iframe")
         let frameSelected = (try? await evaluate("document.querySelector('#frame').contentWindow.getSelection().toString()")) as? String
         check(frameSelected == "frameword", "The current iframe match is selected in its own frame")
 
         let mainHit = await update("farendword")
-        expect(mainHit, count: 1, index: 1, "Search can move from an iframe hit back to the main document")
+        expect(mainHit, count: 1, index: 1, "Shy can move from an iframe hit back to the main document")
         let restoredFrame = (try? await evaluate("document.querySelector('#frame').contentWindow.getSelection().toString()")) as? String
         let mainSelected = (try? await evaluate("window.getSelection().toString()")) as? String
         check(restoredFrame == "originalframe", "Moving out of the frame restores its prior selection")
