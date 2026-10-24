@@ -25,8 +25,14 @@ TARGET="/Applications/Shy.app"
 
 APP="build/Shy.app"
 codesign --verify --strict --deep "$APP"
-signed="$(codesign -dv "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
-[ "$signed" = "$SIGNER" ] || { echo "build/Shy.app is signed by \"${signed:-nobody}\", not \"$SIGNER\" — not installing" >&2; exit 1; }
+# Signed by that certificate: a certificate of your own names no authority
+# macOS knows, so the check is the certificate itself — its hash, which the
+# app's designated requirement carries, and which stays the same build after
+# build.
+want="$(security find-certificate -c "$SIGNER" -Z 2>/dev/null | awk '/SHA-1 hash/ { print tolower($3); exit }')"
+[ -n "$want" ] || { echo "no \"$SIGNER\" certificate in the keychain — not installing an ad-hoc build" >&2; exit 1; }
+codesign -d -r- "$APP" 2>&1 | grep -q "certificate leaf = H\"$want\"" \
+  || { echo "build/Shy.app is not signed by \"$SIGNER\" — not installing" >&2; exit 1; }
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "$ID" ]
 
 # Only ever Shy in its place: something else at that path is left alone.
