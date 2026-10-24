@@ -48,7 +48,7 @@ struct TabBar: View {
                     // The space on screen, first, when there are spaces.
                     // Above the tabs, for the name it shows over them a moment
                     // after a switch.
-                    if browser.prefs.usesSpaces { SpaceDot(browser: browser).zIndex(1) }
+                    SpaceDot(browser: browser).zIndex(1)
 
                     // The tabs, in a run of their own. While they fit, it is
                     // exactly as wide as they are and nothing about the row
@@ -196,7 +196,7 @@ struct TabBar: View {
 
     // MARK: - the spaces, one above the other
 
-    private var making: Bool { browser.prefs.usesSpaces && browser.makingSpace }
+    private var making: Bool { browser.makingSpace }
 
     /// Where the space on screen sits among them: one past the last while
     /// the row for a new one is up.
@@ -397,7 +397,7 @@ struct TabBar: View {
     }
 
     /// What the space's dot takes before the tabs, when there are spaces.
-    private var dot: CGFloat { browser.prefs.usesSpaces ? SpaceDot.width + Metrics.tabGap : 0 }
+    private var dot: CGFloat { SpaceDot.width + Metrics.tabGap }
 
     /// Every loose tab is the same width, so the cross is always in the same
     /// place. Past a dozen or so they start giving ground; too narrow for a
@@ -1221,15 +1221,13 @@ struct TabMenu: View {
             } else {
                 Button("Change Letter") { browser.editLetter(tab) }
             }
-            if browser.prefs.showsSharedPins {
-                Button(tab.everywhere ? "Only in This Space" : "Keep in Every Space") {
-                    if tab.everywhere { browser.keepHere(tab) } else { browser.shareEverywhere(tab) }
-                }
+            Button(tab.everywhere ? "Only in This Space" : "Keep in Every Space") {
+                if tab.everywhere { browser.keepHere(tab) } else { browser.shareEverywhere(tab) }
             }
             Button("Unpin") { browser.unpin(tab) }
         }
         // A shared pin is in every space already: nowhere to move it.
-        if browser.prefs.usesSpaces, !tab.bench, !tab.everywhere,
+        if !tab.bench, !tab.everywhere,
            tab.address.flatMap({ Browser.extensionHost(of: $0) }) == nil {
             Menu("Move to Space") {
                 ForEach(browser.spaces.filter { $0.id != browser.spaceID }) { space in

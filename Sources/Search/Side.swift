@@ -768,7 +768,7 @@ private struct SideFoot: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            if prefs.usesSpaces { SpaceDot(browser: browser) }
+            SpaceDot(browser: browser)
             ExtensionSlot(edge: .trailing, room: room)
             BookmarkDoor(browser: browser, arrowEdge: .trailing)
             // Only while a download is running, and a moment after.
@@ -783,8 +783,7 @@ private struct SideFoot: View {
     /// is 26 points, with 2 between them.
     private var room: Int {
         let door: CGFloat = 26 + 2
-        var kept = 2  // the puzzle and bookmarks
-        if prefs.usesSpaces { kept += 1 }
+        var kept = 3  // the puzzle, bookmarks and the space
         if FetchDoor.shows(fetches, prefs) { kept += 1 }
         let free = prefs.sideWidth - 2 * 10 + 2 - CGFloat(kept) * door
         return max(0, Int((free / door).rounded(.down)))

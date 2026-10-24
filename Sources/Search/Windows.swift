@@ -480,6 +480,6 @@ extension Browser {
     /// does, and the space when there are spaces.
     var windowName: String {
         let page = active.map { $0.isBlank ? "New Tab" : $0.label } ?? "Window"
-        return prefs.usesSpaces ? "\(page) — \(space.name)" : page
+        return "\(page) — \(space.name)"
     }
 }

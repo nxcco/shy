@@ -148,7 +148,7 @@ struct GroupHeading: View {
             Button(group.collapsed ? "Expand Group" : "Collapse Group") { browser.toggleTabGroup(group.id) }
             // The whole group into another space, still a group there: Arc's
             // folders came in wherever Arc had them.
-            if browser.prefs.usesSpaces, browser.spaces.count > 1 {
+            if browser.spaces.count > 1 {
                 Menu("Move Group to Space") {
                     ForEach(browser.spaces.filter { $0.id != browser.spaceID }) { space in
                         Button {

@@ -482,11 +482,6 @@ final class Preferences: ObservableObject {
             if installsUpdates { Updater.shared.install() }
         }
     }
-    /// Separate sets of tabs, each with its own sign-ins (see Spaces.swift).
-    /// Off unless asked for.
-    @Published var usesSpaces: Bool {
-        didSet { store.set(usesSpaces, forKey: "spaces") }
-    }
     /// Pins behave as Arc's (see Tab.listed, Peek.swift): squares for the
     /// sites you live in, rows under them for pages you keep, a line with
     /// Clear above the tabs that come and go; a link to another site opens
@@ -494,10 +489,6 @@ final class Preferences: ObservableObject {
     /// pinned. Rows only with the tabs down the side: across the top every
     /// pin is a square.
     var showsPinRows: Bool { sidebar }
-    /// Pins every space shows above its own, as Arc's favourites sit above
-    /// every space (see Pins.shared): with Spaces on. Off, they wait in
-    /// pins.json for Spaces to come back.
-    var showsSharedPins: Bool { usesSpaces }
     /// The AI add-on: summaries of the page and questions about it (see
     /// AIAssist). Off unless asked for; nothing is sent until you ask.
     @Published var ai: Bool {
@@ -641,7 +632,6 @@ final class Preferences: ObservableObject {
         // Anyone who already has a session was here before the welcome
         // existed; they are not asked to sit through it.
         welcomed = store.bool(forKey: "welcomed") || store.object(forKey: "glyph") != nil
-        usesSpaces = store.bool(forKey: "spaces")
         ai = AI.shipped && store.bool(forKey: "ai")
         aiProvider = store.string(forKey: "ai.provider").flatMap(AIProvider.init(rawValue:))
         aiModels = store.dictionary(forKey: "ai.models") as? [String: String] ?? [:]
@@ -687,7 +677,7 @@ final class Preferences: ObservableObject {
         // tab groups, Split View, pins as in Arc, and the rest.
         for key in ["tabs.groups", "splitView", "panel.sites", "tabs.keepAwake", "pins.shared",
                     "links.show", "swipe.history", "switcher.keys", "tabs.shortcuts", "float.flicks",
-                    "commandbar", "search.sites", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
+                    "commandbar", "search.sites", "spaces", "pins.list", "pins.home", "pins.numberBack", "pins.peek"] {
             store.removeObject(forKey: key)
         }
         // Left behind by an assistant this browser no longer has.

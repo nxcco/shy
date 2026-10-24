@@ -233,13 +233,12 @@ extension Browser {
 
     /// Where a download lands: the space's folder, or the one in Settings.
     var downloadsFolder: URL {
-        guard prefs.usesSpaces, let path = space.downloads else { return prefs.downloads }
+        guard let path = space.downloads else { return prefs.downloads }
         return URL(fileURLWithPath: path)
     }
 
     /// ⌃1–⌃9, and the menu on the space's dot.
     func switchSpace(to id: UUID) {
-        guard prefs.usesSpaces else { return }
         enter(id)
     }
 
@@ -389,14 +388,6 @@ extension Browser {
         // A space signed in with the others has nothing of its own to erase:
         // its cookies are theirs.
         if !shared { Spaces.erase(id) }
-    }
-
-    /// Spaces turned off: back to the first one. The others are kept, in
-    /// case they are turned on again.
-    func leaveSpaces() {
-        enter(Space.firstID)
-        for (_, row) in parked { for tab in row.tabs { tab.close() } }
-        parked = [:]
     }
 }
 

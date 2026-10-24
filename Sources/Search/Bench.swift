@@ -1275,7 +1275,7 @@ final class Bench {
                     let (spaces, pins, tabs) = browser.takeArc(sidebar, from: source, profile: profile)
                     ImportRecords.note(source.name, spaces: spaces, pinned: pins + tabs)
                     out["arc"] = ["spaces": spaces, "pins": pins, "tabs": tabs,
-                                  "names": browser.spaces.map(\.name), "usesSpaces": browser.prefs.usesSpaces]
+                                  "names": browser.spaces.map(\.name), "usesSpaces": true]
                 } else {
                     out["arc"] = "no Arc sidebar"
                 }
@@ -2837,7 +2837,7 @@ final class Bench {
             default: break
             }
             let out: [String: Any] = [
-                "on": browser.prefs.usesSpaces,
+                "on": true,
                 "current": browser.space.name,
                 "spaces": browser.spaces.map { ["name": $0.name, "id": $0.id.uuidString, "downloads": $0.downloads ?? "", "shared": $0.sharesSignIns == true] },
                 "parked": browser.parked.map { [$0.key.uuidString: $0.value.tabs.count] },
@@ -2926,7 +2926,6 @@ final class Bench {
             if let yes = request["confirm"] as? Bool, Store.testing { Ask.testing = yes }
             // "ask": the real question again, as a person gets it.
             if request["confirm"] as? String == "ask" { Ask.testing = nil }
-            if let on = request["spaces"] as? Bool { browser.prefs.usesSpaces = on }
             if let on = request["hides"] as? Bool { browser.prefs.sideHides = on }
             if let on = request["cards"] as? Bool { browser.prefs.cards = on }
             if let on = request["address"] as? Bool { browser.prefs.showsAddress = on }

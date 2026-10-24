@@ -156,12 +156,9 @@ final class Browser: NSObject, ObservableObject {
     /// one of them changes.
     let prefs = Shared.prefs
     let linkStatus = LinkStatus()
-    /// Settings, in its own tab (see InternalPages.swift). True while the
-    /// window has one; set, it is shown or closed.
-    var tuning: Bool {
-        get { pageTab(.settings) != nil }
-        set { if newValue { show(InternalPage(.settings, settingsPage.rawValue)) } else { putAway(.settings) } }
-    }
+    /// Settings, as a card over the page, as it first was: something you
+    /// set and put away, not a page to keep open (see ContentView.panels).
+    @Published var tuning = false
     /// The first-launch walk-through, over everything. Also from the menu.
     @Published var welcoming = false
     /// What's new, once after an update (see WhatsNew.swift).
@@ -1651,7 +1648,7 @@ final class Browser: NSObject, ObservableObject {
     /// a shared pin among them — and never past the end.
     func pinSlot(_ tab: Tab, listed: Bool, proposed: Int) -> Int {
         let tier = tabs.filter { $0.pin != nil && $0.listed == listed && $0.id != tab.id }
-        let shared = prefs.showsSharedPins ? tier.prefix(while: \.everywhere).count : 0
+        let shared = tier.prefix(while: \.everywhere).count
         let low = tab.everywhere ? 0 : shared
         let high = tab.everywhere ? shared : tier.count
         return min(max(proposed, low), high)
@@ -2132,8 +2129,8 @@ final class Browser: NSObject, ObservableObject {
         if let record {
             // Another window: the space it showed, and its own rows.
             self.record = record
-            if prefs.usesSpaces || websitePopup, spaces.contains(where: { $0.id == record.space }) { spaceID = record.space }
-        } else if prefs.usesSpaces, let last = Store.settings.string(forKey: "space.current").flatMap(UUID.init),
+            if spaces.contains(where: { $0.id == record.space }) { spaceID = record.space }
+        } else if let last = Store.settings.string(forKey: "space.current").flatMap(UUID.init),
            spaces.contains(where: { $0.id == last }) {
             // The space you were in, when there are spaces (see Spaces.swift).
             spaceID = last
@@ -2143,7 +2140,7 @@ final class Browser: NSObject, ObservableObject {
         // restored tabs or warm pages from other spaces.
         guard !websitePopup else { return }
         restoreSession()
-        if prefs.usesSpaces { preloadSpaces() }
+        preloadSpaces()
     }
 
     /// The floating video's buttons answer the window whose video it is:
@@ -2251,28 +2248,6 @@ final class Browser: NSObject, ObservableObject {
     /// read where they are used.
     private func follow() {
         followStore()
-        // Spaces turned off: back to the first, whose tabs are the ones there
-        // were before (see Spaces.swift).
-        prefs.$usesSpaces
-            .dropFirst()
-            .sink { [weak self] on in
-                guard let self else { return }
-                if websitePopup {
-                    if !on, spaceID != Space.firstID { window?.close() }
-                    return
-                }
-                guard !isPopup else { return }
-                if on { preloadSpaces() } else { leaveSpaces() }
-            }
-            .store(in: &bag)
-        // Pins in every space, or Spaces, switched: every row takes the
-        // shared pins or lets them go. Received on the next turn of the run
-        // loop, once the setting has changed, so the rows are built from
-        // what it is now.
-        prefs.$usesSpaces.dropFirst().map { _ in () }
-            .receive(on: RunLoop.main)
-            .sink { [weak self] in self?.sharedPinsChanged() }
-            .store(in: &bag)
         prefs.$shielded
             .dropFirst()
             .sink { [weak self] on in
@@ -2429,12 +2404,12 @@ final class Browser: NSObject, ObservableObject {
         // The pins as they are here, for the other windows (see Pins.swift):
         // the space's own, and the ones every space shows (only from a row
         // that holds them: see Pins.sharedToWrite).
-        if prefs.showsSharedPins { keepBlocks() }
+        keepBlocks()
         let defs = pinDefs(tabs)
         let everywhere = Set(tabs.filter(\.everywhere).compactMap(\.pinID))
         let parts = Pins.split(defs, shared: everywhere)
         Pins.set(spaceID, parts.own, from: self)
-        if let shared = Pins.sharedToWrite(parts.shared, showing: prefs.showsSharedPins),
+        if let shared = Pins.sharedToWrite(parts.shared, showing: true),
            Pins.setShared(shared, from: self) {
             for space in Array(parked.keys) { pinsChanged(in: space) }
         }
@@ -2460,10 +2435,9 @@ final class Browser: NSObject, ObservableObject {
     /// pinned tab from before pins had ids is matched by letter and page,
     /// then by place.
     func reconcilePins(_ row: [Tab], space: UUID) -> [Tab] {
-        let showing = prefs.showsSharedPins
-        let shared = showing ? Pins.shared : []
+        let shared = Pins.shared
         let sharedIDs = Set(shared.map(\.id))
-        let defs = Pins.row(own: Pins.defs(space), shared: shared, showing: showing)
+        let defs = Pins.row(own: Pins.defs(space), shared: shared, showing: true)
         var pinned = row.filter { $0.pin != nil && !$0.shy }
         let loose = row.filter { $0.pin == nil || $0.shy }
         var out: [Tab] = []
@@ -2544,7 +2518,7 @@ final class Browser: NSObject, ObservableObject {
     /// space from now on, after the shared ones. This tab stays as it is;
     /// the other spaces make theirs, asleep at the pin's page.
     func shareEverywhere(_ tab: Tab) {
-        guard prefs.showsSharedPins, tab.pin != nil, !tab.everywhere, !tab.shy else { return }
+        guard tab.pin != nil, !tab.everywhere, !tab.shy else { return }
         writeSession(now: true)
         guard let id = tab.pinID else { return }
         let moved = Pins.share(id, own: Pins.defs(spaceID), shared: Pins.shared)
@@ -2584,8 +2558,7 @@ final class Browser: NSObject, ObservableObject {
         // Every address this brings in, for its icon below.
         var brought: [URL] = []
         var targets: [(id: UUID, space: ArcSidebar.Space?)] = []
-        if sidebar.spaces.count > 1 || (prefs.usesSpaces && !sidebar.spaces.isEmpty) {
-            if !prefs.usesSpaces { prefs.usesSpaces = true }
+        if !sidebar.spaces.isEmpty {
             var list = spaces
             let names = Arc.profileNames()
             for arc in sidebar.spaces {
@@ -3373,9 +3346,10 @@ final class Browser: NSObject, ObservableObject {
     /// The panel over the page put away, if one is up — for ⌘W and Escape
     /// both. Whether there was one.
     func closePanel() -> Bool {
-        // Settings, History and the rest are tabs now (InternalPages.swift):
-        // ⌘W closes them as it closes any tab, and Escape leaves them be.
-        if newsShowing { newsShowing = false }
+        // History and the rest are tabs (InternalPages.swift): ⌘W closes
+        // them as it closes any tab, and Escape leaves them be.
+        if tuning { tuning = false }
+        else if newsShowing { newsShowing = false }
         else { return false }
         return true
     }
@@ -3683,7 +3657,7 @@ final class Browser: NSObject, ObservableObject {
     /// Put a tab in another space. If its store changes, ask only when the
     /// page has unsaved form entries; the new view then opens in that space.
     func move(_ tab: Tab, toSpace id: UUID, then: (() -> Void)? = nil) {
-        guard prefs.usesSpaces, id != spaceID,
+        guard id != spaceID,
               spaces.contains(where: { $0.id == id }),
               tabs.contains(where: { $0.id == tab.id }), !tab.bench,
               tab.address.flatMap({ Browser.extensionHost(of: $0) }) == nil
@@ -3722,7 +3696,7 @@ final class Browser: NSObject, ObservableObject {
     /// space with other sign-ins asks first only when a page has unsaved
     /// form entries, once for the group.
     func move(group id: UUID, toSpace target: UUID) {
-        guard prefs.usesSpaces, target != spaceID,
+        guard target != spaceID,
               let destination = spaces.first(where: { $0.id == target }),
               let group = tabGroups.first(where: { $0.id == id })
         else { return }
@@ -3774,7 +3748,7 @@ final class Browser: NSObject, ObservableObject {
 
     @discardableResult
     private func finishMove(_ tab: Tab, toSpace id: UUID, group: TabGroup? = nil, quietly: Bool = false) -> Bool {
-        guard prefs.usesSpaces, id != spaceID,
+        guard id != spaceID,
               let destination = spaces.first(where: { $0.id == id }),
               let index = tabs.firstIndex(where: { $0.id == tab.id })
         else { return false }
@@ -6882,6 +6856,11 @@ extension Browser {
         if page.kind == .settings, let detail = page.detail, let section = SettingsPanel.Page(rawValue: detail) {
             settingsPage = section
         }
+        // Settings is the card, not a tab, wherever it is asked for from.
+        if page.kind == .settings, let active {
+            tuning = true
+            return active
+        }
         if page.kind == .passwords { relist() }
         if page.kind == .history, pageTab(.history) == nil { recallMode = .history }
         let tab: Tab
@@ -6918,7 +6897,7 @@ extension Browser {
     /// comes back, as a link would. Unless that page is already open in a
     /// tab of its own, which is then the one shown.
     func lead(to page: InternalPage) {
-        guard let here = active, here.page != nil, pageTab(page.kind) == nil else {
+        guard page.kind != .settings, let here = active, here.page != nil, pageTab(page.kind) == nil else {
             show(page)
             return
         }
@@ -6932,6 +6911,7 @@ extension Browser {
     /// The page's tab closed, as ⌘W would close it. For the bench, and the
     /// last few callers that put a panel away.
     func putAway(_ kind: InternalPage.Kind) {
+        if kind == .settings { tuning = false }
         guard let tab = pageTab(kind) else { return }
         close(tab)
     }

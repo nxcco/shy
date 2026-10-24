@@ -83,11 +83,8 @@ final class PinDragTests: XCTestCase {
         let t = browser.tabs
         browser.pin(t[0]); browser.pin(t[1])
         t[0].everywhere = true
-        browser.prefs.usesSpaces = true
         XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 0), 1, "after the one every space shows")
         XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 9), 2)
-        browser.prefs.usesSpaces = false
-        XCTAssertEqual(browser.pinSlot(t[2], listed: false, proposed: 0), 0)
     }
 
     // MARK: - the model, as the drop calls it
@@ -284,9 +281,9 @@ final class PinDragTests: XCTestCase {
         activationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.prohibited)
         let prefs = Shared.prefs
-        let previous = (prefs.sidebar, prefs.roomyTabs, prefs.usesSpaces)
+        let previous = (prefs.sidebar, prefs.roomyTabs)
         restorePreferences = {
-            (prefs.sidebar, prefs.roomyTabs, prefs.usesSpaces) = previous
+            (prefs.sidebar, prefs.roomyTabs) = previous
         }
         let browser = Browser(record: WindowRecord())
         browsers.append(browser)

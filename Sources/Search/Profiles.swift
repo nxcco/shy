@@ -138,15 +138,18 @@ final class Profiles: ObservableObject {
         write()
     }
 
-    /// A profile and what it holds, gone: its cookies, sign-ins, site data,
-    /// history, bookmarks and passwords are erased from this Mac. Its spaces
-    /// stay, with their tabs, in Personal. Personal itself stays.
-    func delete(_ id: UUID) {
+    /// A profile and all it holds, gone: its spaces close with their tabs,
+    /// and its cookies, sign-ins, site data, history, bookmarks and
+    /// passwords are erased from this Mac. Personal stays, and so does the
+    /// first space, which can't be deleted: it comes back to Personal,
+    /// signed out. `browser`: the window whose spaces go.
+    func delete(_ id: UUID, from browser: Browser) {
         guard id != Profile.personalID, list.contains(where: { $0.id == id }) else { return }
-        // Its spaces to Personal first, so that their tabs leave its store
-        // before it is emptied (see Browser's Spaces.changed).
-        // One with sign-ins of its own loses them too: what the profile
-        // held goes, all of it.
+        for space in browser.spaces where space.profile == id && !space.isFirst {
+            browser.deleteSpace(space.id)
+        }
+        // The first space, if it was in it: to Personal, and its own
+        // sign-ins, if it had any, go with the rest.
         let all = Spaces.read()
         Spaces.write(all.map { space in
             var space = space
@@ -178,43 +181,75 @@ final class Profiles: ObservableObject {
     }
 }
 
-/// Settings › Tabs › Profiles: each profile, what it holds, and its spaces.
-struct ProfilesCard: View {
+/// Settings › Profiles & Spaces: every profile with its spaces under it.
+/// A space is given to another profile from the menu beside it; a profile
+/// is made, renamed or deleted here, and a new space made in it.
+struct ProfilesPage: View {
     @ObservedObject var browser: Browser
     @ObservedObject private var profiles = Profiles.shared
 
     var body: some View {
-        Card {
-            Line("Profiles", "Each holds its own sign-ins, history, bookmarks and passwords. A space belongs to one: right-click the space's icon › Profile. Extensions and settings are shared") {
-                Pill("New Profile…") {
-                    Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords. Give a space to it from the space's menu.",
-                             placeholder: "Work", confirm: "Create") { profiles.add(named: $0) }
+        VStack(alignment: .leading, spacing: 18) {
+            Card {
+                Line("Profiles", "Each keeps its own sign-ins, history, bookmarks and passwords. Every space belongs to one, and going to a space goes to its profile. Extensions and settings are shared") {
+                    Pill("New Profile…") {
+                        Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
+                                 placeholder: "Work", confirm: "Create") { profiles.add(named: $0) }
+                    }
                 }
             }
             ForEach(profiles.list) { profile in
-                Rule()
-                Line(profile.name, spacesDetail(profile)) {
-                    HStack(spacing: 6) {
-                        Pill("Rename…") {
-                            Ask.name("Rename Profile", placeholder: profile.name, initial: profile.name, confirm: "Rename") {
-                                profiles.rename(profile.id, to: $0)
-                            }
-                        }
-                        if !profile.isPersonal {
-                            Pill("Delete…") {
-                                Ask.sure("Delete “\(profile.name)”?",
-                                         detail: "Its cookies, sign-ins, history, bookmarks and passwords are erased from this Mac. Its spaces stay, with their tabs, in \(profiles.list[0].name).",
-                                         confirm: "Delete", returnCancels: true) { profiles.delete(profile.id) }
-                            }
+                card(profile)
+            }
+        }
+    }
+
+    private func card(_ profile: Profile) -> some View {
+        let spaces = browser.spaces.filter { $0.profileID == profile.id }
+        return Card {
+            Line(profile.name, spaces.isEmpty ? "No spaces" : spaces.count == 1 ? "1 space" : "\(spaces.count) spaces") {
+                HStack(spacing: 6) {
+                    Pill("New Space") {
+                        browser.askForSpace { made in browser.setProfile(profile.id, of: made.id) }
+                    }
+                    Pill("Rename…") {
+                        Ask.name("Rename Profile", placeholder: profile.name, initial: profile.name, confirm: "Rename") {
+                            profiles.rename(profile.id, to: $0)
                         }
                     }
+                    if !profile.isPersonal {
+                        Pill("Delete…") { askDelete(profile, spaces: spaces) }
+                    }
+                }
+            }
+            ForEach(spaces) { space in
+                Rule()
+                Line(space.name, nil) {
+                    Picker("", selection: Binding(
+                        get: { space.profileID },
+                        set: { browser.setProfile($0, of: space.id) }
+                    )) {
+                        ForEach(profiles.list) { Text($0.name).tag($0.id) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
                 }
             }
         }
     }
 
-    private func spacesDetail(_ profile: Profile) -> String {
-        let names = browser.spaces.filter { $0.profileID == profile.id }.map(\.name)
-        return names.isEmpty ? "No spaces yet" : names.joined(separator: ", ")
+    private func askDelete(_ profile: Profile, spaces: [Space]) {
+        let going = spaces.filter { !$0.isFirst }
+        let named = going.map { "“\($0.name)”" }.joined(separator: ", ")
+        let erased = "cookies, sign-ins, history, bookmarks and passwords are erased from this Mac. This can't be undone."
+        var detail = going.isEmpty ? "Its " + erased
+            : (going.count == 1 ? "Its space \(named) closes" : "Its spaces \(named) close") + " with their tabs, and its " + erased
+        if spaces.contains(where: \.isFirst) {
+            detail += " Your first space stays, signed out, in \(profiles.list[0].name)."
+        }
+        Ask.sure("Delete “\(profile.name)” and its spaces?", detail: detail, confirm: "Delete", returnCancels: true) {
+            profiles.delete(profile.id, from: browser)
+        }
     }
 }

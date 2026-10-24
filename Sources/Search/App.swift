@@ -643,6 +643,9 @@ struct ContentView: View {
             WelcomePanel(browser: browser, prefs: browser.prefs)
                 .ignoresSafeArea()
         }
+        if browser.tuning {
+            sheet { SettingsPanel(browser: browser, prefs: browser.prefs) } close: { browser.tuning = false }
+        }
         // What's new, once after an update (see WhatsNew.swift). Every
         // version's notes are a tab.
         if browser.newsShowing, let release = WhatsNew.current {
@@ -780,6 +783,7 @@ struct ContentView: View {
             .onChange(of: browser.activeID) { _, _ in handBack() }
             .animation(Motion.settle, value: browser.welcoming)
             .animation(Motion.settle, value: browser.newsShowing)
+            .animation(Motion.settle, value: browser.tuning)
             .animation(Motion.settle, value: browser.reviewing)
         .onAppear {
             watchKeys()
@@ -1376,9 +1380,9 @@ struct ContentView: View {
 
         // Space keys have no menu; other commands arrive here when rebound.
         // A key taken off a command goes back to the page.
-        if ShortcutStore.shared.anyChanged || browser.prefs.usesSpaces, let combo = KeyCombo(event: event) {
+        if ShortcutStore.shared.anyChanged, let combo = KeyCombo(event: event) {
             if let command = ShortcutStore.shared.customCommand(on: combo) {
-                if command.section == .spaces, !browser.prefs.usesSpaces { return false }
+                if command.section == .spaces { return false }
                 if Command.ai.contains(command.id), !browser.prefs.ai { return false }
                 if Command.dusk.contains(command.id), !browser.prefs.darkensPages { return false }
                 command.run(browser)

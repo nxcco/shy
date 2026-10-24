@@ -378,7 +378,6 @@ final class ImportFileTests: XCTestCase {
     func testArcImportKeepsSpacesFoldersPinsAndImportRecordCounts() throws {
         let browser = makeImportTestBrowser()
         let previousRecords = Store.settings.data(forKey: "import.records")
-        let previousUsesSpaces = browser.prefs.usesSpaces
         let previousSpaces = browser.spaces
         let suffix = UUID().uuidString
         let workName = "Arc Engineering \(suffix)"
@@ -391,11 +390,10 @@ final class ImportFileTests: XCTestCase {
             for space in browser.spaces where space.name == workName || space.name == personalName {
                 Pins.forget(space.id)
                 Session.erase(space: space.id)
-                if let profile = space.profile { Profiles.shared.delete(profile) }
+                if let profile = space.profile { Profiles.shared.delete(profile, from: browser) }
             }
             browser.spaces = previousSpaces
             Spaces.write(previousSpaces)
-            browser.prefs.usesSpaces = previousUsesSpaces
             if let oldArcFile { try? oldArcFile.write(to: Arc.file, options: .atomic) }
             else {
                 try? FileManager.default.removeItem(at: Arc.file)
@@ -410,7 +408,6 @@ final class ImportFileTests: XCTestCase {
             name: "Arc", folder: "Arc/User Data", service: "Arc Safe Storage", account: "Arc", app: "Arc.app"))
         let sidebar = try makeArcSidebarFixture(workName: workName, personalName: personalName)
         try sidebar.write(to: Arc.file, options: .atomic)
-        browser.prefs.usesSpaces = false
 
         let imported = try XCTUnwrap(source.arcSidebar(profile: nil))
         XCTAssertEqual(source.arcCounts(profile: nil)?.spaces, 2)

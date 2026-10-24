@@ -58,8 +58,6 @@ enum WhatsNew {
         Toggle(title: "Always show the downloads button", detail: "Your downloads one click away, beside the other buttons.",
                since: "1.0.4", get: { $0.alwaysShowsDownloads }, set: { $0.alwaysShowsDownloads = $1 }),
 
-        Toggle(title: "Spaces", detail: "Separate sets of tabs, each with its own sign-ins. ⌃1–⌃9 to switch.",
-               since: "1.0.1", get: { $0.usesSpaces }, set: { $0.usesSpaces = $1 }),
         Toggle(title: "A sidebar that hides", detail: "The page takes the whole window; the tabs come out at the edge.",
                since: "1.0.1", get: { $0.sidebar && $0.sideHides },
                set: { prefs, on in

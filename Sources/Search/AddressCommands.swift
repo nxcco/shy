@@ -41,7 +41,7 @@ enum AddressCommand: CaseIterable, Equatable {
     /// Some only mean something once the feature behind them is even on.
     func available(in browser: Browser) -> Bool {
         switch self {
-        case .newSpace: return browser.prefs.usesSpaces
+        case .newSpace: return true
         default: return true
         }
     }
