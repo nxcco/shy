@@ -4751,7 +4751,10 @@ enum ExtensionShims {
             "webSQL": [WKWebsiteDataTypeWebSQLDatabases], "fileSystems": [WKWebsiteDataTypeFileSystem],
         ]
         for (key, on) in what where on { types.formUnion(map[key] ?? []) }
-        let store = Store.websites
+        // The front window's space's store, as its history below is the
+        // front window's: Personal's every time cleared Personal's sign-ins
+        // from another profile and left that profile's own untouched.
+        let store = await MainActor.run { Spaces.store(for: browser.spaceID) }
         if !types.isEmpty {
             if let origins {
                 let records = await store.dataRecords(ofTypes: types)
