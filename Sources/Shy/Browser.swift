@@ -56,6 +56,10 @@ final class Browser: NSObject, ObservableObject {
     /// An agent's page shown over the tabs' in this window, to watch (see
     /// AgentSide.swift). Going to any tab puts it away.
     @Published private(set) var watchingAgent: String?
+    /// The tab on screen: none while an agent's page is over it, so its
+    /// row isn't drawn as the one you're on, and a click on it goes to it
+    /// rather than to its address.
+    var shownID: Tab.ID? { watchingAgent == nil ? activeID : nil }
     /// The tab whose sign-in is being offered to the agent (HandoverCard).
     @Published var handingOver: Tab?
     @Published var activeID: Tab.ID? {

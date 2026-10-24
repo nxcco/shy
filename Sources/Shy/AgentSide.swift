@@ -50,7 +50,7 @@ struct AgentSection: View {
     private var header: some View {
         HStack(spacing: 7) {
             AgentMark(busy: agent.busy != nil)
-            Text("Agent")
+            Text("Agent Session")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Palette.ink)
                 .help(status)

@@ -501,7 +501,7 @@ struct SideBar: View {
                     browser: browser,
                     prefs: prefs,
                     tab: tab,
-                    live: tab.id == browser.activeID,
+                    live: tab.id == browser.shownID,
                     pill: pill,
                     width: cells[index].width,
                     height: cells[index].height
@@ -535,7 +535,7 @@ struct SideBar: View {
                     RowGhost(tab: carried, height: rowHeight, size: prefs.sideTitle)
                 }
                 SideRow(browser: browser, prefs: prefs, tab: tab,
-                        live: tab.id == browser.activeID, pill: pill,
+                        live: tab.id == browser.shownID, pill: pill,
                         close: { browser.close(tab) })
                     .modifier(Carried(index: index, count: pins.count,
                                       step: rowHeight + SideBar.gap, vertical: true,
@@ -581,7 +581,7 @@ struct SideBar: View {
                         switch line {
                         case .folder(let folder, _):
                             let into = folder.folded && (crossingFolder == folder.id || placing?.parent == folder.id)
-                            folderLine(line, activeID: browser.activeID, interactive: true, pill: pill, target: into)
+                            folderLine(line, activeID: browser.shownID, interactive: true, pill: pill, target: into)
                                 // Carried by its row: among the folders, or
                                 // into one (see PinDrop.folderPlace).
                                 .modifier(Carried(index: 0, count: 1, step: rowHeight + SideBar.gap, vertical: true,
@@ -589,7 +589,7 @@ struct SideBar: View {
                                                   cross: { carry(folder, $0) },
                                                   land: { place(folder, $0) }, faded: placing?.folder == folder.id) { _ in })
                         case .tab(let tab, _, _):
-                            folderLine(line, activeID: browser.activeID, interactive: true, pill: pill)
+                            folderLine(line, activeID: browser.shownID, interactive: true, pill: pill)
                                 // Moved only by the crossing: the hand over
                                 // the folders always says where it would go.
                                 .modifier(Carried(index: 0, count: 1, step: rowHeight + SideBar.gap, vertical: true,
@@ -722,7 +722,7 @@ struct SideBar: View {
                             RowGhost(tab: carried, height: rowHeight, size: prefs.sideTitle)
                         }
                         rowItem(tab, tabs: browser.tabs, splits: browser.splits,
-                                activeID: browser.activeID, interactive: true, pill: pill,
+                                activeID: browser.shownID, interactive: true, pill: pill,
                                 close: { browser.close(tab) })
                         // Positions here are among the loose rows; the pinned block
                         // sits in front of them in the real list.
