@@ -132,7 +132,7 @@ private struct TabOffersList: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(browser.tabOffers.enumerated()), id: \.element.id) { index, offer in
-                Omnibox.Row(offer: offer, picked: browser.tabPicked == index)
+                Omnibox.Row(offer: offer, profile: browser.profileID, picked: browser.tabPicked == index)
                     .contentShape(Rectangle())
                     .onTapGesture { browser.takeTabOffer(offer) }
             }

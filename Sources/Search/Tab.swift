@@ -497,7 +497,7 @@ final class Tab: ObservableObject, Identifiable {
             icon = page.glyph
             return
         }
-        icon = Favicons.shared.cached(for: address, shy: shy)
+        icon = Favicons.of(profile).cached(for: address, shy: shy)
     }
 
     /// True while the caret is in something on the page that takes typing.
@@ -1775,7 +1775,7 @@ final class Tab: ObservableObject, Identifiable {
         // goes with it.
         guard shy else { return }
         let others = Browsers.all.flatMap { $0.tabs + $0.parkedTabs }
-        if !others.contains(where: { $0.shy && $0 !== self }) { Favicons.shared.forgetShy() }
+        if !others.contains(where: { $0.shy && $0 !== self }) { Favicons.of(Profile.personalID).forgetShy() }
     }
 
     /// The page's sound started or stopped. Stopped, after it had played,

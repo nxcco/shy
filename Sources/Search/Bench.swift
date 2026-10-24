@@ -1194,7 +1194,7 @@ final class Bench {
             func rows(_ nodes: [Bookmark], _ depth: Int) -> [[String: Any]] {
                 nodes.flatMap { node -> [[String: Any]] in
                     [["depth": depth, "label": node.label, "folder": node.isFolder,
-                      "icon": !node.isFolder && Favicons.shared.cached(for: node.address) != nil]] + rows(node.children ?? [], depth + 1)
+                      "icon": !node.isFolder && Favicons.of(browser.profileID).cached(for: node.address) != nil]] + rows(node.children ?? [], depth + 1)
                 }
             }
             // "path": the button's list drawn there, every folder open, in

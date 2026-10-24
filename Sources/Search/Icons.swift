@@ -13,11 +13,47 @@ import WebKit
 
 @MainActor
 final class Favicons {
-    static let shared = Favicons()
+    /// Each profile's own, as its history is: the pages a profile has been
+    /// to, and the icons they wore, never show in another (see SiteMemory).
+    /// Personal's in icons/, as always; another's in a folder of its own.
+    /// Whatever shows an icon is handed the profile it is shown for.
+    static func of(_ profile: UUID) -> Favicons {
+        if let made = made[profile] { return made }
+        let made = Favicons(folder: profile == Profile.personalID ? "icons" : "icons-\(profile.uuidString)")
+        self.made[profile] = made
+        return made
+    }
+    private static var made: [UUID: Favicons] = [:]
+
+    /// Clear History, and an extension clearing it: every profile's.
+    static func forgetEverything() {
+        for profile in Profiles.shared.list { of(profile.id).forgetAll() }
+    }
+
+    /// A deleted profile's: gone, folder and all.
+    static func drop(_ profile: UUID) {
+        guard profile != Profile.personalID else { return }
+        of(profile).forgetAll()
+        made[profile] = nil
+    }
+
+    /// The tabs to look again for icons, each in its own profile's.
+    static func relook(_ tabs: [Tab]) {
+        for (profile, theirs) in Dictionary(grouping: tabs, by: \.profile) { of(profile).relook(theirs) }
+    }
+
+    private let folder: URL
+    private var index: URL { folder.appendingPathComponent("pages.json") }
+    private func file(_ ident: String) -> URL { folder.appendingPathComponent(ident + ".png") }
+
+    private init(folder name: String) {
+        folder = Store.folder.appendingPathComponent(name, isDirectory: true)
+    }
 
     /// Called with a site whenever one of its pages gets an icon, so every
-    /// tab on that site can put on the one that is now its own.
-    var arrived: ((String) -> Void)?
+    /// tab on that site can put on the one that is now its own. One for
+    /// every profile's: a tab only puts on its own profile's (Tab.wear).
+    static var arrived: ((String) -> Void)?
 
     /// What a page was last seen wearing: the icon it declared in each look,
     /// by that icon's name on disk (see `ident`), and when. `seen` is 0 for
@@ -64,14 +100,12 @@ final class Favicons {
     /// Declared icons tried for one page, best first; favicon.ico makes six.
     private static let tried = 5
 
-    private static var folder: URL { Store.folder.appendingPathComponent("icons", isDirectory: true) }
-    private static var index: URL { folder.appendingPathComponent("pages.json") }
     private static let disk = DispatchQueue(label: "Favicons.disk", qos: .utility)
 
     /// Clear History: every icon kept on disk goes. The tabs open now keep
     /// theirs until they are closed.
     func forgetAll() {
-        try? FileManager.default.removeItem(at: Favicons.folder)
+        try? FileManager.default.removeItem(at: folder)
         pages.removeAll()
         shyPages.removeAll()
         dropped.removeAll()
@@ -105,7 +139,6 @@ final class Favicons {
         shyPages.removeAll()
         save()
     }
-    private static func file(_ ident: String) -> URL { folder.appendingPathComponent(ident + ".png") }
 
     /// Whether the chrome is dark right now. A site that declares an icon
     /// for `prefers-color-scheme: dark` is asked for that one, and it is
@@ -146,7 +179,7 @@ final class Favicons {
     private func load() {
         guard !loaded else { return }
         loaded = true
-        if let data = try? Data(contentsOf: Favicons.index),
+        if let data = try? Data(contentsOf: index),
            let kept = try? JSONDecoder().decode([String: [String: Page]].self, from: data) {
             pages = kept
             // An index with queries in its keys: each folded into its path.
@@ -166,7 +199,7 @@ final class Favicons {
         }
         // Icons kept site by site, from before pages were: each stands for
         // its whole site until a page of it says otherwise.
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: Favicons.folder.path)) ?? []
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
         for name in names where name.hasSuffix(".png") {
             let ident = String(name.dropLast(4))
             guard !(ident.count == 32 && ident.allSatisfy(\.isHexDigit)) else { continue }
@@ -185,9 +218,9 @@ final class Favicons {
         saving = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             saving = false
-            let gone = prune().map(Favicons.file)
+            let gone = prune().map(file)
             guard let data = try? JSONEncoder().encode(pages) else { return }
-            let folder = Favicons.folder, index = Favicons.index
+            let folder = folder, index = index
             Favicons.disk.async {
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 try? data.write(to: index, options: .atomic)
@@ -289,7 +322,7 @@ final class Favicons {
         // thousand of them each time it drew. One that arrives later goes
         // into `memory`, which is asked first.
         if absent.contains(ident) { return nil }
-        guard let image = NSImage(contentsOf: Favicons.file(ident)) else {
+        guard let image = NSImage(contentsOf: file(ident)) else {
             absent.insert(ident)
             return nil
         }
@@ -297,7 +330,7 @@ final class Favicons {
         return image
     }
 
-    private static func fresh(_ ident: String) -> Bool {
+    private func fresh(_ ident: String) -> Bool {
         guard let stamp = try? file(ident).resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         else { return false }
         return Date().timeIntervalSince(stamp) < 7 * 86_400
@@ -323,10 +356,10 @@ final class Favicons {
         let ident = Favicons.ident("adopted:" + site)
         memory[ident] = image
         absent.remove(ident)
-        Favicons.keep(image, for: ident)
+        keep(image, for: ident)
         if pages[site]?["/"] == nil { pages[site, default: [:]]["/"] = Page(light: ident, seen: 0) }
         save()
-        arrived?(site)
+        Favicons.arrived?(site)
     }
 
     /// Asks the page which icon it wants to be known by, fetches it, and keeps
@@ -347,7 +380,7 @@ final class Favicons {
         let dark = Favicons.dark
         // Fresh and right for this look: nothing to do.
         if !changed, let kept = (tab.shy ? shyPages[site]?[page] : nil) ?? pages[site]?[page], kept.seen > 0,
-           let ident = dark ? kept.dark : kept.light, Favicons.fresh(ident), let known = known(ident) {
+           let ident = dark ? kept.dark : kept.light, fresh(ident), let known = known(ident) {
             tab.icon = known
             return
         }
@@ -392,7 +425,7 @@ final class Favicons {
             if let until = unreachable[candidate], until > Date() { continue }
             let ident = Favicons.ident(candidate)
             // Another page of the site wears the same file, and it is fresh.
-            if !shy, Favicons.fresh(ident), let image = known(ident) {
+            if !shy, fresh(ident), let image = known(ident) {
                 wear(ident, image, site: site, page: page, dark: dark, shy: shy)
                 return
             }
@@ -421,7 +454,7 @@ final class Favicons {
             }
             memory[ident] = image
             absent.remove(ident)
-            if !shy { Favicons.keep(image, for: ident) }
+            if !shy { keep(image, for: ident) }
             wear(ident, image, site: site, page: page, dark: dark, shy: shy)
             return
         }
@@ -460,7 +493,7 @@ final class Favicons {
             }
             save()
         }
-        arrived?(site)
+        Favicons.arrived?(site)
     }
 
     /// The kinds of picture a site's icon may be. Anything else a site sends
@@ -518,12 +551,12 @@ final class Favicons {
         }.value
     }
 
-    private static func keep(_ image: NSImage, for ident: String) {
+    private func keep(_ image: NSImage, for ident: String) {
         guard let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff),
               let png = rep.representation(using: .png, properties: [:])
         else { return }
-        let file = Favicons.file(ident)
+        let file = file(ident)
         let dir = folder
         Favicons.disk.async {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -672,7 +705,7 @@ final class IconRelay: NSObject, WKScriptMessageHandler {
         guard message.frameInfo.isMainFrame else { return }
         MainActor.assumeIsolated {
             guard let tab, tab.built === message.webView else { return }
-            Favicons.shared.fetch(for: tab, changed: true)
+            Favicons.of(tab.profile).fetch(for: tab, changed: true)
         }
     }
 

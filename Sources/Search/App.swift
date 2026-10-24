@@ -281,7 +281,7 @@ struct SearchApp: App {
                         Button {
                             browser.open(trace.url, foreground: true)
                         } label: {
-                            MenuLine(title: trace.title.isEmpty ? Address.withoutWWW(trace.address) : trace.title, url: trace.url)
+                            MenuLine(title: trace.title.isEmpty ? Address.withoutWWW(trace.address) : trace.title, url: trace.url, profile: browser.profileID)
                         }
                     }
                 }
@@ -291,7 +291,7 @@ struct SearchApp: App {
                             Button {
                                 browser.reopen(ghost)
                             } label: {
-                                MenuLine(title: ghost.label, url: ghost.url)
+                                MenuLine(title: ghost.label, url: ghost.url, profile: browser.profileID)
                             }
                         }
                     }
@@ -341,9 +341,10 @@ private struct QuitAndHelp: Commands {
 private struct MenuLine: View {
     let title: String
     let url: URL
+    let profile: UUID
 
     var body: some View {
-        if let icon = Favicons.shared.cached(for: url) {
+        if let icon = Favicons.of(profile).cached(for: url) {
             Label {
                 Text(title)
             } icon: {

@@ -113,7 +113,7 @@ final class SiteNotifications: NSObject {
             stores[id] = store
             post(id: id, title: text("title"), body: text("body"), origin: origin, tag: text("tag"),
                  info: ["search.kind": "worker", "search.id": id, "search.origin": origin,
-                        "search.data": dictionary ?? [:]])
+                        "search.data": dictionary ?? [:]], profile: SiteNotifications.profile(of: store))
         }
     }
 
@@ -151,7 +151,7 @@ final class SiteNotifications: NSObject {
 
     // MARK: - posting
 
-    func post(id: String, title: String, body: String, origin: String, tag: String, info: [String: Any]) {
+    func post(id: String, title: String, body: String, origin: String, tag: String, info: [String: Any], profile: UUID) {
         guard !Store.testing else {
             recorded.append(["title": title, "body": body, "origin": origin, "tag": tag, "kind": info["search.kind"] as? String ?? ""])
             return
@@ -167,7 +167,7 @@ final class SiteNotifications: NSObject {
         content.categoryIdentifier = "site"
         content.sound = .default
         content.userInfo = info
-        if let host = url?.host(), let icon = Favicons.shared.cached(for: url),
+        if let host = url?.host(), let icon = Favicons.of(profile).cached(for: url),
            let file = SiteNotifications.iconFile(icon, host: host),
            let attachment = try? UNNotificationAttachment(identifier: "icon", url: file) {
             content.attachments = [attachment]
@@ -425,7 +425,8 @@ enum PageNotifications {
         let id = c.id(note)
         SiteNotifications.shared.post(id: "page|\(id)", title: c.text(c.title(note)), body: c.text(c.body(note)),
                                       origin: origin, tag: c.text(c.tag(note)),
-                                      info: ["search.kind": "page", "search.id": String(id), "search.origin": origin])
+                                      info: ["search.kind": "page", "search.id": String(id), "search.origin": origin],
+                                      profile: Profiles.owner(of: web.configuration.websiteDataStore) ?? Profile.personalID)
         shown[id] = manager
         SiteNotifications.shared.stores["page|\(id)"] = web.configuration.websiteDataStore
         c.didShow(manager, id)

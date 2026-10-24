@@ -75,7 +75,7 @@ struct Omnibox: View {
     private var field: some View {
         HStack(spacing: 8) {
             if let site = browser.siteChip {
-                SiteChip(site: site)
+                SiteChip(site: site, profile: browser.profileID)
                     .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
             }
             AddressField(browser: browser)
@@ -126,12 +126,12 @@ struct Omnibox: View {
     private var list: some View {
         VStack(spacing: 0) {
             if let site = browser.siteOffer {
-                SiteOfferRow(site: site)
+                SiteOfferRow(site: site, profile: browser.profileID)
                     .contentShape(Rectangle())
                     .onTapGesture { _ = browser.lockSiteOffer() }
             }
             ForEach(Array(browser.offers.enumerated()), id: \.element.id) { index, offer in
-                Row(offer: offer, picked: browser.picked == index)
+                Row(offer: offer, profile: browser.profileID, picked: browser.picked == index)
                     .contentShape(Rectangle())
                     .onTapGesture { browser.take(offer) }
             }
@@ -149,6 +149,8 @@ struct Omnibox: View {
     /// One row of a list of places, here and under the field in the tab.
     struct Row: View {
         let offer: Suggestion
+        /// Whose icons: the profile the field is searching in.
+        var profile = Profile.personalID
         /// Where the arrow keys have walked to. The pointer gets its own,
         /// quieter mark, and changes nothing but the look of the row.
         let picked: Bool
@@ -164,7 +166,7 @@ struct Omnibox: View {
                     // site rather than a magnifying glass. Nothing is fetched
                     // for one that isn't known; the glass is what the row
                     // wears until then.
-                    if let icon = Favicons.shared.cached(for: offer.url) {
+                    if let icon = Favicons.of(profile).cached(for: offer.url) {
                         Image(nsImage: icon)
                             .resizable()
                             .interpolation(.high)
@@ -231,9 +233,11 @@ struct Omnibox: View {
 /// A site's icon when this Mac has it, or a glass.
 private struct SiteIcon: View {
     let site: SearchSite
+    let profile: UUID
     var body: some View {
         let host = site.host.split(separator: "/").first.map(String.init) ?? site.host
-        if let icon = Favicons.shared.cached(host) ?? Favicons.shared.cached("www." + host) {
+        let icons = Favicons.of(profile)
+        if let icon = icons.cached(host) ?? icons.cached("www." + host) {
             Image(nsImage: icon)
                 .resizable()
                 .interpolation(.high)
@@ -252,9 +256,10 @@ private struct SiteIcon: View {
 /// before what is typed.
 private struct SiteChip: View {
     let site: SearchSite
+    let profile: UUID
     var body: some View {
         HStack(spacing: 6) {
-            SiteIcon(site: site)
+            SiteIcon(site: site, profile: profile)
             Text(site.name)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Palette.ink)
@@ -272,10 +277,11 @@ private struct SiteChip: View {
 /// "Search Reddit", first in the list, with the key that takes it.
 private struct SiteOfferRow: View {
     let site: SearchSite
+    let profile: UUID
     @State private var hovering = false
     var body: some View {
         HStack(spacing: 10) {
-            SiteIcon(site: site)
+            SiteIcon(site: site, profile: profile)
             Text("Search \(site.name)")
                 .font(.system(size: 13))
                 .foregroundStyle(Palette.ink)

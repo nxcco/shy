@@ -252,7 +252,7 @@ final class Browser: NSObject, ObservableObject {
         DispatchQueue.global(qos: .utility).async {
             let icons = source.icons(profile: profile, for: urls)
             Task { @MainActor in
-                for (host, data) in icons { await Favicons.shared.adopt(data, for: host) }
+                for (host, data) in icons { await Favicons.of(self.profileID).adopt(data, for: host) }
                 self.objectWillChange.send()
             }
         }
@@ -1362,7 +1362,7 @@ final class Browser: NSObject, ObservableObject {
         Profiles.shared.list.forEach { Profiles.history($0.id).forget() }
         // The sites' icons are a list of where you have been, too, and so
         // are the searches learned from sites visited (SiteSearch.swift).
-        Favicons.shared.forgetAll()
+        Favicons.forgetEverything()
         Profiles.shared.list.forEach { SiteSearch.forget(in: $0.id) }
         announce("History cleared")
     }
@@ -2044,7 +2044,7 @@ final class Browser: NSObject, ObservableObject {
             // An icon that arrives is looked for again by every tab showing
             // that site, in every window, not only the one that asked for it:
             // each puts on its own page's, or its nearest neighbour's.
-            Favicons.shared.arrived = { site in
+            Favicons.arrived = { site in
                 let lower = site.lowercased()
                 for browser in Browsers.all {
                     for tab in browser.tabs + browser.parkedTabs {
@@ -2384,7 +2384,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     private func relook() {
-        Favicons.shared.relook(tabs.filter { !$0.asleep })
+        Favicons.relook(tabs.filter { !$0.asleep })
         // Dark pages are only ever put into a page while Search is dark: a
         // change of look takes them in, or lets them go.
         redusk()
@@ -2580,7 +2580,7 @@ final class Browser: NSObject, ObservableObject {
             let icons = source.icons(profile: profile, for: urls)
             guard !icons.isEmpty else { return }
             Task { @MainActor in
-                for (host, data) in icons { await Favicons.shared.adopt(data, for: host) }
+                for (host, data) in icons { await Favicons.of(self.profileID).adopt(data, for: host) }
                 // The ones made before the icons arrived, now that they are here.
                 for tab in self.tabs + self.parkedTabs where tab.icon == nil { tab.adoptIcon() }
                 self.objectWillChange.send()
@@ -6509,7 +6509,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // The icon is asked for whether or not the tab is showing one: it may
         // be turned on a moment later, and a tab that then has to wait for a
         // fetch looks broken.
-        Favicons.shared.fetch(for: tab)
+        Favicons.of(tab.profile).fetch(for: tab)
         guard !tab.shy, !tab.bench else { return }
         let profile = tab.profile
         Profiles.history(profile).record(url, title: tab.title)

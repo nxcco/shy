@@ -371,7 +371,7 @@ struct LittleView: View {
                     Trouble(message: failure) { tab.reload() }
                         .transition(.opacity)
                 }
-                Swiping(pull: tab.pull)
+                Swiping(pull: tab.pull, profile: tab.profile)
             }
             .animation(Motion.quick, value: tab.failure)
             .animation(.easeOut(duration: 0.16), value: tab.pull == nil)

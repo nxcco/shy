@@ -91,8 +91,13 @@ final class History: ObservableObject {
     /// Its profile deleted: nothing more is written.
     private var retired = false
 
-    init(file: String = "history.json") {
+    /// The profile it is (see Profiles.swift): what shows it shows that
+    /// profile's icons.
+    let profile: UUID
+
+    init(file: String = "history.json", profile: UUID = Profile.personalID) {
         fileName = file
+        self.profile = profile
         load()
     }
 
@@ -316,7 +321,7 @@ final class History: ObservableObject {
 
     func forget(_ key: String) {
         // Its page's icon is a trace of the visit too.
-        if let url = visits[key].flatMap({ URL(string: $0.url) }) { Favicons.shared.forget(url) }
+        if let url = visits[key].flatMap({ URL(string: $0.url) }) { Favicons.of(profile).forget(url) }
         visits[key] = nil
         forgetText(for: key)
         save()

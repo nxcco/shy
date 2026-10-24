@@ -41,6 +41,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Changed
 
+- Site icons are kept per profile too, as their history is: the pages one profile has been to, and the icons they wore, never show in another. Personal keeps its icons; deleting a profile removes its own
 - Each profile remembers sites on its own: which may send notifications, each site's zoom, what you hid on it, its dark-page choice, whether its videos float, whether the blocker is off there, whether it may open pop-ups or is kept awake, and the site searches learned from it. Another profile starts with none of it, and a site can't see in one profile what it was allowed in another. Personal keeps everything as it was. Deleting a profile forgets all of it; clearing history clears every profile's learned searches
 - Shy doesn't look for updates: no request goes to any server, and the update switch and menu items are gone, until Shy has releases of its own. Settings › About says so; Send Feedback opens an issue on Shy's repository
 - In Settings › Profiles & Spaces a space can be dragged onto another profile, or moved with the menu beside it, and either way you're asked first. Its tabs reload signed in as the other profile with nothing of their old session; sign-ins the space had of its own are erased

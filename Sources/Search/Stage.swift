@@ -81,7 +81,7 @@ struct Page: View {
                     .transition(.opacity)
             }
 
-            Swiping(pull: tab.pull)
+            Swiping(pull: tab.pull, profile: tab.profile)
         }
         .animation(Motion.quick, value: tab.page?.kind)
         .animation(Motion.quick, value: tab.failure)
@@ -96,6 +96,8 @@ struct Page: View {
 /// one opens. The page's own stage, and a small window's (Little.swift).
 struct Swiping: View {
     let pull: Pull?
+    /// The profile its tab is in, for the list's icons.
+    let profile: UUID
 
     var body: some View {
         ZStack {
@@ -103,7 +105,7 @@ struct Swiping: View {
                 // In the disc's place, grown from its own edge: it sits in a
                 // frame as wide as the window, and grown from that frame's
                 // middle it would slide in from the middle.
-                HistoryList(pull: pull)
+                HistoryList(pull: pull, profile: profile)
                     .id(pull.back)
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .scale(scale: 0.92, anchor: pull.back ? .leading : .trailing)),
@@ -179,6 +181,7 @@ private struct Disc: View {
 /// PageView.climb). Let go, it fades where it is.
 private struct HistoryList: View {
     let pull: Pull
+    let profile: UUID
 
     /// A row and the gap under it.
     private static let pitch: CGFloat = 30
@@ -224,7 +227,7 @@ private struct HistoryList: View {
 
     @ViewBuilder
     private func icon(_ url: URL) -> some View {
-        if let image = Favicons.shared.cached(for: url) {
+        if let image = Favicons.of(profile).cached(for: url) {
             Image(nsImage: image).resizable().interpolation(.high)
         } else {
             Image(systemName: "globe")

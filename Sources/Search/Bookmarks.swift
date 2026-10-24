@@ -69,8 +69,13 @@ final class Bookmarks: ObservableObject {
     /// Its profile deleted: nothing more is written.
     private var retired = false
 
-    init(file: String = "bookmarks.json") {
+    /// The profile it is (see Profiles.swift): what shows it shows that
+    /// profile's icons.
+    let profile: UUID
+
+    init(file: String = "bookmarks.json", profile: UUID = Profile.personalID) {
         fileName = file
+        self.profile = profile
         load()
     }
 
@@ -678,6 +683,7 @@ struct BookmarkOutline: View {
             let isOpen = node.isFolder && expanded.contains(node.id)
             Row(
                 node: node,
+                profile: bookmarks.profile,
                 depth: depth,
                 // A folder's arrow has a place in front of every row, so the
                 // icons line up; with no folder at all, it is only a gap.
@@ -875,6 +881,8 @@ struct BookmarkOutline: View {
 
     private struct Row: View {
         let node: Bookmark
+        /// Whose bookmarks, and so whose icons.
+        let profile: UUID
         let depth: Int
         let arrows: Bool
         /// Nil for a folder — folders open in place, not out to a page.
@@ -910,7 +918,7 @@ struct BookmarkOutline: View {
                         )
                 } else {
                     if arrows { Spacer().frame(width: 10) }
-                    Mark(icon: Favicons.shared.cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
+                    Mark(icon: Favicons.of(profile).cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
                 }
                 // One without a name reads as its address, a shade lighter.
                 Text(node.label)
@@ -1336,6 +1344,7 @@ struct BookmarksPanel: View {
                         if index > 0 { Rule(inset: 40) }
                         Found(
                             node: hit.node,
+                            profile: bookmarks.profile,
                             path: hit.path,
                             open: hit.node.url.flatMap(URL.init(string:)).map { url in { browser.pickBookmark(url) } },
                             show: { show(hit.node) }
@@ -1370,6 +1379,8 @@ struct BookmarksPanel: View {
     /// One line of what was found: its title, then where it is.
     private struct Found: View {
         let node: Bookmark
+        /// Whose bookmarks, and so whose icons.
+        let profile: UUID
         let path: [String]
         /// Nil for a folder, which is shown in the tree instead.
         let open: (() -> Void)?
@@ -1383,7 +1394,7 @@ struct BookmarksPanel: View {
                     Mark(icon: nil, letter: "", size: 16)
                         .overlay(Image(systemName: "folder.fill").font(.system(size: 9.5)).foregroundStyle(Palette.muted))
                 } else {
-                    Mark(icon: Favicons.shared.cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 16)
+                    Mark(icon: Favicons.of(profile).cached(for: node.address), letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 16)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(node.label)
@@ -1571,7 +1582,7 @@ final class BookmarkMenu: NSObject, NSMenuDelegate {
                 // whose icon isn't kept yet (brought in, never visited) wears
                 // the bar's letter in its place, rather than nothing and its
                 // title out of line with the others'.
-                if let icon = Favicons.shared.cached(for: node.address) {
+                if let icon = Favicons.of(browser?.profileID ?? Profile.personalID).cached(for: node.address) {
                     let small = icon.copy() as? NSImage ?? icon
                     small.size = NSSize(width: 16, height: 16)
                     item.image = small

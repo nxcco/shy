@@ -548,7 +548,7 @@ enum Rewind {
             let title = page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page.url.host() ?? page.url.absoluteString
             let item = Pick(title: title) { [weak tab] in tab?.go(to: page) }
             item.toolTip = page.url.absoluteString
-            if let image = Favicons.shared.cached(for: page.url, shy: tab.shy)?.copy() as? NSImage {
+            if let image = Favicons.of(tab.profile).cached(for: page.url, shy: tab.shy)?.copy() as? NSImage {
                 image.size = NSSize(width: 16, height: 16)
                 item.image = image
             } else {

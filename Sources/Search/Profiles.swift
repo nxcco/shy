@@ -129,7 +129,7 @@ final class Profiles: ObservableObject {
     /// file of its own.
     static func history(_ id: UUID) -> History {
         if let made = histories[id] { return made }
-        let made = History(file: id == Profile.personalID ? "history.json" : "history-\(id.uuidString).json")
+        let made = History(file: id == Profile.personalID ? "history.json" : "history-\(id.uuidString).json", profile: id)
         histories[id] = made
         return made
     }
@@ -147,7 +147,7 @@ final class Profiles: ObservableObject {
 
     static func bookmarks(_ id: UUID) -> Bookmarks {
         if let made = bookmarkLists[id] { return made }
-        let made = Bookmarks(file: id == Profile.personalID ? "bookmarks.json" : "bookmarks-\(id.uuidString).json")
+        let made = Bookmarks(file: id == Profile.personalID ? "bookmarks.json" : "bookmarks-\(id.uuidString).json", profile: id)
         bookmarkLists[id] = made
         return made
     }
@@ -214,6 +214,7 @@ final class Profiles: ObservableObject {
         // Never opened this run: their files go all the same.
         Profiles.curtains.removeValue(forKey: id)
         SiteSearch.forget(in: id)
+        Favicons.drop(id)
         for name in ["history-\(id.uuidString).json", "bookmarks-\(id.uuidString).json", "hidden-\(id.uuidString).json"] {
             Disk.remove(Store.file(name))
         }

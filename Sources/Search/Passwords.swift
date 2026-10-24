@@ -37,6 +37,7 @@ struct PasswordsPanel: View {
                                 Site(
                                     host: site.host,
                                     logins: site.logins,
+                                    profile: browser.profileID,
                                     open: open == site.host,
                                     toggle: { open = open == site.host ? nil : site.host },
                                     copy: { browser.copy($0) },
@@ -87,6 +88,8 @@ struct PasswordsPanel: View {
     private struct Site: View {
         let host: String
         let logins: [Kept]
+        /// Whose passwords, and so whose icons.
+        let profile: UUID
         let open: Bool
         let toggle: () -> Void
         let copy: (Kept) -> Void
@@ -97,7 +100,7 @@ struct PasswordsPanel: View {
         var body: some View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    Mark(icon: Favicons.shared.cached(host), letter: host.first.map { String($0).uppercased() } ?? "•", size: 16)
+                    Mark(icon: Favicons.of(profile).cached(host), letter: host.first.map { String($0).uppercased() } ?? "•", size: 16)
                     Text(host)
                         .font(.system(size: 13))
                         .foregroundStyle(Palette.ink)
