@@ -3773,10 +3773,30 @@ final class Browser: NSObject, ObservableObject {
     func setProfile(_ profile: UUID, of id: UUID) {
         guard let at = spaces.firstIndex(where: { $0.id == id }), spaces[at].profileID != profile else { return }
         var list = spaces
+        // Sign-ins of its own stay behind with the profile it leaves: erased
+        // now, while the store is still the space's to name (Spaces.erase
+        // goes by what the space signs in with), and the space signs in as
+        // its new profile does.
+        if list[at].sharesSignIns != true, !list[at].isFirst {
+            Spaces.erase(id)
+            list[at].sharesSignIns = true
+        }
         list[at].profile = profile == Profile.personalID ? nil : profile
         spaces = list
         Spaces.write(list)
         announce("\(list[at].name) is in \(Profiles.shared.profile(profile).name)")
+    }
+
+    /// The same, asked first: the space's tabs start again signed in as the
+    /// other profile, and that is worth a yes.
+    func askToMove(_ id: UUID, to profile: UUID) {
+        guard let space = spaces.first(where: { $0.id == id }), space.profileID != profile else { return }
+        let name = Profiles.shared.profile(profile).name
+        let own = space.sharesSignIns != true && !space.isFirst
+        Ask.sure("Move “\(space.name)” to “\(name)”?",
+                 detail: "Its tabs reload signed in as \(name), with nothing of their old session, and what you do there from now on is kept in \(name)'s history, bookmarks and passwords."
+                    + (own ? " The sign-ins this space had of its own are erased." : ""),
+                 confirm: "Move") { [weak self] in self?.setProfile(profile, of: id) }
     }
 
     // MARK: - a tab to another window

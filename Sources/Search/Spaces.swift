@@ -530,7 +530,7 @@ enum SpaceMenu {
         // The profile it signs in, keeps history, bookmarks and passwords as.
         let profiles = NSMenu()
         for profile in Profiles.shared.list {
-            profiles.addItem(item(profile.name, checked: here.profileID == profile.id) { browser.setProfile(profile.id, of: here.id) })
+            profiles.addItem(item(profile.name, checked: here.profileID == profile.id) { browser.askToMove(here.id, to: profile.id) })
         }
         profiles.addItem(.separator())
         profiles.addItem(item("New Profile…") {

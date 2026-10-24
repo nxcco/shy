@@ -41,6 +41,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Changed
 
+- In Settings › Profiles & Spaces a space can be dragged onto another profile, or moved with the menu beside it, and either way you're asked first. Its tabs reload signed in as the other profile with nothing of their old session; sign-ins the space had of its own are erased
 - One or two pinned squares share the column's width, as in Arc, instead of leaving empty places beside them. Settings is a little wider, so Profiles & Spaces fits
 - Keep in Every Space is gone. A pin you kept in every space stays in each of them, as that space's own pin
 - Tabs are always down the side: the switch, View › Show Tabs in Sidebar and ⇧⌘S are gone. Shift-click always peeks at a link (the button can still be changed in Settings › Shortcuts), with no switch. Tabs no longer give when pressed, and the bookmarks bar is gone; bookmarks are in the Bookmarks menu and Bookmarks › Show Bookmarks…

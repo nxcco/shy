@@ -182,11 +182,18 @@ final class Profiles: ObservableObject {
 }
 
 /// Settings › Profiles & Spaces: every profile with its spaces under it.
-/// A space is given to another profile from the menu beside it; a profile
-/// is made, renamed or deleted here, and a new space made in it.
+/// A space is given to another profile by dragging it onto that profile's
+/// card, or from the menu beside it, after a yes either way; a profile is
+/// made, renamed or deleted here, and a new space made in it.
 struct ProfilesPage: View {
     @ObservedObject var browser: Browser
     @ObservedObject private var profiles = Profiles.shared
+    /// The space being dragged, and the one-time word its drag carries. A
+    /// drop counts only with that word: text dragged in from another app,
+    /// or a drag let go somewhere else and long gone, moves nothing.
+    @State private var dragging: (space: UUID, token: String)?
+    /// The profile card a space is held over.
+    @State private var over: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -227,7 +234,7 @@ struct ProfilesPage: View {
                 Line(space.name, nil) {
                     Picker("", selection: Binding(
                         get: { space.profileID },
-                        set: { browser.setProfile($0, of: space.id) }
+                        set: { browser.askToMove(space.id, to: $0) }
                     )) {
                         ForEach(profiles.list) { Text($0.name).tag($0.id) }
                     }
@@ -235,7 +242,35 @@ struct ProfilesPage: View {
                     .pickerStyle(.menu)
                     .fixedSize()
                 }
+                .contentShape(Rectangle())
+                .onDrag {
+                    let token = UUID().uuidString
+                    dragging = (space.id, token)
+                    return NSItemProvider(object: "shy-space:\(token)" as NSString)
+                }
+                .help("Drag onto another profile to move it there")
             }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(Palette.ink.opacity(over == profile.id ? 0.35 : 0), lineWidth: 1.5)
+                .allowsHitTesting(false)
+        )
+        .onDrop(of: [.plainText], isTargeted: Binding(
+            get: { over == profile.id },
+            set: { over = $0 ? profile.id : (over == profile.id ? nil : over) }
+        )) { providers in
+            guard let held = dragging, let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: NSString.self) { text, _ in
+                let said = text as? String
+                DispatchQueue.main.async {
+                    // Only the drag this page started, once.
+                    guard said == "shy-space:\(held.token)", dragging?.token == held.token else { return }
+                    dragging = nil
+                    browser.askToMove(held.space, to: profile.id)
+                }
+            }
+            return true
         }
     }
 
