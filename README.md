@@ -2,7 +2,7 @@
 
 An indie browser for the Mac. Small, safe, and out of your way.
 
-macOS 14 or later · 8.6 MB installed, 4.2 MB zipped · MIT
+macOS 14 or later · 8.2 MB installed, 4.1 MB zipped · MIT
 
 ## Why Shy
 
@@ -22,7 +22,8 @@ Shy isn't a toy or a demo. Its goal is to be a real, independent alternative to 
 - **A small surface.** A thin layer over WebKit. The less code, the less there is to go wrong, and WebKit does the hard parts.
 - **Nothing phones home.** No account, no sync, no telemetry, no update check. Nothing listens on the network.
 - **Your secrets stay in macOS.** Passwords live in the keychain, behind Touch ID.
-- **Off unless you ask.** Anything that could reach your data, such as agents or scripts driving the browser, is off until you turn it on in Settings.
+- **Off unless you ask.** Anything that could reach your data, such as agents, is off until you turn it on in Settings.
+- **No test hooks in what you install.** The socket the tests drive Shy through is built into debug builds only; a release build has none of it.
 - **Reviewed for what it opens.** Every change is read for what it lets in, not only for what it adds.
 
 ## Built with agents, and with you
@@ -41,7 +42,7 @@ Report security issues privately, as [SECURITY.md](SECURITY.md) explains.
 ./install.sh     # build Shy and put it in /Applications
 swift build      # the app and shy-mcp
 ./build.sh       # build/Shy.app
-swift test       # unit tests; Tests/*.py drive a hidden copy of the app
+Tests/run.sh     # unit, smoke and security tests; `Tests/run.sh smoke` for one part
 ```
 
 Shy began as a fork of [Search](https://github.com/driceroland/Search) by Office Commun and follows its own line: low complexity, no feature it doesn't need, no more growth than necessary. Stay shy.
