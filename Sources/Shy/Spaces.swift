@@ -54,7 +54,6 @@ enum Spaces {
         Color(red: 0.90, green: 0.33, blue: 0.40), // red
         Color(red: 0.62, green: 0.40, blue: 0.90), // violet
     ]
-    static let colourNames = ["Slate", "Blue", "Green", "Orange", "Red", "Violet"]
 
     /// The icons a space can wear: Apple's own symbols, drawn in one weight
     /// and one grey, grouped as work, thinking, leisure and life.

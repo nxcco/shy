@@ -183,14 +183,8 @@ enum Metrics {
     /// narrower than tabTitled they show their site's mark alone, and they
     /// stop at tabMinWidth, the mark and its air. Past that the row scrolls,
     /// inside its own edges.
-    static let tabWidth: CGFloat = 186
     static let tabTitled: CGFloat = 80
     static let tabMinWidth: CGFloat = 36
-    static let tabGap: CGFloat = 2
-    /// A pinned tab is a square the height of the row, holding one letter.
-    static let pinWidth: CGFloat = 30
-    /// The square at the end of the row that opens a new page.
-    static let plusWidth: CGFloat = 30
     /// The address field, in both the places it shows up.
     static let fieldWidth: CGFloat = 560
     /// The column of titles down the left, in the way that has one.

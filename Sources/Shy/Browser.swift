@@ -168,11 +168,6 @@ final class Browser: NSObject, ObservableObject {
     @Published var tuning = false
     /// What's new, once after an update (see WhatsNew.swift).
     @Published var newsShowing = false
-    /// Every version's notes: Settings › About › What's New…, in a tab.
-    var notesShowing: Bool {
-        get { pageTab(.notes) != nil }
-        set { if newValue { show(InternalPage(.notes)) } else { putAway(.notes) } }
-    }
 
     // MARK: - bookmarks
 
@@ -2335,39 +2330,11 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
-    /// Pages in a window of their own, in this window's space, the first in
-    /// front. The empty tab a new window starts with goes once they are in,
-    /// as it does for a window an extension opens. Used, for one, by the
-    /// bookmarks bar's Open in New Window and Open All in New Window.
-    func openInNewWindow(_ urls: [URL]) {
-        guard !urls.isEmpty else { return }
-        let fresh = Browser(record: WindowRecord(space: spaceID))
-        for (index, url) in urls.enumerated() {
-            fresh.open(url, foreground: index == 0, atEnd: true, mayWait: true)
-        }
-        for blank in fresh.tabs where blank.isBlank && !blank.bench { fresh.close(blank) }
-        Browsers.open(fresh, frame: nil)
-    }
-
     /// A page in a new tab, paired with the one on screen as a tab's Open in
     /// Split View pairs it. Used, for one, by the bookmarks bar's Open in
     /// Split View.
     func openInSplit(_ url: URL) {
         openInSplit(open(url, foreground: false, from: active))
-    }
-
-    /// A page in a tab that keeps nothing, as ⌘⇧N makes one, already on its
-    /// way there. Not `open(_:foreground:)`, whose tab is private only when
-    /// the one it comes from is. Used, for one, by the bookmarks bar's Open
-    /// in Private Tab.
-    func openShy(_ url: URL) {
-        let tab = Tab(shy: true)
-        adopt(tab)
-        tab.go(to: url)
-        leaving()
-        activeID = tab.id
-        typed = ""
-        editing = false
     }
 
     /// ⌘⇧N. A tab that keeps nothing — its own cookies, its own sign-ins, no
@@ -3214,12 +3181,6 @@ final class Browser: NSObject, ObservableObject {
         typed = ""
         siteChip = site
         return true
-    }
-
-    /// Tab, or the right arrow at the end of the line: take what is offered.
-    func acceptEnding() {
-        guard let ending, !ending.isEmpty else { return }
-        typed += ending
     }
 
     /// The arrow keys walk the list, and walking off the top lets go of it.
