@@ -8,6 +8,8 @@ let package = Package(
         .executableTarget(
             name: "Shy",
             path: "Sources/Shy",
+            // The pages' JavaScript, copied into the app by build.sh (Scripts.swift).
+            exclude: ["Scripts"],
             // Same reasoning as the canvas app next door: the whole interface is
             // main-thread by nature, and Swift 6's strict isolation buys nothing
             // here but ceremony.

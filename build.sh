@@ -116,6 +116,8 @@ cp "$(dirname "$BINARY")/shy-mcp" "$APP/Contents/MacOS/shy-mcp"
 # The AppleScript dictionary (Scripting.swift): read-only, tabs' addresses
 # and titles. The plist below points to it.
 cp Shy.sdef "$APP/Contents/Resources/"
+# The scripts Shy puts into pages (Scripts.swift), as the files they are.
+cp -R Sources/Shy/Scripts "$APP/Contents/Resources/"
 
 # Symbols stay out of the app. The linker leaves every function's name and a
 # map back to the source in the binary — 15,000 entries, more than half of
