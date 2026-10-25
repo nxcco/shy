@@ -151,14 +151,8 @@ final class Preferences: ObservableObject {
     @Published var sidePosition: SidebarPosition {
         didSet { store.set(sidePosition.rawValue, forKey: "sidebar.position") }
     }
-    /// The column folded away whenever the pointer isn't at its edge,
-    /// rather than only after ⌘S (see Fold.swift). Off unless asked for.
-    @Published var sideHides: Bool {
-        didSet { store.set(sideHides, forKey: "sidebar.hides") }
-    }
     /// A column folded away comes out when the pointer meets its edge. On
     /// unless turned off; off, only ⌘S (or its button) brings it back.
-    /// Auto-hide always has the edge, being nothing without it.
     @Published var sidePeeks: Bool {
         didSet { store.set(sidePeeks, forKey: "sidebar.peeks") }
     }
@@ -479,7 +473,6 @@ final class Preferences: ObservableObject {
         sidePanelWidth = min(max(CGFloat(store.object(forKey: "sidepanel.width") as? Double ?? 380),
                                  Preferences.sidePanelWidths.lowerBound), Preferences.sidePanelWidths.upperBound)
         sidePosition = store.string(forKey: "sidebar.position").flatMap(SidebarPosition.init) ?? .left
-        sideHides = store.bool(forKey: "sidebar.hides")
         sidePeeks = store.object(forKey: "sidebar.peeks") as? Bool ?? true
         roomyTabs = store.bool(forKey: "sidebar.roomy")
         let width = store.object(forKey: "sidebar.width") as? Double ?? Double(Metrics.side)

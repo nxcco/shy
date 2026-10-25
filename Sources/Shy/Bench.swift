@@ -715,7 +715,6 @@ final class Bench {
             }
             out["folded"] = browser.folded
             out["peeking"] = browser.peeking
-            out["sideHides"] = browser.prefs.sideHides
             // The page as a card (see Browser.asCards), and what it is made of.
             out["cards"] = ["switch": browser.prefs.cards, "fullScreen": browser.fullScreen, "on": browser.asCards,
                             "windowFullScreen": (browser.window ?? Links.window)?.styleMask.contains(.fullScreen) ?? false]
@@ -2708,7 +2707,6 @@ final class Bench {
             if let yes = request["confirm"] as? Bool, Store.testing { Ask.testing = yes }
             // "ask": the real question again, as a person gets it.
             if request["confirm"] as? String == "ask" { Ask.testing = nil }
-            if let on = request["hides"] as? Bool { browser.prefs.sideHides = on }
             if let on = request["cards"] as? Bool { browser.prefs.cards = on }
             if let on = request["address"] as? Bool { browser.prefs.showsAddress = on }
             // Developer Mode for the tab in front, as its right-click menu turns it.

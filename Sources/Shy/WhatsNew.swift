@@ -52,8 +52,6 @@ enum WhatsNew {
         Toggle(title: "Always show the downloads button", detail: "Your downloads one click away, beside the other buttons.",
                since: "1.0.4", get: { $0.alwaysShowsDownloads }, set: { $0.alwaysShowsDownloads = $1 }),
 
-        Toggle(title: "A sidebar that hides", detail: "The page takes the whole window; the tabs come out at the edge.",
-               since: "1.0.1", get: { $0.sideHides }, set: { $0.sideHides = $1 }),
         Toggle(title: "Float the video when you switch apps", detail: "A playing video follows you out into a small window.",
                since: "1.0.2", get: { $0.floatsAway }, set: { $0.floatWhen = $1 ? .tabsOrApps : .tabs }),
         Toggle(title: "Pages at 120 Hz", detail: "Smoother scrolling and animations on screens that can. Uses more battery.",

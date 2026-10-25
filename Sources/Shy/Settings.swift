@@ -517,10 +517,6 @@ struct SettingsPanel: View {
                     Segmented(options: SidebarPosition.allCases.map { ($0, $0.title) }, selection: $prefs.sidePosition)
                 }
                 Rule()
-                Line("Auto-hide the sidebar", "Push the pointer against the \(prefs.sidePosition.rawValue) edge to show it. ⌘S toggles") {
-                    Switch(on: $prefs.sideHides)
-                }
-                Rule()
                 Line("Show the hidden sidebar at the edge", "Folded with ⌘S, it comes out when the pointer meets the edge. Off, only ⌘S shows it") {
                     Switch(on: $prefs.sidePeeks)
                 }

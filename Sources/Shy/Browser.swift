@@ -1228,9 +1228,6 @@ final class Browser: NSObject, ObservableObject {
             // What a deleted space left behind, if WebKit wouldn't let it go then.
             Spaces.sweep()
         }
-        // Asked to stay out of the way: it starts that way (see Fold.swift).
-        folded = prefs.sideHides
-
         followProfile()
         // Published before it changes: followed once it has.
         $spaceID

@@ -17,14 +17,6 @@ import SwiftUI
 // Folding lasts the session. A browser opening with no tabs anywhere on
 // screen, for a reason set days ago, reads as a broken one.
 //
-// Unless that is the reason: Settings can keep the column folded for good,
-// Arc's way, and then the fold is where it rests, at launch and after every
-// change of layout. ⌘S still brings it out to stay, and puts it away again.
-// Folded like that, the edge is met far more often by a hand on its way
-// somewhere else — the Dock, the window beside — than by one reaching for
-// the tabs, so the column waits for the pointer to settle there a moment
-// before it comes. Folded by hand with ⌘S, it comes at once, as it always did.
-//
 // The edge isn't only where the pointer stops. A hand flung at it, with the
 // window away from the screen's own edge, sails past it off the window, and
 // was never seen at the edge at all. Just past the edge counts as the edge,
@@ -106,9 +98,8 @@ struct Fold: View {
     static let fullScreenCorner: CGFloat = 60
     /// The band along the top that is the title bar over the page.
     private static let top: CGFloat = 8
-    /// How long the pointer rests on the edge before a column folded for
-    /// good comes out. Long enough to cross the edge, short enough not to be
-    /// waited for.
+    /// How long the pointer rests just past the edge before the column comes
+    /// out. Long enough to cross the edge, short enough not to be waited for.
     private static let dwell: TimeInterval = 0.15
 
     var body: some View {
@@ -171,7 +162,7 @@ struct Fold: View {
             resetPending()
             pointer.stop()
         }
-        // A column folded for good is folded before there is a window to
+        // A column already folded when there is no window yet has no lights to
         // hide the lights of; they go once there is one.
         .background(WindowSetup { window in
             window.standardWindowButton(.closeButton)?.superview?.isHidden = lightsOff && !window.styleMask.contains(.fullScreen)
@@ -205,12 +196,6 @@ struct Fold: View {
         .onChange(of: prefs.sidePeeks) { _, _ in
             resetPending()
             browser.peeking = false
-            watch()
-        }
-        .onChange(of: prefs.sideHides) { _, hides in
-            resetPending()
-            browser.peeking = false
-            withAnimation(Motion.folding(out: !hides)) { browser.folded = hides }
             watch()
         }
         // The address typed into a row is done with, and the pointer went
@@ -257,9 +242,9 @@ struct Fold: View {
 
     /// The pointer is watched only while there is something folded for it
     /// to bring out, and Settings lets the edge bring it (Show the hidden sidebar
-    /// at the edge, or auto-hide); otherwise ⌘S or the button brings it back.
+    /// at the edge); otherwise ⌘S or the button brings it back.
     private func watch() {
-        if folding && (prefs.sideHides || prefs.sidePeeks) {
+        if folding && prefs.sidePeeks {
             pointer.start { follow() }
         } else {
             pointer.stop()
@@ -325,11 +310,10 @@ struct Fold: View {
         }
     }
 
-    /// The pointer on the edge: out at once, or after the dwell when the
-    /// column is folded for good, and always for the strip, whose edge is
-    /// the way to the menu bar, and for the pointer just past the edge.
+    /// The pointer on the edge: out at once; just past the edge, after the
+    /// dwell.
     private func arrive(resting: Bool = false) {
-        guard resting || prefs.sideHides else { return peek(true) }
+        guard resting else { return peek(true) }
         pass()
         let coming = DispatchWorkItem {
             arriving = nil
