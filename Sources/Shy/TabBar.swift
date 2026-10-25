@@ -428,6 +428,9 @@ struct TabMenu: View {
             }
         }
         .disabled(browser.awake(because: tab) != nil)
+        // The bar under the page, in every window (see DeveloperBar.swift).
+        Toggle("Developer Mode", isOn: Binding(get: { browser.prefs.developer },
+                                               set: { browser.prefs.developer = $0 }))
         Divider()
         if tab.pin == nil {
             Button("Pin") { browser.pin(tab) }

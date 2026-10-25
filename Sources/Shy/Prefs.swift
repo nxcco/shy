@@ -263,6 +263,12 @@ final class Preferences: ObservableObject {
     @Published var showsAddress: Bool {
         didSet { store.set(showsAddress, forKey: "tabs.address") }
     }
+    /// Developer Mode, from a tab's right-click menu: a thin bar under the
+    /// page with its whole address and a button for the Web Inspector (see
+    /// DeveloperBar.swift). The same in every window. Off unless asked for.
+    @Published var developer: Bool {
+        didSet { store.set(developer, forKey: "developer") }
+    }
     /// The ad blocker. On unless turned off; there is nothing else to it.
     @Published var shielded: Bool {
         didSet { store.set(shielded, forKey: "shield") }
@@ -492,6 +498,7 @@ final class Preferences: ObservableObject {
         engineSuggests = store.bool(forKey: "search.suggest")
         siteNotifications = store.object(forKey: "notifications.ask") as? Bool ?? true
         showsAddress = store.bool(forKey: "tabs.address")
+        developer = store.bool(forKey: "developer")
         shielded = store.object(forKey: "shield") as? Bool ?? true
         let keeps = store.bool(forKey: "sites.keep")
         keepsSignIns = keeps
