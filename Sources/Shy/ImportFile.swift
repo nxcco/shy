@@ -12,6 +12,14 @@ import Darwin
 // they hold, not by their names.
 
 enum ImportFile {
+    /// A page the person has been to, as a history file records it.
+    struct Place {
+        let url: URL
+        let title: String
+        let count: Int
+        let last: Date
+    }
+
     /// A folder of its own for what an import unpacks or copies (a Safari
     /// export's Passwords.csv in the clear, another browser's databases),
     /// named for this process so another copy of Shy running beside it
@@ -135,7 +143,7 @@ enum ImportFile {
 
     struct Found {
         var bookmarks: [Bookmark] = []
-        var places: [Chromium.Place] = []
+        var places: [Place] = []
         /// A passwords file's text, for Vault.take(csv:).
         var passwords: [String] = []
         /// Safari's export holds passwords in the clear; said once brought in.
@@ -287,7 +295,7 @@ enum ImportFile {
     /// often. The first steps of a redirect, and pages that failed to load,
     /// are left out: they aren't places anyone meant to go.
     /// Nil for a file that isn't Safari's history at all.
-    private static func history(in file: URL, control: Control, counter: ProgressCounter, label: String) throws -> [Chromium.Place]? {
+    private static func history(in file: URL, control: Control, counter: ProgressCounter, label: String) throws -> [Place]? {
         let data = try readData(file, control: control) { completed, total in
             control.report(Progress(message: "\(label): Reading history", completed: completed, total: total))
         }
@@ -298,7 +306,7 @@ enum ImportFile {
         else { return nil }
         try control.checkCancellation()
 
-        var places: [Chromium.Place] = []
+        var places: [Place] = []
         places.reserveCapacity(entries.count)
         control.report(Progress(message: "\(label): Parsing history", completed: 0, total: entries.count))
         for (index, entry) in entries.enumerated() {
@@ -310,7 +318,7 @@ enum ImportFile {
                 let stamp = (entry["time_usec"] as? NSNumber)?.doubleValue ?? 0
                 let last = stamp > 0 ? Date(timeIntervalSince1970: stamp / 1_000_000) : Date()
                 let count = (entry["visits_count"] as? NSNumber)?.intValue ?? 1
-                places.append(Chromium.Place(url: url, title: entry["title"] as? String ?? "", count: max(1, count), last: last))
+                places.append(Place(url: url, title: entry["title"] as? String ?? "", count: max(1, count), last: last))
             }
             if index % 64 == 63 || index == entries.count - 1 {
                 control.report(Progress(message: "\(label): Parsing history", completed: index + 1, total: entries.count))

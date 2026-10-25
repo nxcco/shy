@@ -215,59 +215,6 @@ final class Browser: NSObject, ObservableObject {
         bookmarksOpen.toggle()
     }
 
-    /// Another browser's bookmarks, folders and all — one profile's, or
-    /// every profile's when nil — and, behind them, the icons it had for
-    /// those sites, so the menu wears them from the start instead of a
-    /// letter each. Returns how many pages came over, and how many were
-    /// here already. `replacing`: what came from this browser before —
-    /// as recorded, nothing guessed — is taken out first, and these come
-    /// fresh in its place.
-    ///
-    /// Only when every profile read cleanly: a file that didn't read is not
-    /// an empty browser, and taking out what came before for it lost
-    /// bookmarks for good (#375). Then what came before stays, what could be
-    /// read is added as usual, and `kept` says so.
-    @discardableResult
-    func takeBookmarks(from source: ImportSource, profile: String? = nil, replacing: Bool = false) -> (added: Int, already: Int, kept: Bool) {
-        let read = source.bookmarkRead(profile: profile)
-        let found = read.nodes
-        var kept = false
-        if replacing, let earlier = ImportRecords.of(source.name), !earlier.bookmarkIDs.isEmpty {
-            if read.complete {
-                bookmarks.withdraw(earlier.bookmarkIDs)
-                ImportRecords.forgetBookmarks(source.name)
-            } else {
-                kept = true
-            }
-        }
-        let (count, already, ids) = bookmarks.takeNoting(found, from: source.name)
-        ImportRecords.note(source.name, bookmarks: ids, bookmarks: count)
-        announce(
-            kept ? "Couldn't read all of \(source.name)'s bookmarks: what came from it before was kept"
-                : Bookmarks.count(found) == 0 ? "No bookmarks in \(source.name)"
-                : count == 0 ? "The bookmarks from \(source.name) were all here already"
-                : already == 0 ? "\(count) bookmarks from \(source.name)"
-                : "\(count) new bookmarks from \(source.name), \(already) already here"
-        )
-        let urls = Bookmarks.urls(found)
-        DispatchQueue.global(qos: .utility).async {
-            let icons = source.icons(profile: profile, for: urls)
-            Task { @MainActor in
-                for (host, data) in icons { await Favicons.of(self.profileID).adopt(data, for: host) }
-                self.objectWillChange.send()
-            }
-        }
-        return (count, already, kept)
-    }
-
-    /// Bring Things Over, in a tab, open while set: the browser it starts
-    /// on by name, or "" for the first one found.
-    var bringingIn: String? {
-        get { pageTab(.importing).map { $0.page?.detail ?? "" } }
-        set {
-            if let newValue { show(InternalPage(.importing, newValue)) } else { putAway(.importing) }
-        }
-    }
     struct FileImportJob: Identifiable {
         let id: UUID
         let filename: String
@@ -285,10 +232,6 @@ final class Browser: NSObject, ObservableObject {
         fileImport?.message = "Cancelling…"
         fileImportControl?.cancel()
     }
-    /// The sheet opened from Settings › Extensions: only the extensions
-    /// ticked, on a browser that has some. Read once as it opens.
-    var bringingExtensions = false
-
     /// ⇧⌘S. The same tabs, down the left or across the top.
     func searchURL(for text: String) -> URL? {
         Engine.url(for: text, template: prefs.engine.template(custom: prefs.customEngine))

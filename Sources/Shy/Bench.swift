@@ -624,7 +624,6 @@ final class Bench {
                 "bookmarksOpen": browser.bookmarksOpen,
                 "bookmarkCard": browser.bookmarkCard != nil,
                 "bookmarkCount": browser.bookmarks.count,
-                "import": browser.bringingIn != nil,
                 "field": browser.editing,
                 "suggesting": browser.suggesting != nil,
                 "offering": browser.offering != nil,
@@ -1264,96 +1263,6 @@ final class Bench {
                 }
             }
             answer(["bar": bar, "folders": folders, "menu": menu, "list": rows(browser.bookmarks.roots, 0)])
-
-        case "import":
-            // Another browser's passwords, bookmarks and history, brought in
-            // through the same calls the panels make. Only on
-            // a SHY_PROBE run, which reads made-up profiles from its own
-            // folder's Import/ (see Chromium.base), never a real browser.
-            guard Store.testing else { answer(["error": "import only works on a --test run"]); return }
-            let found = ImportSource.installed()
-            guard let source = found.first(where: { $0.name == request["from"] as? String }) else {
-                answer(["found": found.map(\.name)])
-                return
-            }
-            // The profile used most recently unless another is named, by its
-            // folder or the name the browser gives it; "all" for every one.
-            let profile: String?
-            switch request["profile"] as? String {
-            case nil: profile = source.usual
-            case "all": profile = nil
-            case let name?:
-                guard let match = source.profiles.first(where: { $0.id == name || $0.name == name }) else {
-                    answer(["error": "no profile “\(name)” in \(source.name)", "profiles": source.profiles.map(\.id)])
-                    return
-                }
-                profile = match.id
-            }
-            let what = request["what"] as? [String] ?? []
-            var out: [String: Any] = ["found": found.map(\.name), "profiles": source.profiles.map(\.id),
-                                      "profile": profile ?? "all"]
-            if what.contains("bookmarks") {
-                let (added, already, kept) = browser.takeBookmarks(from: source, profile: profile, replacing: request["replace"] as? Bool == true)
-                out["bookmarks"] = ["added": added, "already": already, "kept": kept, "total": browser.bookmarks.count,
-                                    "top": browser.bookmarks.roots.map(\.title)]
-            }
-            if what.contains("history") {
-                let places = source.places(profile: profile)
-                for place in places { browser.history.take(place.url, title: place.title, count: place.count, last: place.last) }
-                browser.history.settle()
-                out["places"] = places.count
-                ImportRecords.note(source.name, places: places.count)
-            }
-            if what.contains("passwords") {
-                let outcome = Result { try source.read(profile: profile) }
-                switch outcome {
-                case .success(let read): out["read"] = read.logins.count; out["skipped"] = read.skipped
-                    out["undecrypted"] = read.undecrypted
-                case .failure(let error): out["error"] = "\(error)"
-                }
-                browser.took(outcome, from: source.name)
-                out["saved"] = browser.saved.count
-            }
-            if what.contains("spaces") {
-                if let sidebar = source.arcSidebar(profile: profile) {
-                    let (spaces, pins, tabs) = browser.takeArc(sidebar, from: source, profile: profile)
-                    ImportRecords.note(source.name, spaces: spaces, pinned: pins + tabs)
-                    out["arc"] = ["spaces": spaces, "pins": pins, "tabs": tabs,
-                                  "names": browser.spaces.map(\.name), "usesSpaces": true]
-                } else {
-                    out["arc"] = "no Arc sidebar"
-                }
-            }
-            // What is now recorded from it, as the sheet shows it.
-            if let record = ImportRecords.of(source.name) {
-                out["record"] = ["bookmarks": record.bookmarks, "places": record.places, "passwords": record.passwords,
-                                 "ids": record.bookmarkIDs.count]
-            }
-            answer(out)
-
-        case "import-preview":
-            // What the sheet counts as it opens, for every browser found:
-            // its profiles, the one used most recently, and what that one
-            // and all of them hold — through the same call the sheet makes,
-            // which never asks for a key. Only on a SHY_PROBE run.
-            guard Store.testing else { answer(["error": "import-preview only works on a --test run"]); return }
-            let asked = Chromium.keyAsks
-            func counts(_ preview: ImportSource.Preview) -> [String: Any] {
-                ["bookmarks": preview.bookmarks, "places": preview.places, "passwords": preview.passwords,
-                 "extensions": preview.extensions]
-            }
-            let found = ImportSource.installed().map { source -> [String: Any] in
-                let usual = source.usual
-                return ["name": source.name,
-                        "profiles": source.profiles.map { ["id": $0.id, "name": $0.name] },
-                        "default": usual ?? "",
-                        "counts": counts(source.preview(profile: usual)),
-                        "all": counts(source.preview(profile: nil))]
-            }
-            // keyAsked: by this count; keyAskedEver: by anything since launch,
-            // the sheet opening included.
-            answer(["browsers": found, "safari": ImportSource.safari, "keyAsked": Chromium.keyAsks - asked,
-                    "keyAskedEver": Chromium.keyAsks])
 
         case "import-file":
             // A file another browser exported, through the same call the
@@ -2750,13 +2659,6 @@ final class Bench {
             if let on = request["history"] as? Bool { browser.recalling = on }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }
-            // The Bring things over sheet: on, off, on at a browser by name,
-            // or on for the extensions alone, as Settings › Extensions opens it.
-            if let text = request["import"] as? String {
-                browser.bringingExtensions = text == "extensions"
-                browser.bringingIn = ["off", "false", "0", "no"].contains(text) ? nil
-                    : ["on", "true", "1", "yes", "extensions"].contains(text) ? "" : text
-            }
             // Shy's own pages (InternalPages.swift): one shown by its
             // address as a link would open it, one reached from the page in
             // front as its own buttons do, and an address typed on the tab

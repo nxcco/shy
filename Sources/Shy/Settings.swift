@@ -232,7 +232,7 @@ struct SettingsPanel: View {
                 // Coming from another browser, now or any time later: the same
                 // sheet as File › Bring Things Over….
                 Line("Import from another browser", "Bookmarks, history, passwords and extensions") {
-                    Pill("Import…") { browser.lead(to: InternalPage(.importing)) }
+                    Pill("Import…") { browser.importFile() }
                 }
                 Rule()
                 Line("Confirm before quitting with ⌘Q") {
@@ -640,7 +640,7 @@ struct SettingsPanel: View {
             ApplePasswordsCard(prefs: prefs)
             Card {
                 Line("Import passwords", "From another browser on this Mac") {
-                    Pill("Import…") { browser.lead(to: InternalPage(.importing)) }
+                    Pill("Import…") { browser.importFile() }
                 }
             }
         }

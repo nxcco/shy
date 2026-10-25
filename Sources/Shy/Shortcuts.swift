@@ -165,7 +165,7 @@ struct Command: Identifiable {
         Command("file.openAddress", "Open Address…", .file, KeyCombo("l")) { $0.edit() },
         Command("file.closeTab", "Close Tab", .file, KeyCombo("w")) { $0.closeFront() },
         Command("file.closeWindow", "Close Window", .file, KeyCombo("w", shift: true)) { $0.closeWindow() },
-        Command("file.import", "Bring Things Over…", .file, nil) { $0.bringingIn = "" },
+        Command("file.import", "Bring In a File…", .file, nil) { $0.importFile() },
         Command("file.share", "Share…", .file, nil) { $0.share() },
         Command("file.exportPDF", "Export as PDF…", .file, nil) { $0.exportPDF() },
         Command("file.print", "Print…", .file, KeyCombo("p")) { $0.printPage() },

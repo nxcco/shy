@@ -423,58 +423,6 @@ extension Browser {
         }
     }
 
-    /// What came back from another browser's store, put in the keychain,
-    /// with the sites it was told never to ask about. Saving one already
-    /// kept updates it, so bringing the same in again adds nothing twice.
-    /// Returns how many were kept. `profile`: the one on screen when the
-    /// import began, taken then — the keychain's question can stay up while
-    /// you go to a space of another.
-    func keep(_ found: Chromium.Found, in profile: UUID) -> Int {
-        var kept = 0
-        for login in found.logins
-        where Vault.save(host: login.host, user: login.user, password: login.password, used: login.used, clear: login.clear, in: profile) {
-            kept += 1
-        }
-        Vault.setNever(Vault.never(in: profile).union(found.never), in: profile)
-        relist()
-        return kept
-    }
-
-    /// The same, said as it lands.
-    func took(_ outcome: Result<Chromium.Found, Error>, from name: String) {
-        switch outcome {
-        case .success(let found):
-            let kept = keep(found, in: profileID)
-            ImportRecords.note(name, passwords: kept)
-            let locked = found.undecrypted > 0 ? " (\(found.undecrypted) couldn't be decrypted)" : ""
-            announce((kept == 0 ? "Nothing new in \(name)" : "\(kept) passwords from \(name)") + locked)
-        case .failure(Chromium.Trouble.noPassphrase):
-            announce("\(name) didn't give up its keychain key")
-        case .failure(Mozilla.Trouble.primaryPassword):
-            announce("\(name) has a primary password — export your passwords from it (Settings › Passwords › ⋯ › Export) and bring in the CSV file")
-        case .failure:
-            announce("Nothing readable in \(name)")
-        }
-    }
-
-    /// The other browser's history, into this one's. Off the main thread for
-    /// the reading; the merge itself is a moment.
-    func takePlaces(from source: ImportSource, profile: String? = nil, then done: @escaping (Int) -> Void) {
-        // The profile on screen when it was asked for.
-        let history = self.history
-        DispatchQueue.global(qos: .userInitiated).async {
-            let places = source.places(profile: profile)
-            DispatchQueue.main.async {
-                for place in places {
-                    history.take(place.url, title: place.title, count: place.count, last: place.last)
-                }
-                history.settle()
-                ImportRecords.note(source.name, places: places.count)
-                done(places.count)
-            }
-        }
-    }
-
     /// Something another browser exported: a bookmarks page, a passwords
     /// file, or Safari's own export (see ImportFile). Read once, never copied.
     func importFile() {

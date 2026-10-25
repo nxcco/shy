@@ -65,15 +65,6 @@ struct ExtensionsPage: View {
                     .padding(14)
                 }
 
-                Card {
-                    Line("From another browser", "What Chrome, Arc, Brave and the others added from the Chrome Web Store — installed fresh from the store, you say yes to each one") {
-                        Pill("Bring them over…") {
-                            browser.bringingExtensions = true
-                            browser.lead(to: InternalPage(.importing))
-                        }
-                    }
-                }
-
                 if extensions.installed.isEmpty {
                     Card { Nothing("No extensions yet.") }
                 } else {

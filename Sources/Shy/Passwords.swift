@@ -57,7 +57,7 @@ struct PasswordsPanel: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
                     // Which browser, which profile and what of it: the sheet.
-                    Pill("Bring in…") { browser.lead(to: InternalPage(.importing)) }
+                    Pill("Bring in…") { browser.importFile() }
                     Pill("File…") { browser.importFile() }
                     Spacer(minLength: 0)
                     // What the list shows, all of it or what the search

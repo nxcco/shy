@@ -62,7 +62,7 @@ struct ShyApp: App {
                 // Another browser's bookmarks, history, passwords and the
                 // rest, as Safari's File › Import From: the one sheet every
                 // other way in opens too.
-                Button("Bring Things Over…") { browser.bringingIn = "" }
+                Button("Bring In a File…") { browser.importFile() }
                     .shortcut("file.import")
                 Divider()
                 Button("Close Tab") { browser.closeFront() }
