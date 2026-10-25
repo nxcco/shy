@@ -30,6 +30,7 @@ class H(BaseHTTPRequestHandler):
         port = self.server.server_port
         url = urlparse(self.path); page = url.path; q = parse_qs(url.query)
         headers = []
+        seen.append(self.path)
         if page == "/login":
             body = """<form id=f><input id=code type=password autocomplete=current-password autofocus><button>Sign in</button></form>
 <script>document.getElementById('f').addEventListener('submit', async e => { e.preventDefault();
@@ -55,6 +56,9 @@ class H(BaseHTTPRequestHandler):
             body = "<script>setTimeout(() => window.open('/opened-load'), 300)</script>"
         elif page == "/ads":
             body = f"<button id=go>Activate parent only</button><iframe src='http://localhost:{port}/ad'></iframe>"
+        elif page == "/scripted":
+            # Reports itself to the server whenever it runs, from wherever it is.
+            body = "<title>source</title><script>fetch('/ran?from=' + location.protocol); document.title = 'ran'</script><p>scripted"
         elif page == "/ad":
             body = "<script>setInterval(() => window.open('/opened-ad'), 100)</script>"
         else:
@@ -71,6 +75,7 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
 
+seen = []
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 PORT = srv.server_port
@@ -193,6 +198,45 @@ def profiles(t):
     t.ok("and Personal still has it", "Marker" in installed(), installed())
 
 
+def developer(t):
+    # On by itself, for a page from this Mac.
+    id = open_page(f"{SITE}/start"); sv.sp("select", id=id); time.sleep(0.8)
+    t.ok("Developer Mode is on for a page from this Mac", sv.cmd({"do": "probe"}).get("developer") is True)
+    dev = lambda **f: sv.cmd({"do": "developer", **f})
+    # Each refused, as the window's own field refuses it: nothing loads and
+    # no script runs.
+    for typed in ["javascript:fetch('/ran-js');document.title='pwned'", "JavaScript:fetch('/ran-js')",
+                  " javascript:fetch('/ran-js')", "javascript://%0afetch('/ran-js')", "vbscript:msgbox(1)",
+                  "mailto:someone@example.com", "hello world", "todo"]:
+        went = dev(type=typed, enter=True).get("went")
+        time.sleep(0.4)
+        t.ok(f"the developer address line refuses {typed!r}", went is False
+             and sv.cmd({"do": "tabs"})["tabs"] and sv.ev(id, "location.pathname") == "/start", went)
+        dev(escape=True)
+    t.ok("and nothing it refused ran", not any(p.startswith("/ran-js") for p in seen)
+         and sv.ev(id, "document.title") != "pwned")
+    # Control: the same line, with an address, does load it.
+    went = dev(type=f"{SITE}/typed", enter=True).get("went")
+    sv.cmd({"do": "wait", "id": id}); time.sleep(0.5)
+    t.ok("while an address typed there loads", went is True and sv.ev(id, "location.pathname") == "/typed")
+
+    # View source: the page itself runs (the control), its source never does.
+    sv.cmd({"do": "go", "id": id, "url": f"{SITE}/scripted"}); sv.cmd({"do": "wait", "id": id}); time.sleep(1)
+    ran = [p for p in seen if p.startswith("/ran")]
+    t.ok("a page with a script runs it", ran == ["/ran?from=http:"], ran)
+    before = {x["id"] for x in sv.cmd({"do": "tabs"})["tabs"]}
+    dev(source=True); time.sleep(2)
+    made = [x for x in sv.cmd({"do": "tabs"})["tabs"] if x["id"] not in before]
+    src = made[0]["id"] if made else None
+    t.ok("View Source opens a tab of plain text", len(made) == 1 and made[0]["url"].startswith("data:text/plain"),
+         [x["url"][:40] for x in made])
+    t.ok("holding the script as text", src is not None and "<script>fetch('/ran" in (sv.ev(src, "document.body.innerText") or ""))
+    time.sleep(1)
+    t.ok("which runs nothing", [p for p in seen if p.startswith("/ran")] == ran
+         and sv.ev(src, "document.title") != "ran", [p for p in seen if p.startswith("/ran")])
+    if src: sv.sp("close", id=src)
+
+
 def main():
     t = sv.T()
     try:
@@ -203,6 +247,7 @@ def main():
         popups(t)
         passwords(t)
         profiles(t)
+        developer(t)
     finally:
         try: acc(forget=True)
         except Exception: pass

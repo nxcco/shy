@@ -39,6 +39,11 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         name = self.path.strip("/")
         asked.append(name)
+        heard[name] = dict(self.headers)
+        # Three errors: a console.error, an uncaught error, an unhandled rejection.
+        if name == "throws":
+            return self.send(200, "<!doctype html><title>throws</title><script>console.error('one');"
+                                  "setTimeout(() => { throw new Error('two') }); Promise.reject(new Error('three'))</script>")
         # A page that never arrives in time: the load is under way, nothing commits.
         if name == "stall": time.sleep(8)
         self.send(200, LOGIN if name == "login" else f"<!doctype html><title>{name}</title><p>{name}")
@@ -51,6 +56,7 @@ class H(BaseHTTPRequestHandler):
 
 
 asked = []
+heard = {}
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{srv.server_port}"
@@ -115,11 +121,26 @@ def passwords(t):
 
 
 def developer(t):
+    probe = lambda: sv.cmd({"do": "probe"})
     a = open_page("deep/page?q=1#here")
-    sv.cmd({"do": "ui", "developer": True}); time.sleep(0.6)
-    r = sv.cmd({"do": "probe"})
-    t.ok("Developer Mode puts its bar under the page, with the whole address",
+    r = probe()
+    t.ok("a page from this Mac has Developer Mode on by itself, its bar with the whole address",
          r.get("developer") is True and r.get("developerBar") == f"{BASE}/deep/page?q=1#here", r.get("developerBar"))
+    sv.cmd({"do": "ui", "developer": False}); time.sleep(0.6)
+    t.ok("turned off for the tab, its bar goes", probe().get("developerBar") is None)
+    b = open_page("other")
+    t.ok("while another tab keeps its own", probe().get("developerBar") == f"{BASE}/other")
+    sv.sp("close", id=b); sv.sp("select", id=a); time.sleep(0.6)
+    t.ok("and the first stays off", probe().get("developer") is False and probe().get("developerBar") is None)
+    sv.cmd({"do": "ui", "developer": True}); time.sleep(0.6)
+    t.ok("turned on again, it is back", probe().get("developerBar") == f"{BASE}/deep/page?q=1#here")
+    page = Path(sv.SUPPORT) / "elsewhere.html"; page.write_text("<!doctype html><p>elsewhere")
+    c = sv.sp("open", url=page.as_uri())["resultID"]; sv.sp("select", id=c); sv.cmd({"do": "wait", "id": c}); time.sleep(0.8)
+    t.ok("a page from anywhere else has it off", probe().get("developer") is False and probe().get("developerBar") is None)
+    sv.cmd({"do": "ui", "developer": True}); time.sleep(0.6)
+    bar = probe().get("developerBar") or ""
+    t.ok("until turned on for its tab", bar.startswith("file://") and bar.endswith("/elsewhere.html"), bar)
+    sv.sp("close", id=c); sv.sp("select", id=a); time.sleep(0.6)
     # The page sends itself to another site that never arrives (localhost
     # is another host than 127.0.0.1): the tab is on its way there, the bar
     # stays with the page on screen.
@@ -134,8 +155,38 @@ def developer(t):
     bar = sv.cmd({"do": "probe"}).get("developerBar") or ""
     t.ok("an address with a password in it shows without it",
          "secret" not in bar and "someone" not in bar and bar.endswith(f"{host}/signed?x=1#y"), bar)
-    sv.cmd({"do": "ui", "developer": False}); time.sleep(0.6)
-    t.ok("and turned off, the bar goes", sv.cmd({"do": "probe"}).get("developerBar") is None)
+    dev = lambda **f: sv.cmd({"do": "developer", **f})
+    # Its line is the tab's own address field.
+    go(a, "plain")
+    r = dev(type=f"{BASE}/typed")
+    t.ok("typing in the line shows what is typed", r["field"] == f"{BASE}/typed", r)
+    r = dev(enter=True); sv.cmd({"do": "wait", "id": a}); time.sleep(0.8)
+    t.ok("and Return loads it in this tab", r.get("went") is True and last(tab(a)["url"]) == "typed"
+         and sv.ev(a, "document.body.innerText") == "typed", tab(a)["url"])
+    dev(type="somewhere else entirely")
+    r = dev(escape=True)
+    t.ok("Escape puts back the page's address", r["field"] == f"{BASE}/typed", r)
+    r = dev()
+    t.ok("the bar says the page's status and load time", r.get("status") == 200
+         and isinstance(r.get("milliseconds"), int) and r["milliseconds"] >= 0, r)
+    heard.pop("typed", None)
+    dev(hard=True); sv.cmd({"do": "wait", "id": a}); time.sleep(0.8)
+    got = heard.get("typed") or {}
+    t.ok("Reload Without Cache asks the server again, past the cache",
+         "no-cache" in (got.get("Cache-Control", "") + got.get("Pragma", "")), got)
+    go(a, "throws"); time.sleep(0.8)
+    r = dev()
+    t.ok("a page that throws counts its errors", r.get("errors") == 3, r)
+    sv.ev(a, "setTimeout(() => { throw new Error('four') }); true"); time.sleep(0.5)
+    t.ok("and the count rises as it throws again", dev().get("errors") == 4)
+    before = {x["id"] for x in st()["tabs"]}
+    dev(source=True); time.sleep(1.5)
+    made = [x for x in st()["tabs"] if x["id"] not in before]
+    t.ok("View Source opens the source as text in a new tab",
+         len(made) == 1 and made[0]["url"].startswith("data:text/plain")
+         and "console.error('one')" in (sv.ev(made[0]["id"], "document.body.innerText") or ""),
+         [x["url"][:40] for x in made])
+    for x in made: sv.sp("close", id=x["id"])
     sv.sp("close", id=a)
 
 

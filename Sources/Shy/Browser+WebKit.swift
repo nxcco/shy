@@ -399,6 +399,10 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decidePolicyFor response: WKNavigationResponse,
         decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
+        // What the page answered, for Developer Mode's bar.
+        if response.isForMainFrame, let http = response.response as? HTTPURLResponse, let tab = tab(for: webView) {
+            DevTools.shared.answered(http.statusCode, in: webView, for: tab, at: http.url)
+        }
         // A redirect (3xx) has nowhere to be shown and carries no content of
         // its own, but must be followed rather than downloaded — even if its
         // headers say `application/binary` or `application/octet-stream`, as
