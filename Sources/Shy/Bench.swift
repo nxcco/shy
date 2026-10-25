@@ -605,6 +605,29 @@ final class Bench {
             let width = request["width"] as? Double
             shoot(tab, to: URL(fileURLWithPath: path), width: width, answer)
 
+        case "developer":
+            // Developer Mode's bar in the window, as its field and buttons
+            // drive it: "type" puts text in the field, "enter" and "escape"
+            // are the two keys, "hard" its reload, "source" its source tab.
+            guard let tab = browser.active else { answer(["error": "no tab in front"]); return }
+            let window = ObjectIdentifier(browser)
+            var out: [String: Any] = [:]
+            if let text = request["type"] as? String { DevTools.shared.drafts[window] = text }
+            if request["enter"] as? Bool == true {
+                let went = DevTools.go(DevTools.shared.drafts[window] ?? DeveloperBar.address(of: tab), in: tab)
+                if went { DevTools.shared.drafts[window] = nil }
+                out["went"] = went
+            }
+            if request["escape"] as? Bool == true { DevTools.shared.drafts[window] = nil }
+            if request["hard"] as? Bool == true { tab.reload(fromOrigin: true) }
+            if request["source"] as? Bool == true { DevTools.viewSource(of: tab, in: browser) }
+            let report = DevTools.shared.report(for: tab)
+            out["field"] = DevTools.shared.drafts[window] ?? DeveloperBar.address(of: tab)
+            out["status"] = report?.status ?? NSNull()
+            out["milliseconds"] = report?.milliseconds ?? NSNull()
+            out["errors"] = report?.errors ?? NSNull()
+            answer(out)
+
         case "probe":
             // The state of the window itself, for the bug that is not in a
             // page: which panels are up, whether something modal has the
@@ -630,7 +653,7 @@ final class Bench {
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
                 // Developer Mode, and whether its bar is on screen.
-                "developer": browser.prefs.developer,
+                "developer": browser.active.map { DevTools.shared.isOn($0) } ?? false,
                 "developerBar": DeveloperBar.shown ?? NSNull(),
                 "sidebar": true,
                 "sidePosition": browser.prefs.sidePosition.rawValue,
@@ -2687,8 +2710,8 @@ final class Bench {
             if let on = request["hides"] as? Bool { browser.prefs.sideHides = on }
             if let on = request["cards"] as? Bool { browser.prefs.cards = on }
             if let on = request["address"] as? Bool { browser.prefs.showsAddress = on }
-            // Developer Mode, as the tab's right-click menu turns it.
-            if let on = request["developer"] as? Bool { browser.prefs.developer = on }
+            // Developer Mode for the tab in front, as its right-click menu turns it.
+            if let on = request["developer"] as? Bool, let tab = browser.active { DevTools.shared.set(tab, on: on) }
             // Settings › Videos wait for a click, moved as its switch moves it.
             if let on = request["waits"] as? Bool, Store.testing { browser.prefs.waitsForPlay = on }
             if let on = request["folded"] as? Bool { browser.folded = on }
@@ -2846,7 +2869,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
+                "tabs", "open", "go", "openmark", "developer", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
             ]])
         }
     }

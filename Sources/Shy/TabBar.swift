@@ -428,9 +428,11 @@ struct TabMenu: View {
             }
         }
         .disabled(browser.awake(because: tab) != nil)
-        // The bar under the page, in every window (see DeveloperBar.swift).
-        Toggle("Developer Mode", isOn: Binding(get: { browser.prefs.developer },
-                                               set: { browser.prefs.developer = $0 }))
+        // The bar under this tab's page (see DeveloperBar.swift): on by
+        // itself for this Mac's own servers.
+        Toggle("Developer Mode", isOn: Binding(get: { DevTools.shared.isOn(tab) },
+                                               set: { DevTools.shared.set(tab, on: $0) }))
+            .disabled(!tab.isWeb)
         Divider()
         if tab.pin == nil {
             Button("Pin") { browser.pin(tab) }
