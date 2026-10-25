@@ -142,7 +142,9 @@ enum Browsers {
     static func show(_ browser: Browser) {
         browser.shut = false
         if let window = browser.window {
+            #if DEBUG
             Bench.keepOff(window)
+            #endif
             // A hidden probe stays hidden: ordered front, its window shows
             // the app again (an extension's windows.update focused, which
             // Claude's panel asks for whenever its window isn't key).
@@ -216,7 +218,9 @@ enum Browsers {
         // to report: told first, a popup's windows.update and getCurrent met
         // a window with no frame and no NSWindow behind it (#408, lulkebit).
         register(browser)
+        #if DEBUG
         Bench.keepOff(window)
+        #endif
         // A window brought back from last time while a link's small window
         // keeps them away: off screen with the rest (see keepAway).
         if keptAway, !popup {
@@ -282,7 +286,9 @@ enum Browsers {
         let windows = away
         away = []
         for window in windows {
+            #if DEBUG
             Bench.keepOff(window)
+            #endif
             window.orderFront(nil)
         }
         restoreOnce()

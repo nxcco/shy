@@ -180,6 +180,7 @@ final class LocalSocket {
     }
 }
 
+#if DEBUG
 /// Whether a socket's switch was turned on in Settings, by you. A setting
 /// lives in the defaults, which any program you run can write; on its own it
 /// opens nothing. The switch also leaves a mark in the keychain — its data
@@ -221,3 +222,4 @@ enum SwitchMark {
         SecItemDelete(query(name) as CFDictionary)
     }
 }
+#endif

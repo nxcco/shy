@@ -1081,7 +1081,9 @@ private struct SideRow: View {
     private var atRest: Bool { rest != nil }
 
     var body: some View {
+        #if DEBUG
         let _ = Bench.count("row")
+        #endif
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 if editing {
@@ -1214,8 +1216,10 @@ private struct SideRow: View {
         .modifier(ModifiedTabClick { if interactive && !editing { browser.extendTabSelection(to: tab, modifiers: $0) } })
         .overlay { if interactive { MiddleClick(act: close) } }
         .onHover(perform: hover)
+        #if DEBUG
         .onAppear { if interactive { Bench.rowAppeared(tab.id, hover: hover) } }
         .onDisappear { if interactive { Bench.rowDisappeared(tab.id) } }
+        #endif
         .contextMenu { if interactive { TabMenu(browser: browser, tab: tab, close: close) } }
         .background {
             if interactive {

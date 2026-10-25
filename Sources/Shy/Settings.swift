@@ -455,11 +455,13 @@ struct SettingsPanel: View {
                     }
                 }
             }
+            #if DEBUG
             group("Testing") {
                 Line("Let scripts control Shy", "A local socket for ./bench. Its tabs carry a flask and never take focus") {
                     Switch(on: $prefs.bench)
                 }
             }
+            #endif
         }
     }
 

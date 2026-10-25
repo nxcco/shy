@@ -206,7 +206,7 @@ enum DuskColours {
         still.disabled = true;
       };
       var started = false, showing = false, readyAt = 0, spent = 0, onReady = null, unreadable = false;
-      // Where the time goes, for the bench: twinning sheets, painting what
+      // Where the time goes, for test runs: twinning sheets, painting what
       // they can't reach, and marking what the markup colours.
       var took = { twins: 0, paint: 0, paints: 0, markups: 0, refreshes: 0, paintRead: 0, paintWrite: 0, painted: 0 };
 

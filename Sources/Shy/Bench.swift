@@ -3,6 +3,8 @@ import AuthenticationServices
 import SwiftUI
 import WebKit
 
+// Test builds only: a release build has no bench (build.sh, `debug`).
+#if DEBUG
 // A way for a script on this Mac to drive the browser you already have open,
 // in tabs of its own, without ever taking the window from you.
 //
@@ -3888,3 +3890,4 @@ private final class LoopClock: @unchecked Sendable {
                 "total": sorted.reduce(0, +)]
     }
 }
+#endif

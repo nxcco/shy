@@ -40,7 +40,9 @@ extension Browser {
         if tab.pin != nil { return "pinned" }
         if tab.name != nil { return "named" }
         if tab.shy { return "private" }
+        #if DEBUG
         if tab.bench { return "a bench tab" }
+        #endif
         // Holds nothing and costs nothing; closing the last one would close
         // the window.
         if tab.isBlank { return "blank" }

@@ -1261,11 +1261,13 @@ final class Browser: NSObject, ObservableObject {
             Shield.shared.enabled = prefs.shielded
             Shield.shared.compile()
             if #available(macOS 15.4, *) { Extensions.shared.start(for: self) }
+            #if DEBUG
             if prefs.bench {
                 Bench.shared.start(for: self)
             } else if prefs.benchRefused {
                 announce("“Let a script drive Shy” was turned on outside Settings, and stays off")
             }
+            #endif
             if prefs.agent { Agent.shared.start() }
             let fresh = !prefs.welcomed
             prefs.welcomed = true
@@ -1493,6 +1495,7 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
+        #if DEBUG
         prefs.$bench
             .dropFirst()
             .sink { [weak self] on in
@@ -1501,6 +1504,7 @@ final class Browser: NSObject, ObservableObject {
                 announce(on ? "Scripts can drive Shy — see ./bench" : "The bench is closed")
             }
             .store(in: &bag)
+        #endif
         prefs.$agent
             .dropFirst()
             .sink { on in if on { Agent.shared.start() } else { Agent.shared.stop() } }
@@ -2257,6 +2261,7 @@ final class Browser: NSObject, ObservableObject {
         return Extensions.shared.controller.extensionContext(for: url)?.webViewConfiguration
     }
 
+    #if DEBUG
     /// A page for the bench: at the end of the row, behind whatever you are
     /// looking at, and marked as not yours. `shy`: a private one, for a test run.
     @discardableResult
@@ -2268,6 +2273,7 @@ final class Browser: NSObject, ObservableObject {
         tab.go(to: url)
         return tab
     }
+    #endif
 
     /// A link from another app. A blank tab with nothing typed in it takes
     /// the page rather than staying behind as an empty one; otherwise the

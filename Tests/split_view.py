@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Split View, checked through Shy's own model in a hidden probe.
 
-Build first (`./build.sh` or `./build.sh debug`), then run
+Build first (`./build.sh debug`: only a debug build has the bench), then run
 `python3 Tests/split_view.py`. The app is started hidden in a world of its
 own (SHY_PROBE=split-tests-<checkout>, see use()), driven through
 ./bench's socket, and quit;
@@ -139,6 +139,10 @@ def setup(**prefs):
     for k in ["bench", "welcomed"]: subprocess.run(["defaults", "write", SUITE, k, "-bool", "true"])
     for k, v in prefs.items(): subprocess.run(["defaults", "write", SUITE, k, "-bool", "true" if v else "false"])
 def launch():
+    # Only a debug build has the bench: a release build leaves it out.
+    binary = Path(APP) / "Contents" / "MacOS" / "Shy"
+    if b"bench.sock" not in binary.read_bytes():
+        sys.exit(f"{APP} is a release build, which has no bench: build it with `./build.sh debug` first")
     if os.path.exists(SOCK): os.remove(SOCK)
     before = running()
     subprocess.run(["open", "-n", "-g", "-j", "--env", f"SHY_PROBE={W}", APP])

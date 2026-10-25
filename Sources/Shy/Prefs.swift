@@ -105,6 +105,7 @@ enum SidebarPosition: String, CaseIterable, Identifiable {
 final class Preferences: ObservableObject {
     private let store = Store.settings
 
+    #if DEBUG
     /// A local socket a script can drive the browser through, in tabs of its
     /// own. Off unless asked for — in Settings, which is also what leaves
     /// the mark it needs at launch (see Bench.Consent).
@@ -117,6 +118,7 @@ final class Preferences: ObservableObject {
     /// The setting said on at launch with no mark from the switch behind it,
     /// and was put back to off.
     private(set) var benchRefused = false
+    #endif
     /// Agents' pages, through shy-mcp (see Agent.swift). Off unless asked
     /// for. A plain setting, with no mark to prove Settings set it, unlike
     /// the bench's: an agent's pages hold nothing of yours (none of your
@@ -450,6 +452,7 @@ final class Preferences: ObservableObject {
         // and this was one of them.
         // The Mac's own unless asked otherwise — a Mac in dark mode expects
         // a dark browser, pages included.
+        #if DEBUG
         let scripted = store.bool(forKey: "bench")
         let allowed = scripted && (Store.testing || Bench.Consent.given)
         bench = allowed
@@ -457,6 +460,7 @@ final class Preferences: ObservableObject {
             benchRefused = true
             store.set(false, forKey: "bench")
         }
+        #endif
         agent = store.bool(forKey: "agent")
         agentDenied = Set(store.stringArray(forKey: "agent.denied") ?? [])
         let chosen = store.string(forKey: "look").flatMap(Look.init) ?? .system

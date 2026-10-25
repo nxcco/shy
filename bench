@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Drive the Shy you already have open, from the shell.
+"""Drive the Shy you already have open, from the shell. A debug build
+(`./build.sh debug`) only: a release build has no bench.
 
     ./bench tabs                       every tab, yours and the bench's
     ./bench find TEXT [next N] [back N] [case] [words]

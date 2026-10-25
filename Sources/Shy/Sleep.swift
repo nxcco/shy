@@ -124,7 +124,9 @@ extension Browser {
     func awake(because tab: Tab) -> String? {
         if visibleTabIDs.contains(tab.id) { return "on screen" }
         if tab.pin != nil, let kept = pinKept(tab) { return kept }
+        #if DEBUG
         if tab.bench { return "a bench tab" }
+        #endif
         if tab.isBlank { return "blank" }
         if tab.asleep { return "already asleep" }
         guard tab.built != nil else { return "no page" }

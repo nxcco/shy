@@ -659,7 +659,12 @@ final class Tab: ObservableObject, Identifiable {
     /// A tab a script opened through the bench, beside yours. Signed in as
     /// you, so it sees what you see — but never selected for you, never in
     /// the session or the history, and gone when the script is done.
+    #if DEBUG
     let bench: Bool
+    #else
+    /// Release builds have no bench, so no tab of one.
+    var bench: Bool { false }
+    #endif
 
     /// The tab whose page opened this one, when a script did. Sign-in flows
     /// hand you back to it when they are done.
@@ -821,7 +826,9 @@ final class Tab: ObservableObject, Identifiable {
 
     init(shy: Bool = false, bench: Bool = false, configuration: WKWebViewConfiguration? = nil) {
         self.shy = shy
+        #if DEBUG
         self.bench = bench
+        #endif
         self.configuration = configuration ?? Web.configuration(shy: shy)
     }
 
