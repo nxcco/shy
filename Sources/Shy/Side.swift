@@ -51,6 +51,7 @@ struct SideBar: View {
     /// A tab's line: taller with roomier tabs turned on.
     private var rowHeight: CGFloat { prefs.sideRow }
     private static let gap: CGFloat = 2
+    private static let foldDoorWidth: CGFloat = 230
     private static let pinGap: CGFloat = 4
 
     private var onRight: Bool { prefs.sidePosition == .right }
@@ -91,6 +92,11 @@ struct SideBar: View {
                     Color.clear.frame(width: lights)
                     Helm(browser: browser)
                     Spacer(minLength: 0)
+                    // Folds the column away, as ⌘S does; no room for it in a
+                    // column narrowed to its least.
+                    if prefs.sideWidth >= SideBar.foldDoorWidth {
+                        Door(icon: onRight ? "sidebar.right" : "sidebar.left", help: "Hide Sidebar") { browser.toggleFold() }
+                    }
                 }
                 .frame(height: Metrics.strip)
 

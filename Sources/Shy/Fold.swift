@@ -48,6 +48,27 @@ extension Browser {
         withAnimation(Motion.folding(out: folded)) { folded.toggle() }
     }
 
+    /// ⌘S on a page that wants it too: the fold is Shy's, and the page gets
+    /// the same key with another modifier on it — ⇧⌘S, or the first of the
+    /// next ones that no command of Shy's has. Delivered as a key the page
+    /// can read, and Shy's own handling lets it through when it comes back.
+    func handOver(_ event: NSEvent, to page: NSView) {
+        let store = ShortcutStore.shared
+        let spare: [NSEvent.ModifierFlags] = [[.command, .shift], [.command, .option], [.command, .option, .shift]]
+        let free = spare.first { flags in
+            store.owner(of: KeyCombo("s", shift: flags.contains(.shift), option: flags.contains(.option)), except: "") == nil
+        }
+        guard let flags = free, let window = event.window,
+              let moved = NSEvent.keyEvent(
+                  with: .keyDown, location: event.locationInWindow, modifierFlags: flags,
+                  timestamp: event.timestamp, windowNumber: window.windowNumber, context: nil,
+                  characters: flags.contains(.shift) ? "S" : "s", charactersIgnoringModifiers: "s",
+                  isARepeat: event.isARepeat, keyCode: event.keyCode)
+        else { return }
+        ContentView.passed = moved
+        _ = page.performKeyEquivalent(with: moved)
+    }
+
     /// The folded column out over the page, or back in.
     func peek(_ out: Bool) {
         withAnimation(Motion.folding(out: out)) { peeking = out }
@@ -183,8 +204,9 @@ struct Fold: View {
         }
         .onChange(of: prefs.sideHides) { _, hides in
             resetPending()
-                        browser.peeking = false
+            browser.peeking = false
             withAnimation(Motion.folding(out: !hides)) { browser.folded = hides }
+            watch()
         }
         // The address typed into a row is done with, and the pointer went
         // elsewhere while it was: the column goes the way it would have.
@@ -229,9 +251,10 @@ struct Fold: View {
     }
 
     /// The pointer is watched only while there is something folded for it
-    /// to bring out; the rest of the time no move of it costs anything.
+    /// to bring out, and Settings has the sidebar hide on its own; folded by
+    /// ⌘S alone, the column stays away until ⌘S or its button brings it back.
     private func watch() {
-        if folding {
+        if folding && prefs.sideHides {
             pointer.start { follow() }
         } else {
             pointer.stop()
