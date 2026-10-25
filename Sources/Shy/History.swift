@@ -371,9 +371,13 @@ final class History: ObservableObject {
         }
 
         for visit in visits.values {
-            guard let text = pageText[visit.key],
-                  let rank = rank(text.searchable, against: needle, ascii: ascii)
-            else { continue }
+            guard let text = pageText[visit.key] else { continue }
+            // An address match beats a title match: the title only gets a
+            // look when the address has nothing, and from two letters up, for
+            // the reason the host match has.
+            let rank = rank(text.searchable, against: needle, ascii: ascii)
+                ?? (needle.count >= 2 && visit.title.lowercased().contains(needle) ? 1 : nil)
+            guard let rank else { continue }
             // The front door before the room inside it: a bare domain is
             // what a bare domain typed into a field means.
             let score = rank + 4 + frecency(visit, now: now) + (text.homepage ? 1.5 : 0)
