@@ -38,6 +38,9 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         name = self.path.strip("/")
+        asked.append(name)
+        # A page that never arrives in time: the load is under way, nothing commits.
+        if name == "stall": time.sleep(8)
         self.send(200, LOGIN if name == "login" else f"<!doctype html><title>{name}</title><p>{name}")
 
     def do_POST(self):
@@ -47,6 +50,7 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
 
+asked = []
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{srv.server_port}"
@@ -116,6 +120,20 @@ def developer(t):
     r = sv.cmd({"do": "probe"})
     t.ok("Developer Mode puts its bar under the page, with the whole address",
          r.get("developer") is True and r.get("developerBar") == f"{BASE}/deep/page?q=1#here", r.get("developerBar"))
+    # The page sends itself to another site that never arrives (localhost
+    # is another host than 127.0.0.1): the tab is on its way there, the bar
+    # stays with the page on screen.
+    sv.ev(a, f"location.href = 'http://localhost:{srv.server_port}/stall'; true"); time.sleep(1.5)
+    bar = sv.cmd({"do": "probe"}).get("developerBar")
+    t.ok("a load under way to another site has started",
+         "stall" in asked and tab(a)["url"] == f"http://localhost:{srv.server_port}/stall", (asked[-3:], tab(a)["url"]))
+    t.ok("and the bar still says the page on screen", bar == f"{BASE}/deep/page?q=1#here", bar)
+    host = BASE.replace("http://", "")
+    go(a, "plain"); sv.ev(a, f"location.href = 'http://someone:secret@{host}/signed?x=1#y'; true")
+    sv.cmd({"do": "wait", "id": a}); time.sleep(1)
+    bar = sv.cmd({"do": "probe"}).get("developerBar") or ""
+    t.ok("an address with a password in it shows without it",
+         "secret" not in bar and "someone" not in bar and bar.endswith(f"{host}/signed?x=1#y"), bar)
     sv.cmd({"do": "ui", "developer": False}); time.sleep(0.6)
     t.ok("and turned off, the bar goes", sv.cmd({"do": "probe"}).get("developerBar") is None)
     sv.sp("close", id=a)

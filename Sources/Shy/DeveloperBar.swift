@@ -1,9 +1,9 @@
 import SwiftUI
 
 // Developer Mode: a thin bar along the bottom of the page, for whoever is
-// building the page rather than reading it. It says the tab's address in
-// full — every part of it, where the tab itself says only the site (see
-// AtRest.swift) — as text that can be picked and copied, and has one button
+// building the page rather than reading it. It says the address of the page
+// on screen in full — path, query and fragment, where the tab itself says
+// only the site (see AtRest.swift) — as text that can be picked and copied, and has one button
 // for the Web Inspector (see Inspector.swift). Turned on and off from a
 // tab's right-click menu, for every window at once (Preferences.developer).
 
@@ -36,7 +36,19 @@ struct DeveloperBar: View {
         let browser: Browser
         @ObservedObject var tab: Tab
 
-        private var address: String { tab.address?.absoluteString ?? "" }
+        /// The page on screen, never one only on its way: a page can start
+        /// a load of another site's address and stall it, and that address
+        /// must not stand under what is still its own (see Tab.restAddress).
+        /// Without the name and password an address can carry before its
+        /// host, which are a secret, or a way to dress one host as another.
+        private var address: String {
+            guard let url = tab.restAddress else { return "" }
+            guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  parts.user != nil || parts.password != nil else { return url.absoluteString }
+            parts.user = nil
+            parts.password = nil
+            return parts.string ?? ""
+        }
 
         var body: some View {
             HStack(spacing: 6) {
