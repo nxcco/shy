@@ -12,6 +12,10 @@ struct Omnibox: View {
 
     @State private var shake: CGFloat = 0
     @State private var refused = false
+    /// The field's height as laid out — a line of text and its air, or more
+    /// once a long address wraps — so the list can sit below it without
+    /// being stacked with it.
+    @State private var fieldHeight: CGFloat = 22 + 14 * 2
 
     /// Sized to a pane of a split rather than to the window.
     var fitted = false
@@ -43,7 +47,8 @@ struct Omnibox: View {
             // The list hangs below the field rather than stacking with it,
             // so a list that grows never lifts the field out from under
             // what is being typed.
-            .overlay(alignment: .bottom) {
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
+            .overlay(alignment: .top) {
                 // Present or gone, not always-on-and-hidden: the list keeps
                 // the appear and disappear it had, and the overlay is what
                 // keeps that from moving the field.
@@ -52,7 +57,7 @@ struct Omnibox: View {
                     // lines the field has grown to.
                     list
                         .frame(width: width)
-                        .alignmentGuide(.bottom) { $0[.top] - 8 }
+                        .offset(y: fieldHeight + 8)
                 }
             }
             // Lifted a little above centre: dead centre reads as low,
