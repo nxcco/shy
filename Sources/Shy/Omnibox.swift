@@ -10,11 +10,6 @@ struct Omnibox: View {
     /// Raised over a page by ⌘L, rather than standing on an empty tab.
     let over: Bool
 
-    /// The field's own height — the 22 of text and 14 of air above and below it
-    /// that `field` lays out — so the list can sit below it without being
-    /// stacked with it.
-    private static let fieldHeight: CGFloat = 22 + 14 * 2
-
     @State private var shake: CGFloat = 0
     @State private var refused = false
 
@@ -48,14 +43,16 @@ struct Omnibox: View {
             // The list hangs below the field rather than stacking with it,
             // so a list that grows never lifts the field out from under
             // what is being typed.
-            .overlay(alignment: .top) {
+            .overlay(alignment: .bottom) {
                 // Present or gone, not always-on-and-hidden: the list keeps
                 // the appear and disappear it had, and the overlay is what
                 // keeps that from moving the field.
                 if !browser.offers.isEmpty || browser.siteOffer != nil {
+                    // Its top 8 below the field's bottom, however many
+                    // lines the field has grown to.
                     list
                         .frame(width: width)
-                        .offset(y: Self.fieldHeight + 8)
+                        .alignmentGuide(.bottom) { $0[.top] - 8 }
                 }
             }
             // Lifted a little above centre: dead centre reads as low,
@@ -81,7 +78,7 @@ struct Omnibox: View {
             AddressField(browser: browser)
         }
             .animation(Motion.quick, value: browser.siteChip)
-            .frame(height: 22)
+            .frame(minHeight: 22)
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
             .background {
@@ -394,12 +391,13 @@ struct AddressField: NSViewRepresentable {
         field.focusRingType = .none
         field.font = .systemFont(ofSize: 15.5)
         field.textColor = Palette.NS.ink
-        field.lineBreakMode = .byClipping
-        field.cell?.usesSingleLineMode = true
-        field.cell?.wraps = false
-        // Scrolls with the caret, so a long address can be read and edited
-        // all the way along rather than cut off at the field's edge.
-        field.cell?.isScrollable = true
+        // A long address wraps and the field grows a line at a time, so all
+        // of it can be read and edited at once rather than scrolled through.
+        // By character: an address has few spaces to break at.
+        field.lineBreakMode = .byCharWrapping
+        field.cell?.usesSingleLineMode = false
+        field.cell?.wraps = true
+        field.cell?.isScrollable = false
         // SwiftUI picks its own colour for a placeholder, and on a pale ground
         // that colour was near-white.
         field.placeholderAttributedString = NSAttributedString(
@@ -410,6 +408,12 @@ struct AddressField: NSViewRepresentable {
             ]
         )
         return field
+    }
+
+    /// As tall as its text, wrapped to the width it is given.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView field: Field, context: Context) -> CGSize? {
+        guard let width = proposal.width, width > 0 else { return nil }
+        return CGSize(width: width, height: field.height(for: width))
     }
 
     func updateNSView(_ field: Field, context: Context) {
@@ -428,6 +432,7 @@ struct AddressField: NSViewRepresentable {
         if want != coordinator.synced {
             coordinator.synced = want
             field.stringValue = want
+            field.invalidateIntrinsicContentSize()
             coordinator.select(from: browser.typed.count, in: field)
         }
 
@@ -453,6 +458,21 @@ struct AddressField: NSViewRepresentable {
             guard window != nil, let arrived else { return }
             self.arrived = nil
             arrived()
+        }
+
+        /// The height of what it holds, typed or not yet, wrapped at `width`:
+        /// a line at the least.
+        func height(for width: CGFloat) -> CGFloat {
+            guard let measure = cell?.copy() as? NSCell else { return 22 }
+            measure.stringValue = currentEditor()?.string ?? stringValue
+            let size = measure.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude))
+            return max(22, ceil(size.height))
+        }
+
+        /// Every keystroke may add or take away a line.
+        override func textDidChange(_ notification: Notification) {
+            super.textDidChange(notification)
+            invalidateIntrinsicContentSize()
         }
     }
 
