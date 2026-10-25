@@ -5,8 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../Sources/Shy/PopupGesture.swift'), 'utf8');
-const script = source.match(/static let script = """\n([\s\S]*?)\n    """/)[1];
+const script = fs.readFileSync(path.join(__dirname, '../Sources/Shy/Scripts/popup-gesture.js'), 'utf8');
 const listeners = new Map();
 const sent = [];
 vm.runInNewContext(script, {

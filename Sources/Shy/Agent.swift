@@ -877,18 +877,7 @@ final class Agent: NSObject, ObservableObject {
 
     /// The page scrolled as a wheel over that point would: the nearest box
     /// under it that scrolls, or the page.
-    private static let scrolling = """
-        let n = (typeof x === 'number') ? document.elementFromPoint(x, y) : null;
-        while (n && n !== document.body && n !== document.documentElement) {
-          const s = getComputedStyle(n);
-          const down = /(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight;
-          const across = /(auto|scroll)/.test(s.overflowX) && n.scrollWidth > n.clientWidth;
-          if ((dy && down) || (dx && across)) { n.scrollBy(dx, dy); return 'ok'; }
-          n = n.parentElement;
-        }
-        window.scrollBy(dx, dy);
-        return 'ok';
-        """
+    private static let scrolling = Scripts.load("agent-scrolling")
 
     /// Where the page is scrolled to.
     private static let scrolledTo = "return [window.scrollX, window.scrollY]"
@@ -898,60 +887,13 @@ final class Agent: NSObject, ObservableObject {
 
     /// The element a selector names — a CSS one, or `text=Sign in` for a
     /// button, link or label by its words — found apart from the page.
-    private static let finding = """
-        function find(s) {
-          if (s.indexOf('text=') === 0) {
-            const want = s.slice(5).trim().toLowerCase();
-            const all = Array.from(document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], [role=link], label, summary'));
-            const words = e => (e.innerText || e.value || e.getAttribute('aria-label') || '').trim().toLowerCase();
-            return all.find(e => words(e) === want) || all.find(e => words(e).includes(want)) || null;
-          }
-          try { return document.querySelector(s); } catch (e) { return undefined; }
-        }
-        """
+    private static let finding = Scripts.load("agent-finding")
 
-    private static let clicking = finding + """
-        const el = find(selector);
-        if (el === undefined) return 'not a selector: ' + selector;
-        if (!el) return 'nothing matches ' + selector;
-        el.scrollIntoView({ block: 'center', inline: 'nearest' });
-        // A link for a new window goes in this page instead: a page here
-        // opens no windows, and WebKit refuses one a script's click asks
-        // for before Shy is asked. Not when the page took the click itself.
-        const link = el.closest('a[href]');
-        const away = link && /^https?:$/.test(link.protocol) && link.target && !['_self', '_parent', '_top'].includes(link.target);
-        if (!away) { el.click(); return 'ok'; }
-        let taken = false;
-        const watch = e => { taken = e.defaultPrevented; };
-        window.addEventListener('click', watch);
-        el.click();
-        window.removeEventListener('click', watch);
-        if (!taken) location.assign(link.href);
-        return 'ok';
-        """
+    private static let clicking = finding + Scripts.load("agent-clicking")
 
     /// Through the field's own setter, with the events a keystroke fires,
     /// so the page's framework notices.
-    private static let typing = finding + """
-        const el = find(selector);
-        if (el === undefined) return 'not a selector: ' + selector;
-        if (!el) return 'nothing matches ' + selector;
-        el.scrollIntoView({ block: 'center', inline: 'nearest' });
-        el.focus();
-        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-          if (el instanceof HTMLInputElement && el.type === 'file') return 'not a field to type into: ' + selector;
-          const proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
-          Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          return 'ok';
-        }
-        if (el.isContentEditable) {
-          document.execCommand('insertText', false, text);
-          return 'ok';
-        }
-        return 'not a field: ' + selector;
-        """
+    private static let typing = finding + Scripts.load("agent-typing")
 }
 
 // MARK: - what a page may do

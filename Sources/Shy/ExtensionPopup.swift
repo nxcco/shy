@@ -205,41 +205,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     /// to the side doesn't count), else, for a page with next to no width
     /// of its own, what its content spans; then, laid out at that width,
     /// the height it names or spans. Nothing of it is left on the page.
-    static let preferred = """
-    () => {
-      const d = document.documentElement, v = document.compatMode === "BackCompat" ? document.body : d;
-      if (!v) return null;
-      const m = window.__shySizing || (window.__shySizing = {});
-      const saved = d.getAttribute("style");
-      const back = () => saved === null ? d.removeAttribute("style") : d.setAttribute("style", saved);
-      const box = d.getBoundingClientRect();
-      // A width the page sets for itself shows as one the view doesn't
-      // have, excluding its scrollbar; one equal to the view is either
-      // filling it or the width it was given last time, remembered.
-      let w;
-      if (Math.abs(box.width - v.clientWidth) > 1) w = m.w = box.width;
-      else if (m.w && Math.abs(m.w - v.clientWidth) <= 1) w = m.w;
-      else {
-        d.style.setProperty("width", "min-content", "important");
-        const narrowest = d.getBoundingClientRect().width;
-        back();
-        w = narrowest >= 100 ? narrowest : Math.max(narrowest, d.scrollWidth);
-      }
-      const gutter = innerWidth - v.clientWidth;
-      w = Math.min(800, Math.max(25, Math.ceil(w + gutter)));
-      d.style.setProperty("width", (w - gutter) + "px", "important");
-      let h = d.getBoundingClientRect().height;
-      if (Math.abs(h - innerHeight) > 1) m.h = h;
-      else if (m.h && Math.abs(m.h - innerHeight) <= 1) h = m.h;
-      else {
-        d.style.setProperty("height", "auto", "important");
-        d.style.setProperty("min-height", "0", "important");
-        h = d.getBoundingClientRect().height;
-      }
-      back();
-      return [w, Math.min(600, Math.max(25, Math.ceil(h + innerHeight - v.clientHeight)))];
-    }
-    """
+    static let preferred = Scripts.load("extension-popup-preferred")
 
     /// The document is built — DOMContentLoaded, the moment Chrome sizes a
     /// popup, before the page's scripts look at the room they have (Proton
@@ -285,20 +251,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     /// count, as in Chrome's measure), else, for a page that only fills the
     /// view and has next to no width of its own, what its content spans.
     /// Height: all it spans.
-    static let reach = """
-    ((key) => {
-      const d = document.documentElement, v = document.compatMode === "BackCompat" ? document.body : d;
-      if (!v) return null;
-      if (key === "height") return d.scrollHeight;
-      const own = d.getBoundingClientRect().width, gutter = innerWidth - v.clientWidth;
-      if (own > v.clientWidth + 1) return own + gutter;
-      const saved = d.getAttribute("style");
-      d.style.setProperty("width", "min-content", "important");
-      const narrowest = d.getBoundingClientRect().width;
-      saved === null ? d.removeAttribute("style") : d.setAttribute("style", saved);
-      return (narrowest >= 100 ? narrowest : Math.max(narrowest, d.scrollWidth)) + gutter;
-    })
-    """
+    static let reach = Scripts.load("extension-popup-reach")
 
     /// Measured again as the page builds itself, the way Chrome measures on
     /// each layout: for its first two seconds the popup follows it either

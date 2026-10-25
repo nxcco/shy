@@ -33,29 +33,7 @@ final class ImageRelay: NSObject, WKScriptMessageHandler {
     /// Every frame: an image inside an ad or a map embed is still an image.
     /// Only a genuine <img> with something to point at is worth the trip —
     /// a broken one, or a 1×1 tracking pixel, isn't worth a menu at all.
-    static let watch = """
-    (function () {
-      if (window.__officeImages) return;
-      window.__officeImages = true;
-      document.addEventListener('contextmenu', function (e) {
-        // A right-click of yours only: a page can dispatch one itself, and
-        // would open this menu whenever it liked — under your next click.
-        if (!e.isTrusted) return;
-        var el = e.target;
-        while (el && el.tagName !== 'IMG') el = el.parentElement;
-        if (!el || !el.currentSrc || el.naturalWidth < 2) return;
-        // Only an address this menu will act on takes WebKit's own menu
-        // away; any other scheme keeps it, rather than getting nothing.
-        if (!/^(https?|data|blob):/i.test(el.currentSrc)) return;
-        // WebKit's own menu only steps aside when there is a way to ask for
-        // this one — otherwise a right-click shows nothing at all.
-        var relay = window.webkit && webkit.messageHandlers && webkit.messageHandlers.officeImages;
-        if (!relay) return;
-        e.preventDefault();
-        relay.postMessage({ src: el.currentSrc });
-      }, true);
-    })();
-    """
+    static let watch = Scripts.load("image-menu-watch")
 
     func userContentController(
         _ controller: WKUserContentController,

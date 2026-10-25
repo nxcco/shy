@@ -637,25 +637,7 @@ final class Favicons {
         return URL(string: "data:\(type);base64,\(bytes.base64EncodedString())")
     }
 
-    private static let probe = """
-    (function () {
-      var out = [];
-      var links = document.querySelectorAll('link[rel]');
-      for (var i = 0; i < links.length; i++) {
-        var l = links[i];
-        var rel = (l.getAttribute('rel') || '').toLowerCase();
-        if (rel.indexOf('icon') < 0) continue;
-        out.push({
-          href: l.href,
-          rel: rel,
-          sizes: (l.getAttribute('sizes') || '').toLowerCase(),
-          type: (l.getAttribute('type') || '').toLowerCase(),
-          media: (l.getAttribute('media') || '').toLowerCase()
-        });
-      }
-      return out;
-    })();
-    """
+    private static let probe = Scripts.load("icons-probe")
 }
 
 /// What stands for a page when there is no room for its title: the site's
@@ -717,29 +699,7 @@ final class IconRelay: NSObject, WKScriptMessageHandler {
         }
     }
 
-    static let script = """
-    (function () {
-      if (window.top !== window || !document.head) return;
-      var timer = null, last = 0;
-      var icon = function (n) {
-        return n && n.nodeType === 1 && n.tagName === 'LINK' && /icon/i.test(n.getAttribute('rel') || '');
-      };
-      var touched = function (r) {
-        if (icon(r.target)) return true;
-        for (var i = 0; i < r.addedNodes.length; i++) if (icon(r.addedNodes[i])) return true;
-        for (var j = 0; j < r.removedNodes.length; j++) if (icon(r.removedNodes[j])) return true;
-        return false;
-      };
-      new MutationObserver(function (records) {
-        if (!records.some(touched)) return;
-        clearTimeout(timer);
-        timer = setTimeout(function () {
-          last = Date.now();
-          try { webkit.messageHandlers.officeIcon.postMessage(1); } catch (e) {}
-        }, Math.max(500, 2000 - (Date.now() - last)));
-      }).observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'rel', 'media'] });
-    })();
-    """
+    static let script = Scripts.load("icons")
 }
 
 /// SVG icons, drawn where WebKit draws every SVG a page shows: in a web
@@ -811,17 +771,7 @@ final class SVGIcons: NSObject, WKNavigationDelegate {
 
     /// The image is decoded and drawn in the web process; only the PNG it
     /// makes comes back. Kept to its proportions, centred in the square.
-    private static let draw = """
-    const img = new Image();
-    img.src = src;
-    await img.decode();
-    const w = img.naturalWidth || side, h = img.naturalHeight || side;
-    const scale = Math.min(side / w, side / h);
-    const canvas = document.createElement('canvas');
-    canvas.width = side; canvas.height = side;
-    canvas.getContext('2d').drawImage(img, (side - w * scale) / 2, (side - h * scale) / 2, w * scale, h * scale);
-    return canvas.toDataURL('image/png');
-    """
+    private static let draw = Scripts.load("icons-draw")
 
     private func view() async -> WKWebView? {
         if let web, loaded { return web }
