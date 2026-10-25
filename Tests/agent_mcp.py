@@ -68,6 +68,17 @@ document.addEventListener('copy', e => { e.clipboardData.setData('text/plain', '
 <a id=file href="file:///etc/hosts">A file</a>
 <a id=get href="/download">Download</a>"""
             kind = "text/html"
+        elif self.path == "/store":
+            # Signed in the way many web apps are: a token in page storage,
+            # no cookie at all.
+            body = b"""<!doctype html><title>Store</title>
+<script>localStorage.setItem('token', 'tok-123'); sessionStorage.setItem('tab', 'ses-456')</script>STORED"""
+            kind = "text/html"
+        elif self.path == "/app":
+            body = b"""<!doctype html><title>App</title><p id=s></p>
+<button id=back onclick="history.back()">Back</button>
+<script>document.getElementById('s').textContent = 'local:' + localStorage.getItem('token') + ' session:' + sessionStorage.getItem('tab')</script>"""
+            kind = "text/html"
         elif self.path == "/second":
             body, kind = b"<!doctype html><title>Second</title>SECOND PAGE", "text/html"
         elif self.path == "/download":
@@ -207,6 +218,40 @@ def main():
         mcp.tool("shy_go", tab_id=hid, url=f"{base}/me")
         t.ok("back on the site, it is signed out", "cookie:sid" not in words(mcp.tool("shy_text", tab_id=hid)))
         t.ok("your tab is still signed in", "cookie:sid=secret" in sv.cmd({"do": "text", "id": mine})["text"])
+
+        # A sign-in kept in page storage: copied too, for its origin only,
+        # and wiped with the cookies.
+        stash = sv.cmd({"do": "open", "url": f"{base}/store"})["id"]
+        sv.cmd({"do": "wait", "id": stash}); time.sleep(0.5)
+        sv.cmd({"do": "go", "id": stash, "url": f"{base}/app"}); sv.cmd({"do": "wait", "id": stash}); time.sleep(0.5)
+        handed = sv.cmd({"do": "handover", "id": stash, "acts": False})
+        t.ok("the handover copies its page storage", handed.get("stored") == 2, handed)
+        sid = handed["page"]
+        mcp.tool("shy_wait", tab_id=sid, seconds=5)
+        t.ok("the agent's page has the stored sign-in", "local:tok-123 session:ses-456" in words(mcp.tool("shy_text", tab_id=sid)))
+        mcp.tool("shy_go", tab_id=sid, url=f"{base}/app")
+        t.ok("still there on the next page", "local:tok-123" in words(mcp.tool("shy_text", tab_id=sid)))
+        mcp.tool("shy_go", tab_id=sid, url=f"{other}/app")
+        t.ok("another origin gets none of it", "local:null session:null" in words(mcp.tool("shy_text", tab_id=sid)))
+        # The page it left, held whole in the back-forward cache, would
+        # still show the token it read: going back loads it afresh.
+        mcp.tool("shy_click", tab_id=sid, selector="#back"); time.sleep(1.5)
+        back = words(mcp.tool("shy_text", tab_id=sid))
+        t.ok("going back after it ended shows no sign-in", "local:null session:null" in back, back)
+        mcp.tool("shy_go", tab_id=sid, url=f"{base}/app")
+        t.ok("back on the site, the storage is wiped", "local:null session:null" in words(mcp.tool("shy_text", tab_id=sid)))
+        t.ok("your tab still has it", "local:tok-123" in sv.cmd({"do": "text", "id": stash})["text"])
+        mcp.tool("shy_close", tab_id=sid)
+        # Taken back while the page stays: loaded again, so a token read
+        # into memory is gone with the storage.
+        kept = sv.cmd({"do": "handover", "id": stash, "acts": False})["page"]
+        mcp.tool("shy_wait", tab_id=kept, seconds=5)
+        t.ok("handed over again, signed in", "local:tok-123" in words(mcp.tool("shy_text", tab_id=kept)))
+        sv.cmd({"do": "takeback", "id": kept}); time.sleep(1.5)
+        mcp.tool("shy_wait", tab_id=kept, seconds=5)
+        after = words(mcp.tool("shy_text", tab_id=kept))
+        t.ok("taken back, the page shows no sign-in", "local:null session:null" in after, after)
+        mcp.tool("shy_close", tab_id=kept)
 
         # Acting, asked about: the click waits for a yes, and so does the
         # form it sends.

@@ -233,6 +233,7 @@ struct AgentStage: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
+                    .help(detail)
                 if let acting = page.acting {
                     Text(acting)
                         .font(.system(size: 11.5))
@@ -251,10 +252,18 @@ struct AgentStage: View {
         }
 
         private var says: String {
-            guard let handover = page.handover else { return "Agent page — not signed in as you" }
-            if let over = handover.over { return "Agent page — your sign-in to \(handover.site) was removed: \(over)" }
+            guard let handover = page.handover else { return "Not signed in" }
+            if handover.over != nil { return "Sign-in to \(handover.site) removed" }
+            let how = handover.acts ? (handover.asks ? "asks first" : "acts") : "read only"
+            return "\(handover.site) · \(how) · until \(handover.ends.formatted(date: .omitted, time: .shortened))"
+        }
+
+        /// The bar's words said in full, on hover.
+        private var detail: String {
+            guard let handover = page.handover else { return "An agent page, not signed in as you" }
+            if let over = handover.over { return "Your sign-in to \(handover.site) was removed: \(over)" }
             let how = handover.acts ? (handover.asks ? "asks before each click" : "can click and type") : "read only"
-            return "Agent page — signed in to \(handover.site) as you, \(how), until \(handover.ends.formatted(date: .omitted, time: .shortened))"
+            return "Signed in to \(handover.site) as you, \(how), until \(handover.ends.formatted(date: .omitted, time: .shortened))"
         }
 
         private var steps: some View {
@@ -319,7 +328,7 @@ struct HandoverCard: View {
     @ObservedObject var browser: Browser
     let tab: Tab
 
-    @State private var found: (url: URL, cookies: [HTTPCookie])?
+    @State private var found: (url: URL, cookies: [HTTPCookie], storage: Agent.Storage)?
     @State private var acts = false
     @State private var asks = true
     @State private var minutes = 30
@@ -329,22 +338,26 @@ struct HandoverCard: View {
     private var site: String { Vault.registrable(host) }
 
     var body: some View {
-        Plate("Hand over to the agent", width: 460, close: { browser.handingOver = nil }) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 10) {
+        Plate("Hand over to the agent", width: 420, close: { browser.handingOver = nil }) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
                     AgentMark(size: 16)
-                    Text(lead)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(host)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Palette.ink)
+                        Text(copied)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Palette.muted)
+                    }
                 }
                 Card {
-                    Line("What the agent may do") {
+                    Line("Access") {
                         Segmented(options: [(false, "Read only"), (true, "Read and act")], selection: $acts)
                     }
                     if acts {
                         Rule()
-                        Line("Ask me before each click, typing and form", "Strongly recommended with your sign-in") {
+                        Line("Ask before each action") {
                             Switch(on: $asks)
                         }
                     }
@@ -360,8 +373,8 @@ struct HandoverCard: View {
                         .fixedSize()
                     }
                 }
-                Text("The copy is deleted when the time is up, when its page leaves \(site), when you take it back, or when the session ends. Your tab stays yours, untouched. The site may count it as a sign-in until then.")
-                    .font(.system(size: 11.5))
+                Text("Removed when time is up, when it leaves \(site), or when you take it back.")
+                    .font(.system(size: 11))
                     .foregroundStyle(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 if let trouble {
@@ -380,22 +393,23 @@ struct HandoverCard: View {
             }
         }
         .onAppear {
-            Agent.offer(tab) { url, cookies in found = (url, cookies) }
+            Agent.offer(tab) { url, cookies, storage in found = (url, cookies, storage) }
         }
     }
 
-    private var lead: String {
-        guard let found else { return "Looking at what \(host) keeps…" }
-        let count = found.cookies.count
-        let what = count == 0
-            ? "\(host) keeps no sign-in in cookies, so the agent would arrive signed out"
-            : "a copy of your sign-in to \(host): \(count) cookie\(count == 1 ? "" : "s")"
-        return "The agent gets \(what), in a page of its own. Nothing else from this profile: no other site, no history, no passwords."
+    /// What would be copied, in a few words: only this site's sign-in.
+    private var copied: String {
+        guard let found else { return "Looking…" }
+        let count = found.cookies.count, stored = found.storage.count
+        var kept: [String] = []
+        if count > 0 { kept.append("\(count) cookie\(count == 1 ? "" : "s")") }
+        if stored > 0 { kept.append("\(stored) stored item\(stored == 1 ? "" : "s")") }
+        return kept.isEmpty ? "No sign-in to copy — the agent arrives signed out" : "Your sign-in: " + kept.joined(separator: " · ")
     }
 
     private func handOver() {
         guard let found else { return }
-        if let why = Agent.shared.handOver(found.url, cookies: found.cookies, acts: acts, asks: acts && asks, minutes: minutes) {
+        if let why = Agent.shared.handOver(found.url, cookies: found.cookies, storage: found.storage, acts: acts, asks: acts && asks, minutes: minutes) {
             trouble = why
             return
         }

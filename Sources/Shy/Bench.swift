@@ -219,15 +219,23 @@ final class Bench {
             // a SHY_PROBE run.
             guard Store.testing else { answer(["error": "handover only works on a --test run"]); return }
             guard let tab = find(request, in: browser) else { answer(missing(request)); return }
-            Agent.offer(tab) { url, cookies in
-                if let why = Agent.shared.handOver(url, cookies: cookies, acts: request["acts"] as? Bool ?? false,
+            Agent.offer(tab) { url, cookies, storage in
+                if let why = Agent.shared.handOver(url, cookies: cookies, storage: storage, acts: request["acts"] as? Bool ?? false,
                                                    asks: request["asks"] as? Bool ?? true,
                                                    minutes: request["minutes"] as? Int ?? 30) {
                     answer(["error": why])
                 } else {
-                    answer(["cookies": cookies.count, "page": Agent.shared.pages.last?.id ?? ""])
+                    answer(["cookies": cookies.count, "stored": storage.count, "page": Agent.shared.pages.last?.id ?? ""])
                 }
             }
+
+        case "takeback":
+            // An agent page's sign-in taken back, as its Take Back Sign-In
+            // would. Only on a SHY_PROBE run.
+            guard Store.testing else { answer(["error": "takeback only works on a --test run"]); return }
+            guard let page = Agent.shared.page(request["id"] as? String) else { answer(["error": "no such agent page"]); return }
+            Agent.shared.end(page, "you took it back")
+            answer(["over": page.handover?.over ?? ""])
 
         case "approve":
             // The oldest question in the Agent folder answered, yes or no.
