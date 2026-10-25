@@ -15,7 +15,7 @@ macOS 14 or later · 8.2 MB installed, 4.1 MB zipped · MIT
 - **Tabs down the side.** Pin the ones you use every day, group the rest in folders and spaces, and keep each profile's sign-ins separate. View two pages side by side.
 - **Quiet pages.** Ads and trackers are blocked before they load. Hide an element on a site for good, read without clutter, float a video.
 - **Light.** Tabs you don't use go to sleep.
-- **Agents, only if you want them.** Turn them on in Settings › Agents. An agent gets its own private pages in a folder you can see. Your tabs and passwords stay yours. To share one site's sign-in, right-click a tab and choose **Hand Over to Agent…**; it is read-only unless you say otherwise, locked to that site, and removed when your time is up.
+- **Your local agent, over MCP.** Shy isn't an AI browser. It just keeps up with the times, with the smallest set of features an agent needs. Switch on Settings › Agents, and an agent on your Mac can use the browser. It works in its own pages, in a folder you can see. You decide what it gets: share only the data you choose, or work on pages together. Your tabs and passwords stay yours. To let it use one site as you, right-click a tab and choose **Hand Over to Agent…**. That sign-in is read-only unless you say otherwise, works only on that site, and ends when the time you chose is up.
 
 ## Security
 
