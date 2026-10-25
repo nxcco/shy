@@ -445,12 +445,19 @@ struct ContentView: View {
     }
 
     /// The page area: the stage that holds the page, or the two side by side
-    /// (see SplitView.swift).
+    /// (see SplitView.swift), and under it the developer's bar while
+    /// Developer Mode is on — never over a page filling the screen.
     private var stage: some View {
-        ZStack {
-            SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
-            // An agent's page, over yours, while you watch it.
-            AgentStage(browser: browser, agent: .shared, corner: cards ? Metrics.cardRadius : 0)
+        VStack(spacing: 0) {
+            ZStack {
+                SplitStage(browser: browser, corner: cards ? Metrics.cardRadius : 0, immersed: fullscreenTab?.id)
+                // An agent's page, over yours, while you watch it.
+                AgentStage(browser: browser, agent: .shared, corner: cards ? Metrics.cardRadius : 0)
+            }
+            if browser.prefs.developer, fullscreenTab == nil {
+                DeveloperBar(browser: browser)
+                    .padding(.top, cards ? Metrics.cardGap : 0)
+            }
         }
     }
 

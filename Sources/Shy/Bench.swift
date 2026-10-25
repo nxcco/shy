@@ -630,6 +630,9 @@ final class Bench {
                 "offering": browser.offering != nil,
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
+                // Developer Mode, and whether its bar is on screen.
+                "developer": browser.prefs.developer,
+                "developerBar": DeveloperBar.shown ?? NSNull(),
                 "sidebar": true,
                 "sidePosition": browser.prefs.sidePosition.rawValue,
                 "sideWidth": Double(browser.prefs.sideWidth),
@@ -2778,6 +2781,8 @@ final class Bench {
             if let on = request["hides"] as? Bool { browser.prefs.sideHides = on }
             if let on = request["cards"] as? Bool { browser.prefs.cards = on }
             if let on = request["address"] as? Bool { browser.prefs.showsAddress = on }
+            // Developer Mode, as the tab's right-click menu turns it.
+            if let on = request["developer"] as? Bool { browser.prefs.developer = on }
             // Settings › Videos wait for a click, moved as its switch moves it.
             if let on = request["waits"] as? Bool, Store.testing { browser.prefs.waitsForPlay = on }
             if let on = request["folded"] as? Bool { browser.folded = on }

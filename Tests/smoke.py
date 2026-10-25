@@ -110,6 +110,17 @@ def passwords(t):
     t.ok("a pick fills the box", sv.ev(b, "document.getElementById('code').value") == CODE)
 
 
+def developer(t):
+    a = open_page("deep/page?q=1#here")
+    sv.cmd({"do": "ui", "developer": True}); time.sleep(0.6)
+    r = sv.cmd({"do": "probe"})
+    t.ok("Developer Mode puts its bar under the page, with the whole address",
+         r.get("developer") is True and r.get("developerBar") == f"{BASE}/deep/page?q=1#here", r.get("developerBar"))
+    sv.cmd({"do": "ui", "developer": False}); time.sleep(0.6)
+    t.ok("and turned off, the bar goes", sv.cmd({"do": "probe"}).get("developerBar") is None)
+    sv.sp("close", id=a)
+
+
 def restore(t):
     sv.sp("save"); sv.quit(); sv.launch(); time.sleep(0.5)
     pinned = [x for x in st()["tabs"] if x["id"] in st()["pins"]]
@@ -124,6 +135,7 @@ def main():
         a = tabs_and_pages(t)
         pins(t, a)
         passwords(t)
+        developer(t)
         restore(t)
     finally:
         try: acc(forget=True)
