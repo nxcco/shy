@@ -195,8 +195,7 @@ final class ImportFileTests: XCTestCase {
     func testBookmarkMergeKeepsAConcurrentEditAndDeduplicates() async throws {
         let bookmarks = Bookmarks()
         let existingURL = URL(string: "https://already.example/")!
-        let existing = Bookmark.site("Already here", existingURL)
-        _ = bookmarks.take([existing], from: "Other")
+        _ = bookmarks.add(existingURL, title: "Already here")
         let incoming = [Bookmark.site("Duplicate", existingURL)] + (0..<20_000).map { index in
             Bookmark.site("Imported \(index)", URL(string: "https://imported-\(index).example/")!)
         }
@@ -215,7 +214,6 @@ final class ImportFileTests: XCTestCase {
         XCTAssertEqual(result.added, 20_000)
         XCTAssertTrue(Bookmarks.urls(bookmarks.roots).contains(concurrentURL))
         XCTAssertEqual(Bookmarks.count(bookmarks.roots), 20_002)
-        _ = bookmarks.withdraw([existing.id] + incoming.map(\.id))
         Disk.drain()
     }
 

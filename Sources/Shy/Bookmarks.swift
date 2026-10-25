@@ -276,46 +276,6 @@ final class Bookmarks: ObservableObject {
         node.id == id || (node.children ?? []).contains { holds(id, $0) }
     }
 
-    /// Another browser's, kept apart in a folder of that browser's name
-    /// unless there was nothing here yet. Bringing them in again adds only
-    /// what is new — a page already in the same place is left as it is, a
-    /// folder of the same name is gone into — and never takes away what
-    /// you have added or moved since. Returns how many pages came in, and
-    /// how many were already here.
-    @discardableResult
-    func take(_ nodes: [Bookmark], from name: String) -> (added: Int, already: Int) {
-        let taken = takeNoting(nodes, from: name)
-        return (taken.added, taken.already)
-    }
-
-    /// The same, and which bookmarks and folders it added — every one, so
-    /// they can be taken back out exactly (see ImportRecord).
-    func takeNoting(_ nodes: [Bookmark], from name: String) -> (added: Int, already: Int, ids: [Bookmark.ID]) {
-        guard !nodes.isEmpty else { return (0, 0, []) }
-        var added = 0, already = 0
-        var ids: [Bookmark.ID] = []
-        if roots.isEmpty {
-            roots = nodes
-            added = Bookmarks.count(nodes)
-            ids = Bookmarks.ids(nodes)
-            Store.settings.set(name, forKey: Bookmarks.topKey)
-        } else if intoTop(nodes, from: name) {
-            Bookmarks.merge(nodes, into: &roots, added: &added, already: &already, ids: &ids)
-        } else {
-            var kids = roots.first { $0.isFolder && $0.title == name }?.children ?? []
-            Bookmarks.merge(nodes, into: &kids, added: &added, already: &already, ids: &ids)
-            if let at = roots.firstIndex(where: { $0.isFolder && $0.title == name }) {
-                roots[at].children = kids
-            } else {
-                let folder = Bookmark.folder(name, kids)
-                ids.append(folder.id)
-                roots.append(folder)
-            }
-        }
-        save()
-        return (added, already, ids)
-    }
-
     /// Prepare a potentially large file merge away from the UI thread. A live
     /// edit wins: if bookmarks changed while preparing, merge a fresh snapshot.
     func takeFile(_ incoming: [Bookmark], from name: String, control: ImportFile.Control) async throws -> (added: Int, already: Int) {
@@ -370,37 +330,6 @@ final class Bookmarks: ObservableObject {
             save()
             return (prepared.added, prepared.already)
         }
-    }
-
-    /// Takes back out what an import added: every bookmark among `ids`
-    /// wherever it now sits, then every folder among them left empty. A
-    /// folder of theirs that you have put something of your own in stays,
-    /// with that in it. Returns how many bookmarks went.
-    @discardableResult
-    func withdraw(_ ids: [Bookmark.ID]) -> Int {
-        let ours = Set(ids)
-        var gone = 0
-        func strip(_ nodes: [Bookmark]) -> [Bookmark] {
-            nodes.compactMap { node in
-                if !node.isFolder, ours.contains(node.id) {
-                    gone += 1
-                    return nil
-                }
-                guard let kids = node.children else { return node }
-                var copy = node
-                copy.children = strip(kids)
-                if ours.contains(node.id), copy.children?.isEmpty == true { return nil }
-                return copy
-            }
-        }
-        roots = strip(roots)
-        save()
-        return gone
-    }
-
-    /// Every id in a tree, folders and all.
-    nonisolated private static func ids(_ nodes: [Bookmark]) -> [Bookmark.ID] {
-        nodes.flatMap { [$0.id] + ids($0.children ?? []) }
     }
 
     nonisolated private static func fileURLs(_ nodes: [Bookmark], control: ImportFile.Control) throws -> [String] {
@@ -467,52 +396,6 @@ final class Bookmarks: ObservableObject {
 
     /// Which browser filled the empty top level, the first time.
     private static let topKey = "bookmarks.top"
-
-    /// Whether this browser's bookmarks belong at the top level: it filled
-    /// it the first time — or, from before that was noted, most of its
-    /// pages are already there.
-    private func intoTop(_ nodes: [Bookmark], from name: String) -> Bool {
-        if let top = Store.settings.string(forKey: Bookmarks.topKey) { return top == name }
-        let theirs = Bookmarks.urls(nodes).map(\.absoluteString)
-        guard !theirs.isEmpty else { return false }
-        let ours = Set(Bookmarks.urls(roots).map(\.absoluteString))
-        let shared = theirs.filter { ours.contains($0) }.count
-        guard shared * 2 >= theirs.count else { return false }
-        Store.settings.set(name, forKey: Bookmarks.topKey)
-        return true
-    }
-
-    /// `incoming` into `nodes`, level by level: a folder into the folder of
-    /// the same name, a page only if the same address isn't already at
-    /// that level.
-    nonisolated private static func merge(_ incoming: [Bookmark], into nodes: inout [Bookmark], added: inout Int, already: inout Int, ids: inout [Bookmark.ID]) {
-        var folders: [String: Int] = [:]
-        for (index, node) in nodes.enumerated() where node.isFolder {
-            if folders[node.title] == nil { folders[node.title] = index }
-        }
-        var pages = Set(nodes.compactMap { $0.isFolder ? nil : $0.url })
-        for node in incoming {
-            if node.isFolder {
-                if let at = folders[node.title] {
-                    var kids = nodes[at].children ?? []
-                    merge(node.children ?? [], into: &kids, added: &added, already: &already, ids: &ids)
-                    nodes[at].children = kids
-                } else {
-                    folders[node.title] = nodes.count
-                    nodes.append(node)
-                    added += count([node])
-                    ids += Bookmarks.ids([node])
-                }
-            } else if pages.contains(node.url ?? "") {
-                already += 1
-            } else {
-                if let url = node.url { pages.insert(url) }
-                nodes.append(node)
-                added += 1
-                ids.append(node.id)
-            }
-        }
-    }
 
     // MARK: - the file
 
