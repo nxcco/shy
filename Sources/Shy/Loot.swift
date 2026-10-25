@@ -31,7 +31,10 @@ final class Loot: ObservableObject {
         save()
     }
 
+    /// Off the list, and the file to the Trash, where it can still be put
+    /// back from. A file already gone is only taken off the list.
     func forget(_ keep: Keep) {
+        if keep.stillThere { try? FileManager.default.trashItem(at: keep.url, resultingItemURL: nil) }
         kept.removeAll { $0.id == keep.id }
         save()
     }

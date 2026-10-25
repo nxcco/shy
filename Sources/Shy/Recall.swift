@@ -469,7 +469,7 @@ struct DownloadsPanel: View {
                 Spacer(minLength: 8)
                 if hovering {
                     if keep.stillThere { Quick("Show in Finder", act: reveal) }
-                    Quick("Remove", tint: .red.opacity(0.75), act: forget)
+                    Quick(keep.stillThere ? "Move to Trash" : "Remove", tint: .red.opacity(0.75), act: forget)
                 }
             }
             .padding(.horizontal, 14)
