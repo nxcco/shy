@@ -26,6 +26,8 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     /// so "the current window" from a popup is the browser's, and so is the
     /// last focused one.
     private var page: PopupPage?
+    /// The profile whose extension's popup this is.
+    private weak var owner: Extensions?
     private var measuring: Timer?
     private(set) var extensionID: String?
     /// The extension's own button, when the popup hangs from it.
@@ -100,10 +102,12 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         self.web = web
         self.popover = popover
         extensionID = context.uniqueIdentifier
-        button = anchor != nil && anchor === Extensions.shared.anchors[context.uniqueIdentifier]?.view ? anchor : nil
+        let owner = Extensions.owner(of: context) ?? Extensions.shared
+        self.owner = owner
+        button = anchor != nil && anchor === owner.anchors[context.uniqueIdentifier]?.view ? anchor : nil
         let page = PopupPage(web: web)
         self.page = page
-        Extensions.shared.controller.didOpenTab(page)
+        owner.controller.didOpenTab(page)
 
         shown = false
         if let anchor, anchor.window != nil {
@@ -171,7 +175,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
 
     /// Tells WebKit the popup's window and tab are gone.
     private func forget() {
-        if let page { Extensions.shared.controller.didCloseTab(page, windowIsClosing: false) }
+        if let page { owner?.controller.didCloseTab(page, windowIsClosing: false) }
         page = nil
         popover = nil
         web = nil
@@ -341,7 +345,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         // The same rule as tabs.create: never a file on this Mac, never javascript:.
         if let url = action.request.url, (try? Extensions.mayOpen(url)) != nil {
-            Extensions.shared.browser?.open(url, foreground: true)
+            (owner ?? Extensions.shared).browser?.open(url, foreground: true)
         }
         close()
         return nil
@@ -377,7 +381,7 @@ final class PopupPage: NSObject, WKWebExtensionTab {
 
     init(web: WKWebView) { self.web = web }
 
-    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? { Extensions.shared.window }
+    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? { (Extensions.owner(of: context) ?? Extensions.shared).window }
     func indexInWindow(for context: WKWebExtensionContext) -> Int { NSNotFound }
     func webView(for context: WKWebExtensionContext) -> WKWebView? { web }
     func title(for context: WKWebExtensionContext) -> String? { web?.title }

@@ -1260,7 +1260,7 @@ final class Browser: NSObject, ObservableObject {
         if first {
             Shield.shared.enabled = prefs.shielded
             Shield.shared.compile()
-            if #available(macOS 15.4, *) { Extensions.shared.start(for: self) }
+            if #available(macOS 15.4, *) { Extensions.launch(with: self) }
             #if DEBUG
             if prefs.bench {
                 Bench.shared.start(for: self)
@@ -1436,8 +1436,8 @@ final class Browser: NSObject, ObservableObject {
         // it waits for the extensions, which load at once then, so that
         // their scripts meant to run before the page's do (#199); a
         // visible launch keeps loading it alongside the first frame.
-        if #available(macOS 15.4, *), NSApp.isHidden, Extensions.shared.starting {
-            Extensions.shared.whenStarted(within: 1.5) { [weak self] in
+        if #available(macOS 15.4, *), NSApp.isHidden, Extensions.of(profileID).starting {
+            Extensions.of(profileID).whenStarted(within: 1.5) { [weak self] in
                 guard let self else { return }
                 for tab in self.tabs where self.visibleTabIDs.contains(tab.id) { _ = tab.wake() }
             }
@@ -2897,7 +2897,7 @@ final class Browser: NSObject, ObservableObject {
             else { return }
             // A password manager extension that asked Chrome's way to do the
             // saving itself.
-            if #available(macOS 15.4, *), Extensions.shared.passwordSavingTakenBy != nil { return }
+            if #available(macOS 15.4, *), Extensions.of(profileID).passwordSavingTakenBy != nil { return }
             // Just filled from the Passwords app: it is kept there already.
             if tab.appleFill?.matches(host: host, user: user, password: password) == true { return }
             let profile = self.profile(of: tab)

@@ -80,7 +80,7 @@ final class ExtensionCapture: NSObject, WKScriptMessageHandlerWithReply, Observa
         // Refused once, not asked again until Shy starts afresh: an
         // extension can't wear you down with the question.
         guard !refused.contains(id) else { return false }
-        guard await Extensions.shared.ask(capture: context) else {
+        guard await (Extensions.owner(of: context) ?? Extensions.shared).ask(capture: context) else {
             refused.insert(id)
             return false
         }
@@ -156,7 +156,7 @@ final class ExtensionCapture: NSObject, WKScriptMessageHandlerWithReply, Observa
         guard message.frameInfo.isMainFrame, let web = message.webView, Browser.extensionScheme(origin.protocol),
               let url = web.url, url.scheme?.lowercased() == origin.protocol.lowercased(),
               url.host()?.lowercased() == origin.host.lowercased(),
-              let context = Extensions.shared.contexts.values.first(where: { $0.uniqueIdentifier.lowercased() == origin.host.lowercased() }),
+              let context = Extensions.owner(of: web.configuration.webExtensionController)?.contexts.values.first(where: { $0.uniqueIdentifier.lowercased() == origin.host.lowercased() }),
               web.configuration.websiteDataStore.isPersistent
         else { return nil }
         return (context, web)

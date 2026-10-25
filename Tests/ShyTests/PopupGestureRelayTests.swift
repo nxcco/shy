@@ -48,11 +48,11 @@ final class PopupGestureRelayTests: XCTestCase {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         let browser = Browser(record: WindowRecord())
-        _ = Extensions.shared
-        let saved = Extensions.pages
+        let extensions = Extensions.shared
+        let saved = extensions.pages
         let controller = WKUserContentController()
-        Extensions.pages = controller
-        defer { Extensions.pages = saved }
+        extensions.pages = controller
+        defer { extensions.pages = saved }
         func makeTab() -> Tab {
             let config = WKWebViewConfiguration()
             config.websiteDataStore = .nonPersistent()

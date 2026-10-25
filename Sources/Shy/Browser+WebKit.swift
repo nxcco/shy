@@ -210,7 +210,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     @available(macOS 15.4, *)
     private func handOverExtensionReturn(_ target: URL, source: URL, from webView: WKWebView, tab: Tab, fromRule: Bool = false) -> Bool {
         guard !tab.shy,
-              let context = Extensions.shared.controller.extensionContext(for: target),
+              let context = tab.extensionController?.extensionContext(for: target),
               context.isLoaded, context.webViewConfiguration != nil,
               ExtensionRedirectPolicy.allows(target: target, sourceOrigin: source, manifest: context.webExtension.manifest, fromRule: fromRule)
         else { return false }

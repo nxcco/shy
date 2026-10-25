@@ -168,14 +168,15 @@ extension Browser {
     /// The page's "Add to Shy" was pressed: the extension this tab is showing.
     func addFromStore(_ tab: Tab) {
         guard #available(macOS 15.4, *), let url = tab.address, let id = Crx.storeID(of: url) else { return }
-        Extensions.shared.install(from: id)
+        (Extensions.owner(of: tab.extensionController) ?? Extensions.of(profileID)).install(from: id)
     }
 
     /// Tells a store page what is installed and what is on its way, so its
     /// button can say "Added to Shy" or "Adding…".
     func tellStore(_ tab: Tab) {
         guard #available(macOS 15.4, *), let url = tab.address, StoreOffer.isStorePage(url) else { return }
-        tab.tellStore(installed: Extensions.shared.installed.map(\.id), busy: Extensions.shared.busy)
+        let extensions = Extensions.owner(of: tab.extensionController) ?? Extensions.of(profileID)
+        tab.tellStore(installed: extensions.installed.map(\.id), busy: extensions.busy)
     }
 
     /// And tells every store page again whenever either changes.

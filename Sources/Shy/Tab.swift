@@ -103,9 +103,13 @@ enum Web {
         // › Extensions lets one in, and WebKit then lets in only that one.
         // The controller has to be there when the view is made; it can't be
         // added after.
+        // Its profile's extensions, never another's: the profile whose store
+        // it was handed, or its space's.
         if #available(macOS 15.4, *) {
             MainActor.assumeIsolated {
-                if !shy || Extensions.shared.contexts.values.contains(where: \.hasAccessToPrivateData) { Extensions.attach(config) }
+                let profile = store.flatMap(Profiles.owner(of:)) ?? Spaces.profile(of: space ?? Spaces.current)
+                let extensions = Extensions.of(profile)
+                if !shy || extensions.contexts.values.contains(where: \.hasAccessToPrivateData) { extensions.attach(config) }
             }
         }
         // Left alone, WKWebView says only "AppleWebKit … (KHTML, like Gecko)" —
@@ -276,6 +280,9 @@ final class Tab: ObservableObject, Identifiable {
     /// there as it was made (a controller can't be added to a page later).
     @available(macOS 15.4, *)
     var carriesExtensions: Bool { configuration.webExtensionController != nil }
+    /// The controller its page was made with: its profile's (see Extensions.of).
+    @available(macOS 15.4, *)
+    var extensionController: WKWebExtensionController? { configuration.webExtensionController }
     /// Where its cookies and sign-ins are kept.
     var store: WKWebsiteDataStore { configuration.websiteDataStore }
     /// The profile its page is signed in as, read from its store (see
@@ -294,8 +301,8 @@ final class Tab: ObservableObject, Identifiable {
     private var pageDelegate: NSObject?
 
     private func uiDelegate(_ delegate: (WKNavigationDelegate & WKUIDelegate)?) -> WKUIDelegate? {
-        guard #available(macOS 15.4, *), let pages = MainActor.assumeIsolated({ Extensions.pages }),
-              configuration.userContentController === pages else { return delegate }
+        guard #available(macOS 15.4, *), MainActor.assumeIsolated({ Extensions.isPages(configuration.userContentController) })
+        else { return delegate }
         let made = pageDelegate as? ExtensionPageDelegate ?? ExtensionPageDelegate()
         made.next = delegate
         pageDelegate = made
@@ -1070,7 +1077,7 @@ final class Tab: ObservableObject, Identifiable {
         )
         // Every frame, in the page's own world: a page an extension lists
         // reaches it as chrome.runtime (see ExtensionExternal.swift).
-        if let external = ExtensionExternal.script(shy: shy) {
+        if #available(macOS 15.4, *), let external = ExtensionExternal.script(shy: shy, in: Extensions.owner(of: extensionController)) {
             controller.addUserScript(
                 WKUserScript(source: external, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page)
             )
@@ -1796,7 +1803,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeAllUserScripts()
         // Other extension tabs still use this controller. Their existing
         // listeners need the relay, and their next documents need its script.
-        if #available(macOS 15.4, *), controller === Extensions.pages {
+        if #available(macOS 15.4, *), Extensions.isPages(controller) {
             PopupGestureRelay.install(on: controller)
             controller.addUserScript(PopupGestureRelay.userScript)
         }

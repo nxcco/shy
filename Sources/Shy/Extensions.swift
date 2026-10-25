@@ -50,15 +50,58 @@ struct Installed: Codable, Identifiable, Equatable {
 @available(macOS 15.4, *)
 @MainActor
 final class Extensions: NSObject, ObservableObject {
-    static let shared = Extensions()
+    /// Each profile's extensions are its own: installed there, run by a
+    /// controller of its own with its own storage, and shown only that
+    /// profile's tabs — one profile's never read another's (H2 in the
+    /// audit). Made the first time the profile needs them. Personal's are
+    /// the ones there always were, where they always were.
+    private static var made: [UUID: Extensions] = [:]
 
-    /// Every page view built for a tab is handed the controller at birth —
-    /// it can't be given one later.
-    static func attach(_ configuration: WKWebViewConfiguration) {
-        configuration.webExtensionController = shared.controller
+    static func of(_ profile: UUID) -> Extensions {
+        if let known = made[profile] { return known }
+        let new = Extensions(profile: profile)
+        made[profile] = new
+        // Made after launch, for a profile gone to for the first time: it
+        // starts as the first did, once whatever asked for it is done.
+        if let first = launchedWith {
+            DispatchQueue.main.async { [weak first] in
+                MainActor.assumeIsolated { if let first { new.start(for: first) } }
+            }
+        }
+        return new
+    }
+
+    /// The profile in front's: what the toolbar, Settings and an install act on.
+    static var shared: Extensions { of((Browsers.front ?? Browsers.primary)?.profileID ?? Profile.personalID) }
+    /// Every profile's made so far.
+    static var all: [Extensions] { Array(made.values) }
+    /// Whose this extension is: the profile that loaded it.
+    static func owner(of context: WKWebExtensionContext) -> Extensions? {
+        made.values.first { $0.contexts.values.contains { $0 === context } }
+    }
+    /// Whose this controller is.
+    static func owner(of controller: WKWebExtensionController?) -> Extensions? {
+        controller.flatMap { controller in made.values.first { $0.controller === controller } }
+    }
+    /// The first window, once extensions have started with it.
+    private static weak var launchedWith: Browser?
+
+    /// At launch: Personal's start, and any other profile's made by then.
+    static func launch(with browser: Browser) {
+        launchedWith = browser
+        _ = of(Profile.personalID)
+        for extensions in made.values { extensions.start(for: browser) }
+    }
+
+    /// Every page view built for a tab is handed its profile's controller
+    /// at birth — it can't be given one later.
+    func attach(_ configuration: WKWebViewConfiguration) {
+        configuration.webExtensionController = controller
         ExtensionWorkerRecovery.shared.attach(configuration.userContentController)
     }
 
+    let profile: UUID
+    var isPersonal: Bool { profile == Profile.personalID }
     let controller: WKWebExtensionController
     @Published private(set) var installed: [Installed] = []
     /// The loaded ones, by id.
@@ -77,8 +120,12 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     /// The browser to act in when an extension opens something or is told
-    /// something: the window in front's (see Windows.swift).
-    var browser: Browser? { Browsers.front ?? Browsers.primary }
+    /// something: the window in front's (see Windows.swift), if it shows
+    /// this profile, or else one that does.
+    var browser: Browser? {
+        if let front = Browsers.front ?? Browsers.primary, front.profileID == profile { return front }
+        return Browsers.all.first { $0.profileID == profile } ?? Browsers.front ?? Browsers.primary
+    }
     private var adapters: [Tab.ID: ExtensionTab] = [:]
     /// Each window's row as WebKit last heard it, by browser.
     private var orders: [ObjectIdentifier: [Tab.ID]] = [:]
@@ -123,11 +170,18 @@ final class Extensions: NSObject, ObservableObject {
         parts.scheme = scheme
         return parts.url ?? url
     }
-    private static var list: URL { folder.appendingPathComponent("installed.json") }
-    static func folder(for id: String) -> URL { folder.appendingPathComponent(id, isDirectory: true) }
-    private static func stagingFolder(for id: String) -> URL {
-        folder.appendingPathComponent(".staging-\(id)-\(UUID().uuidString)", isDirectory: true)
+    /// This profile's: Personal's in the folder itself, as always; another's
+    /// in a folder of its own under it, which no extension id is named.
+    var home: URL {
+        isPersonal ? Extensions.folder : Extensions.folder.appendingPathComponent("profiles/\(profile.uuidString)", isDirectory: true)
     }
+    private var list: URL { home.appendingPathComponent("installed.json") }
+    func folder(for id: String) -> URL { home.appendingPathComponent(id, isDirectory: true) }
+    private func stagingFolder(for id: String) -> URL {
+        home.appendingPathComponent(".staging-\(id)-\(UUID().uuidString)", isDirectory: true)
+    }
+    /// A setting of this profile's own: Personal's under the key there always was.
+    private func key(_ name: String) -> String { SiteMemory.key(name, profile) }
 
     /// One loaded from a folder is copied in links and all, and both WebKit,
     /// serving its files, and the shim, rewriting its pages, go where a link
@@ -152,19 +206,22 @@ final class Extensions: NSObject, ObservableObject {
         }
     }
 
-    private override init() {
+    private init(profile: UUID) {
+        self.profile = profile
         WKWebExtension.MatchPattern.registerCustomURLScheme(Extensions.scheme)
         // A test run keeps its extensions' storage apart, as it does its
-        // cookies and passwords.
-        let configuration: WKWebExtensionController.Configuration = Store.testing && !Store.ownContainer
-            ? .init(identifier: Store.probeStore(2))
-            : .default()
-        configuration.defaultWebsiteDataStore = Store.websites
+        // cookies and passwords. Another profile's is its own, under the
+        // profile's id, as its sign-ins are.
+        let configuration: WKWebExtensionController.Configuration = profile != Profile.personalID
+            ? .init(identifier: Store.webKitID(profile))
+            : Store.testing && !Store.ownContainer ? .init(identifier: Store.probeStore(2)) : .default()
+        let websites = Profiles.store(profile)
+        configuration.defaultWebsiteDataStore = websites
         let views = configuration.webViewConfiguration ?? WKWebViewConfiguration()
         // Its own configuration starts with WebKit's default store; an
         // extension's pages keep what they store where the browser does —
         // and a test run's apart from the real one's.
-        views.websiteDataStore = Store.websites
+        views.websiteDataStore = websites
         // The same user agent as the web tabs, to the letter. WebKit gives
         // workers the user agent of the last page that loaded and, when it
         // differs, stops the running workers to apply it — and extension
@@ -179,14 +236,14 @@ final class Extensions: NSObject, ObservableObject {
         // Screen recording: an extension's pages ask Shy through this,
         // which knows which page is asking (see ExtensionCapture).
         views.userContentController.addScriptMessageHandler(ExtensionCapture.shared, contentWorld: .page, name: ExtensionCapture.channel)
-        Extensions.pages = views.userContentController
+        pages = views.userContentController
         ExtensionWorkerRecovery.shared.attach(views.userContentController)
         ExtensionCapture.mockDevices(views.preferences)
         configuration.webViewConfiguration = views
         controller = WKWebExtensionController(configuration: configuration)
         super.init()
         controller.delegate = self
-        installed = (try? JSONDecoder().decode([Installed].self, from: Data(contentsOf: Extensions.list))) ?? []
+        installed = (try? JSONDecoder().decode([Installed].self, from: Data(contentsOf: list))) ?? []
     }
 
     // MARK: - starting
@@ -266,15 +323,15 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     private func forgetWorkersIfChanged() async {
-        guard Store.settings.string(forKey: Extensions.workersKey) != workers else { return }
-        await Store.websites.removeData(ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations], modifiedSince: .distantPast)
-        Store.settings.set(workers, forKey: Extensions.workersKey)
+        guard Store.settings.string(forKey: key(Extensions.workersKey)) != workers else { return }
+        await Profiles.store(profile).removeData(ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations], modifiedSince: .distantPast)
+        Store.settings.set(workers, forKey: key(Extensions.workersKey))
     }
 
     /// An extension put in again, reloaded or found with its worker dead:
     /// the version alone doesn't tell, so the next launch clears regardless.
     private func workersChanged() {
-        Store.settings.removeObject(forKey: Extensions.workersKey)
+        Store.settings.removeObject(forKey: key(Extensions.workersKey))
     }
 
     // MARK: - the row, as WebKit sees it
@@ -290,7 +347,10 @@ final class Extensions: NSObject, ObservableObject {
     /// let in (Settings › Extensions). Even to one you have, only the ones
     /// made since some extension was let in carry the controller; one made
     /// before has no page an extension could reach.
-    private func seen(_ tab: Tab) -> Bool { !tab.shy || tab.carriesExtensions }
+    /// Only tabs carrying this profile's controller: another profile's
+    /// tabs, and a private one made before any extension was let in, are
+    /// never told to it.
+    private func seen(_ tab: Tab) -> Bool { tab.extensionController === controller }
     func seen(_ tab: Tab, for context: WKWebExtensionContext) -> Bool {
         seen(tab) && (!tab.shy || context.hasAccessToPrivateData)
     }
@@ -492,7 +552,7 @@ final class Extensions: NSObject, ObservableObject {
         // build that installed it carried — away from the main thread: the
         // first launch after an update reads and rewrites every script and
         // page each extension ships (Grammarly: 450 ms).
-        let folder = Extensions.folder(for: item.id)
+        let folder = self.folder(for: item.id)
         // One installed from a folder before links were looked at.
         if item.source != nil {
             do { try await Task.detached(priority: .userInitiated) { try Extensions.unlinkOutside(folder) }.value }
@@ -501,7 +561,7 @@ final class Extensions: NSObject, ObservableObject {
         let generation = ExtensionWorkerRecovery.shared.generation(for: item.id)
         try? await Task.detached(priority: .userInitiated) { try ExtensionShims.prepare(folder, workerGeneration: generation) }.value
         do {
-            let found = try await WKWebExtension(resourceBaseURL: Extensions.folder(for: item.id))
+            let found = try await WKWebExtension(resourceBaseURL: folder)
             let context = WKWebExtensionContext(for: found)
             context.uniqueIdentifier = item.id
             // The same origin every launch. WebKit picks a fresh one
@@ -593,8 +653,8 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     private func save() {
-        try? FileManager.default.createDirectory(at: Extensions.folder, withIntermediateDirectories: true)
-        try? JSONEncoder().encode(installed).write(to: Extensions.list, options: .atomic)
+        try? FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try? JSONEncoder().encode(installed).write(to: list, options: .atomic)
     }
 
     // MARK: - installing
@@ -626,12 +686,12 @@ final class Extensions: NSObject, ObservableObject {
         guard !installed.contains(where: { $0.id == id }) else { return }
         busy = id
         defer { busy = nil }
-        let staged = Extensions.stagingFolder(for: id)
+        let staged = stagingFolder(for: id)
         defer { try? FileManager.default.removeItem(at: staged) }
         do {
             let crx = try await Crx.fetch(id)
             let zip = try Crx.verifiedZip(crx, id: id)
-            let target = Extensions.folder(for: id)
+            let target = folder(for: id)
             try Crx.unpack(zip, into: staged)
             try ExtensionShims.prepare(staged, fresh: true)
             try await admit(staged, as: id, fromStore: true, finalFolder: target, confirm: confirm || !Store.testing)
@@ -663,16 +723,16 @@ final class Extensions: NSObject, ObservableObject {
             browser?.announce("Already installed. Press Reload to take its changes")
             return
         }
-        let staged = Extensions.stagingFolder(for: id)
+        let staged = stagingFolder(for: id)
         Task {
             defer { try? FileManager.default.removeItem(at: staged) }
             do {
-                try FileManager.default.createDirectory(at: Extensions.folder, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
                 // The folder itself, wherever a link to it leads.
                 try FileManager.default.copyItem(at: source.resolvingSymlinksInPath(), to: staged)
                 try Extensions.unlinkOutside(staged)
                 try ExtensionShims.prepare(staged, fresh: true)
-                try await admit(staged, as: id, fromStore: false, finalFolder: Extensions.folder(for: id), confirm: confirm || !Store.testing, source: source)
+                try await admit(staged, as: id, fromStore: false, finalFolder: folder(for: id), confirm: confirm || !Store.testing, source: source)
             } catch {
                 browser?.announce("Couldn't install the extension: \(error.localizedDescription)")
             }
@@ -685,8 +745,8 @@ final class Extensions: NSObject, ObservableObject {
     func reload(_ id: String) {
         guard let index = installed.firstIndex(where: { $0.id == id }), reloading.insert(id).inserted else { return }
         let original = installed[index]
-        let target = Extensions.folder(for: id)
-        let staged = original.source.map { _ in Extensions.stagingFolder(for: id) }
+        let target = folder(for: id)
+        let staged = original.source.map { _ in stagingFolder(for: id) }
         Task {
             defer {
                 if let staged { try? FileManager.default.removeItem(at: staged) }
@@ -874,10 +934,10 @@ final class Extensions: NSObject, ObservableObject {
         Store.settings.removeObject(forKey: "extensions.private.\(id)")
         installed.removeAll { $0.id == id }
         save()
-        try? FileManager.default.removeItem(at: Extensions.folder(for: id))
-        var left = Store.settings.stringArray(forKey: Extensions.forgettingKey) ?? []
+        try? FileManager.default.removeItem(at: folder(for: id))
+        var left = Store.settings.stringArray(forKey: key(Extensions.forgettingKey)) ?? []
         if !left.contains(id) { left.append(id) }
-        Store.settings.set(left, forKey: Extensions.forgettingKey)
+        Store.settings.set(left, forKey: key(Extensions.forgettingKey))
         forgetting[id] = Task { if await forgetData(of: id) { forgotten(id) } }
     }
 
@@ -887,14 +947,14 @@ final class Extensions: NSObject, ObservableObject {
     private static let forgettingKey = "extensions.forgetting"
 
     private func forgotten(_ id: String) {
-        let left = (Store.settings.stringArray(forKey: Extensions.forgettingKey) ?? []).filter { $0 != id }
-        if left.isEmpty { Store.settings.removeObject(forKey: Extensions.forgettingKey) }
-        else { Store.settings.set(left, forKey: Extensions.forgettingKey) }
+        let left = (Store.settings.stringArray(forKey: key(Extensions.forgettingKey)) ?? []).filter { $0 != id }
+        if left.isEmpty { Store.settings.removeObject(forKey: key(Extensions.forgettingKey)) }
+        else { Store.settings.set(left, forKey: key(Extensions.forgettingKey)) }
     }
 
     /// At launch, before anything loads: what a removal didn't finish clearing.
     private func forgetLeftOver() async {
-        for id in Store.settings.stringArray(forKey: Extensions.forgettingKey) ?? [] where forgetting[id] == nil {
+        for id in Store.settings.stringArray(forKey: key(Extensions.forgettingKey)) ?? [] where forgetting[id] == nil {
             if await forgetData(of: id) { forgotten(id) }
         }
     }
@@ -1086,7 +1146,7 @@ final class Extensions: NSObject, ObservableObject {
         else { return }
         do {
             let zip = try Crx.verifiedZip(try await Crx.fetch(item.id), id: item.id)
-            let staged = Extensions.stagingFolder(for: item.id)
+            let staged = stagingFolder(for: item.id)
             defer { try? FileManager.default.removeItem(at: staged) }
             try Crx.unpack(zip, into: staged)
             try ExtensionShims.prepare(staged, fresh: true)
@@ -1104,7 +1164,7 @@ final class Extensions: NSObject, ObservableObject {
             guard let index = installed.firstIndex(where: { $0.id == item.id }), installed[index].fromStore,
                   installed[index].version == item.version,
                   installed[index].permissions == current.permissions else { return }
-            let target = Extensions.folder(for: item.id)
+            let target = folder(for: item.id)
             try ExtensionFiles.replace(staged, at: target)
             unload(item.id)
             errors[item.id] = nil
@@ -1256,7 +1316,7 @@ final class Extensions: NSObject, ObservableObject {
     /// (ExtensionShims.prepare), and notes it in .shy-added, so what it
     /// added there doesn't count as asked.
     static func asksForNative(_ context: WKWebExtensionContext) -> Bool {
-        let folder = Extensions.folder(for: context.uniqueIdentifier)
+        let folder = (Extensions.owner(of: context) ?? Extensions.shared).folder(for: context.uniqueIdentifier)
         let added = Set((try? JSONSerialization.jsonObject(with: Data(contentsOf: folder.appendingPathComponent(".shy-added")))) as? [String] ?? [])
         let required = context.webExtension.requestedPermissions.contains(.nativeMessaging) && !added.contains("nativeMessaging")
         return required || context.webExtension.optionalPermissions.contains(.nativeMessaging)
@@ -1443,9 +1503,14 @@ final class Extensions: NSObject, ObservableObject {
     /// its popup, or a page of its in a tab. Real events only: a page's
     /// script can dispatch one, but it never reaches here.
     static var touched: [String: Date] = [:]
-    /// What every extension page's view shares, by which a tab knows it
-    /// shows one (see ExtensionPageDelegate).
-    static weak var pages: WKUserContentController?
+    /// What every extension page's view in this profile shares, by which a
+    /// tab knows it shows one (see ExtensionPageDelegate).
+    weak var pages: WKUserContentController?
+
+    /// Whether a view with these scripts is one of any profile's extension pages.
+    static func isPages(_ scripts: WKUserContentController) -> Bool {
+        made.values.contains { $0.pages === scripts }
+    }
 
     private static var touching: Any?
 

@@ -222,7 +222,7 @@ extension Browser {
     private func sidePanelReturns(to tab: Tab) {
         guard #available(macOS 15.4, *), sidePanel == nil,
               case .page(let id, let url, _)? = SidePanelPages.shared.bound(to: tab.id, in: self),
-              let context = Extensions.shared.contexts[id]
+              let context = Extensions.of(profileID).contexts[id]
         else { return }
         showSidePanel(context, url: url, for: tab.id)
     }
@@ -237,7 +237,7 @@ extension Browser {
     var sidePanelHeld: Bool {
         guard case .page(let id, _, _) = sidePanel, panelPanes().contains(where: { $0.shy })
         else { return false }
-        guard #available(macOS 15.4, *), let context = Extensions.shared.contexts[id] else { return true }
+        guard #available(macOS 15.4, *), let context = Extensions.of(profileID).contexts[id] else { return true }
         return Browser.holdsPanel(shy: true, letIn: Extensions.mayGoPrivate(context))
     }
 

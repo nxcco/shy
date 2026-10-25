@@ -291,7 +291,7 @@ extension Browser {
             newTab()
             return
         }
-        if #available(macOS 15.4, *), Extensions.shared.newTabPage != nil {
+        if #available(macOS 15.4, *), Extensions.of(profileID).newTabPage != nil {
             newTab()
             return
         }
@@ -324,11 +324,11 @@ extension Browser {
         // An extension's new tab page, if one asked and you said yes. One
         // added since that also asks is still asked, over the page it would
         // take the place of: which one has new tabs stays yours to say.
-        if #available(macOS 15.4, *), let page = Extensions.shared.newTabPage {
+        if #available(macOS 15.4, *), let page = Extensions.of(profileID).newTabPage {
             let tab = open(page, foreground: true)
             summoning = false
             rememberSession()
-            Extensions.shared.offerNewTabPage(into: tab)
+            Extensions.of(profileID).offerNewTabPage(into: tab)
             return
         }
         // Reuse an empty tab at the chosen position, clearing its draft:
@@ -345,7 +345,7 @@ extension Browser {
             rememberSession()
             // Asked here too: the blank a window opens with is the one the
             // first ⌘T after adding an extension lands on.
-            if #available(macOS 15.4, *) { Extensions.shared.offerNewTabPage(into: blank) }
+            if #available(macOS 15.4, *) { Extensions.of(profileID).offerNewTabPage(into: blank) }
             return
         }
         let tab = Tab(configuration: Web.configuration(space: spaceID))
@@ -358,7 +358,7 @@ extension Browser {
         editing = false
         focusRequest += 1
         rememberSession()
-        if #available(macOS 15.4, *) { Extensions.shared.offerNewTabPage(into: tab) }
+        if #available(macOS 15.4, *) { Extensions.of(profileID).offerNewTabPage(into: tab) }
     }
 
     /// A new tab given an extension's new tab page, whether blank or showing

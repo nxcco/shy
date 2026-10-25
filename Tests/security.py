@@ -8,7 +8,9 @@ agent's boundaries (agent_mcp.py) and checks a release build has no bench.
 Started hidden in a world of its own, quit, everything removed afterwards.
 Two local servers stand in for two sites: 127.0.0.1 and localhost.
 """
+import json
 import sys
+import tempfile
 import threading
 import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -165,6 +167,32 @@ def passwords(t):
     t.ok("its sign-in box framed in another site is offered nothing", not r.get("rows"), r)
 
 
+def profiles(t):
+    """An extension installed in one profile never reaches another's pages."""
+    folder = Path(tempfile.mkdtemp(prefix="shy-marker-"))
+    (folder / "manifest.json").write_text(json.dumps({
+        "manifest_version": 3, "name": "Marker", "version": "1.0", "description": "Marks every page.",
+        "host_permissions": ["http://*/*"],
+        "content_scripts": [{"matches": ["http://*/*"], "js": ["mark.js"], "run_at": "document_start"}]}))
+    (folder / "mark.js").write_text("document.documentElement.setAttribute('data-marked', 'yes')")
+    marked = "document.documentElement.getAttribute('data-marked')"
+    def installed(): return [e["name"] for e in sv.cmd({"do": "extensions"})["extensions"] if e.get("loaded")]
+    sv.cmd({"do": "ext-folder", "path": str(folder), "yes": True})
+    for _ in range(40):
+        if "Marker" in installed(): break
+        time.sleep(0.5)
+    t.ok("(control) installed in Personal, it marks Personal's pages",
+         sv.ev(open_page(f"{SITE}/personal"), marked) == "yes")
+    sv.cmd({"do": "space", "action": "new", "name": "Work", "fresh": True})
+    sv.cmd({"do": "space", "action": "go", "index": 2}); time.sleep(0.5)
+    sv.cmd({"do": "space", "action": "profile", "name": "Work"}); time.sleep(0.5)
+    t.ok("another profile starts with no extensions", installed() == [], installed())
+    work = sv.sp("open", url=f"{SITE}/work")["resultID"]; time.sleep(1)
+    t.ok("Personal's extension never reaches a page in another profile", sv.ev(work, marked) is None, sv.ev(work, marked))
+    sv.cmd({"do": "space", "action": "go", "index": 1}); time.sleep(0.5)
+    t.ok("and Personal still has it", "Marker" in installed(), installed())
+
+
 def main():
     t = sv.T()
     try:
@@ -174,6 +202,7 @@ def main():
         private_tabs(t)
         popups(t)
         passwords(t)
+        profiles(t)
     finally:
         try: acc(forget=True)
         except Exception: pass

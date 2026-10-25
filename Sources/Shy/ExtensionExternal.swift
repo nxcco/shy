@@ -29,10 +29,12 @@ enum ExtensionExternal {
     /// those Chrome would take and no others, by the extension's id. In a
     /// private tab (`shy`), only those let into private tabs: one shut out
     /// of them must not hear from a private page, its address with it.
-    @MainActor static func listings(shy: Bool) -> [String: [String]] {
-        guard #available(macOS 15.4, *) else { return [:] }
+    /// `extensions`: the page's own profile's, the only ones it may reach.
+    @available(macOS 15.4, *)
+    @MainActor static func listings(shy: Bool, in extensions: Extensions?) -> [String: [String]] {
+        guard let extensions else { return [:] }
         var found: [String: [String]] = [:]
-        for (id, context) in Extensions.shared.contexts where !shy || Extensions.mayGoPrivate(context) {
+        for (id, context) in extensions.contexts where !shy || Extensions.mayGoPrivate(context) {
             let listed = context.webExtension.manifest["externally_connectable"] as? [String: Any]
             let patterns = ((listed?["matches"] as? [String]) ?? []).filter(allowed)
             if !patterns.isEmpty { found[id] = Array(Set(patterns)).sorted() }
@@ -68,8 +70,9 @@ enum ExtensionExternal {
 
     /// For the page about to load, in its own world before any of its
     /// scripts; nil with nothing listed anywhere.
-    @MainActor static func script(shy: Bool) -> String? {
-        let found = listings(shy: shy)
+    @available(macOS 15.4, *)
+    @MainActor static func script(shy: Bool, in extensions: Extensions?) -> String? {
+        let found = listings(shy: shy, in: extensions)
         guard !found.isEmpty,
               let data = try? JSONSerialization.data(withJSONObject: found, options: .sortedKeys),
               let list = String(data: data, encoding: .utf8)

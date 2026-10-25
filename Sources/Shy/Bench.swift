@@ -2665,6 +2665,10 @@ final class Bench {
             switch request["action"] as? String ?? "" {
             case "new": browser.addSpace(named: request["name"] as? String ?? "Test", sharesSignIns: request["fresh"] as? Bool != true)
             case "go": browser.switchSpace(index: (request["index"] as? Int ?? 1) - 1)
+            case "profile":
+                // The space on screen into a profile of its own, made now.
+                let made = Profiles.shared.add(named: request["name"] as? String ?? "Test")
+                browser.setProfile(made.id, of: browser.spaceID)
             case "delete": browser.deleteSpace(browser.spaceID)
             case "swipe":
                 // Two fingers sideways over the column, as the swipe reads

@@ -4235,19 +4235,19 @@ enum ExtensionShims {
 
         // MARK: script injection and user scripts
         case "scripting.file":
-            return try scriptingFile(first as? String ?? "", arguments: args.dropFirst().first as? [Any] ?? [], in: Extensions.folder(for: id))
+            return try scriptingFile(first as? String ?? "", arguments: args.dropFirst().first as? [Any] ?? [], in: owner.folder(for: id))
         case "userScripts.file":
-            return try userScriptFile(first as? [String: Any] ?? [:], in: Extensions.folder(for: id))
+            return try userScriptFile(first as? [String: Any] ?? [:], in: owner.folder(for: id))
         case "userScripts.list":
-            return (try? JSONSerialization.jsonObject(with: Data(contentsOf: Extensions.folder(for: id).appendingPathComponent("_shy/userscripts.json")))) ?? []
+            return (try? JSONSerialization.jsonObject(with: Data(contentsOf: owner.folder(for: id).appendingPathComponent("_shy/userscripts.json")))) ?? []
         case "userScripts.save":
-            let folder = Extensions.folder(for: id).appendingPathComponent("_shy", isDirectory: true)
+            let folder = owner.folder(for: id).appendingPathComponent("_shy", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let scripts = first as? [[String: Any]] ?? []
             try JSONSerialization.data(withJSONObject: scripts).write(to: folder.appendingPathComponent("userscripts.json"), options: .atomic)
             // Files no saved script is written in any more, once a moment
             // has passed — one being injected right now is left alone.
-            let keep = Set(scripts.compactMap { try? userScriptFile($0, in: Extensions.folder(for: id)) }.map { URL(fileURLWithPath: $0).lastPathComponent })
+            let keep = Set(scripts.compactMap { try? userScriptFile($0, in: owner.folder(for: id)) }.map { URL(fileURLWithPath: $0).lastPathComponent })
             for file in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
             where file.lastPathComponent.hasPrefix("us-") && !keep.contains(file.lastPathComponent) {
                 let age = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate).map { -$0.timeIntervalSinceNow } ?? 999
@@ -4255,7 +4255,7 @@ enum ExtensionShims {
             }
             return nil
         case "userScripts.world", "userScripts.worlds":
-            let url = Extensions.folder(for: id).appendingPathComponent("_shy/worlds.json")
+            let url = owner.folder(for: id).appendingPathComponent("_shy/worlds.json")
             var worlds = (try? JSONSerialization.jsonObject(with: Data(contentsOf: url))) as? [[String: Any]] ?? []
             if api == "userScripts.worlds" { return worlds }
             let props = first as? [String: Any] ?? [:]
@@ -5167,7 +5167,7 @@ enum ExtensionAuth {
         guard mainFrame, url.scheme?.lowercased() == "https", let host = url.host()?.lowercased(),
               host.hasSuffix(".chromiumapp.org") else { return false }
         let id = String(host.dropLast(".chromiumapp.org".count))
-        guard #available(macOS 15.4, *), let context = Extensions.shared.contexts[id],
+        guard #available(macOS 15.4, *), let context = Extensions.owner(of: webView.configuration.webExtensionController)?.contexts[id],
               ExtensionShims.allowed(id, context: context).contains("identity"),
               let tab = browser.tab(for: webView)
         else { return false }
