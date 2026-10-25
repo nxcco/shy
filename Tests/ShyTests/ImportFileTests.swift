@@ -195,6 +195,8 @@ final class ImportFileTests: XCTestCase {
     func testBookmarkMergeKeepsAConcurrentEditAndDeduplicates() async throws {
         let bookmarks = Bookmarks()
         let existingURL = URL(string: "https://already.example/")!
+        // "Other" filled the empty top level the first time, as an earlier file would have.
+        Store.settings.set("Other", forKey: "bookmarks.top")
         _ = bookmarks.add(existingURL, title: "Already here")
         let incoming = [Bookmark.site("Duplicate", existingURL)] + (0..<20_000).map { index in
             Bookmark.site("Imported \(index)", URL(string: "https://imported-\(index).example/")!)

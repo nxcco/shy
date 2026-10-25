@@ -581,7 +581,7 @@ struct ContentView: View {
     }
 
     /// What still comes over the page. Settings, History, Downloads,
-    /// Bookmarks, Passwords, Bring Things Over and the release notes are
+    /// Bookmarks, Passwords and the release notes are
     /// tabs of their own now (see InternalPages.swift); what is left here
     /// comes once by itself and goes (What's New).
     @ViewBuilder

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 // Shy's own pages — Settings, History, Downloads, Bookmarks, Passwords,
-// Bring Things Over and the release notes — each in a tab of its own, as
+// and the release notes — each in a tab of its own, as
 // chrome://settings is in Chrome, rather than a card over the page. A tab
 // is something you can leave open beside your work, come back to with ⌃Tab,
 // put beside a page in Split View, and close with ⌘W like any other.
@@ -20,7 +20,7 @@ struct InternalPage: Equatable {
     }
 
     var kind: Kind
-    /// Settings' section, or the browser Bring Things Over starts at.
+    /// Settings' section.
     var detail: String?
 
     init(_ kind: Kind, _ detail: String? = nil) {
@@ -30,7 +30,7 @@ struct InternalPage: Equatable {
 
     static let scheme = "shy"
 
-    /// shy://settings, shy://settings/privacy, shy://import/Arc.
+    /// shy://settings, shy://settings/privacy.
     init?(url: URL) {
         guard url.scheme?.lowercased() == InternalPage.scheme,
               let host = url.host()?.lowercased(), let kind = Kind(rawValue: host)

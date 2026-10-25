@@ -229,9 +229,9 @@ struct SettingsPanel: View {
                     Switch(on: $prefs.littleLinks)
                 }
                 Rule()
-                // Coming from another browser, now or any time later: the same
-                // sheet as File › Bring Things Over….
-                Line("Import from another browser", "Bookmarks, history, passwords and extensions") {
+                // What another browser exported, now or any time later: the same
+                // sheet as File › Bring In a File….
+                Line("Import from a file", "Bookmarks (HTML), passwords (CSV) or a Safari export (ZIP)") {
                     Pill("Import…") { browser.importFile() }
                 }
                 Rule()
