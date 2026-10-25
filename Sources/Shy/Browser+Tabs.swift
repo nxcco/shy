@@ -544,11 +544,13 @@ extension Browser {
     /// Arc's Clear, on the line above the tabs that come and go: each of
     /// them closed as ⌘W closes it, and all of it remembered as one, so a
     /// single ⇧⌘T puts every tab back. Pins stay, and so do the folders,
-    /// whose tabs are pinned rows. The page on screen goes
-    /// last, once an empty tab has taken its place: closed first, a
-    /// neighbour would wake only to be closed.
+    /// whose tabs are pinned rows. So does the page you are on, and its
+    /// partner in a split, and with Settings' switch any tab playing sound.
     func clearTabs() {
-        let going = tabs.filter { $0.pin == nil && !$0.bench }
+        let going = tabs.filter {
+            $0.pin == nil && !$0.bench && !visibleTabIDs.contains($0.id)
+                && !(prefs.clearKeepsPlaying && $0.noisy)
+        }
         guard !going.isEmpty else { return }
         closingTogether { batch in clear(going, batch: batch) }
     }
@@ -568,16 +570,7 @@ extension Browser {
 
     private func clear(_ going: [Tab], batch: UUID) {
         lastClear = (batch, nil)
-        for tab in going where !visibleTabIDs.contains(tab.id) { close(tab) }
-        let onScreen = going.filter { visibleTabIDs.contains($0.id) }
-        // Already an empty tab in front: that is where Clear leaves you.
-        guard !onScreen.isEmpty, !(onScreen.count == 1 && onScreen[0].isBlank) else { return }
-        // After the others went, so it can't reuse an empty one among them.
-        // Only a tab Clear made is taken away again by the undo.
-        let had = Set(tabs.map(\.id))
-        newTab()
-        lastClear = (batch, activeID.flatMap { had.contains($0) ? nil : $0 })
-        for tab in onScreen where tab.id != activeID { close(tab) }
+        for tab in going { close(tab) }
     }
 
     /// A link let go of over the tabs becomes a tab among them.

@@ -156,6 +156,11 @@ final class Preferences: ObservableObject {
     @Published var sidePeeks: Bool {
         didSet { store.set(sidePeeks, forKey: "sidebar.peeks") }
     }
+    /// Clear leaves a tab that is playing sound, as well as the one you are
+    /// on. Off unless asked for.
+    @Published var clearKeepsPlaying: Bool {
+        didSet { store.set(clearKeepsPlaying, forKey: "clear.keepsPlaying") }
+    }
     /// Taller lines and larger titles in the column, for anyone who finds
     /// the default hard to read (#570). Off unless asked for.
     @Published var roomyTabs: Bool {
@@ -470,6 +475,7 @@ final class Preferences: ObservableObject {
         sidePosition = store.string(forKey: "sidebar.position").flatMap(SidebarPosition.init) ?? .left
         sidePeeks = store.object(forKey: "sidebar.peeks") as? Bool ?? true
         roomyTabs = store.bool(forKey: "sidebar.roomy")
+        clearKeepsPlaying = store.bool(forKey: "clear.keepsPlaying")
         let width = store.object(forKey: "sidebar.width") as? Double ?? Double(Metrics.side)
         sideWidth = min(Metrics.sideMax, max(Metrics.sideMin, CGFloat(width)))
         cards = store.object(forKey: "layout.cards") as? Bool ?? true
