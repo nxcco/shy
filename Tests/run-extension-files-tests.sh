@@ -6,7 +6,7 @@ build_dir=$(mktemp -d "${TMPDIR:-/tmp}/shy-extension-files-tests.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 
 swiftc -swift-version 5 \
-    "$repo_dir/Sources/Shy/ExtensionFiles.swift" \
+    "$repo_dir/Sources/Shy/Extensions/ExtensionFiles.swift" \
     "$repo_dir/Tests/ExtensionFilesTests.swift" \
     -o "$build_dir/extension-files-tests"
 "$build_dir/extension-files-tests"

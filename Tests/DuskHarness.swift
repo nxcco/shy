@@ -299,18 +299,16 @@ private final class DuskHarness: NSObject, NSApplicationDelegate, WKScriptMessag
 
     /// The page script with the colour engine in its slot, as Dusk.whole has it.
     private static func script() -> String {
-        let page = constant("static let script", in: "Dusk.swift")
-        return page.replacingOccurrences(of: "/*COLOURS*/", with: constant("static let engine", in: "DuskColours.swift"))
+        let page = scriptFile("dusk")
+        return page.replacingOccurrences(of: "/*COLOURS*/", with: scriptFile("dusk-colours"))
     }
 
-    private static func constant(_ name: String, in file: String) -> String {
+    private static func scriptFile(_ name: String) -> String {
         let here = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let source = (try? String(contentsOf: here.appendingPathComponent("../Sources/Shy/" + file), encoding: .utf8)) ?? ""
-        guard let start = source.range(of: name + " = #\"\"\"\n"),
-              let end = source.range(of: "\"\"\"#", range: start.upperBound..<source.endIndex) else {
-            print("FAIL no \(name) in \(file)"); exit(1)
+        guard let text = try? String(contentsOf: here.appendingPathComponent("../Sources/Shy/Scripts/\(name).js"), encoding: .utf8) else {
+            print("FAIL no Scripts/\(name).js"); exit(1)
         }
-        return String(source[start.upperBound..<end.lowerBound])
+        return text
     }
 
     /// For a fixture's looks: an element's colour as luminance, and as oklch.
