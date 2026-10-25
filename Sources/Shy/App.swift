@@ -1063,7 +1063,7 @@ struct ContentView: View {
 
     /// The last key handed to the page before Shy acted on it (see
     /// `pageFirst`): if WebKit sends it back unused, it is Shy's.
-    private static var passed: NSEvent?
+    static var passed: NSEvent?
 
     /// A key a page may want for itself — ⌘K in Slack, ⌘F in a Google Doc,
     /// ⌘S in an editor — goes to the page first, as it does in Chrome, and is
@@ -1377,6 +1377,14 @@ struct ContentView: View {
         // Keep the clearing controls reachable from a focused page editor.
         if shifted, event.keyCode == 51 {
             browser.recallMode = .clearing
+            return true
+        }
+
+        // ⌘S is Shy's even on a page that wants it: the page gets ⇧⌘S instead.
+        if key == "s", !shifted, flags == .command, let page = event.window?.firstResponder as? PageView,
+           ShortcutStore.shared.key(for: "view.fold") == KeyCombo("s") {
+            browser.toggleFold()
+            browser.handOver(event, to: page)
             return true
         }
 

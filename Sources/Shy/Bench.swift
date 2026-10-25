@@ -986,7 +986,8 @@ final class Bench {
                 var times: [[Double]] = []
                 @MainActor func next(_ index: Int) {
                     guard index < pieces.count else {
-                        var out: [String: Any] = ["field": field.stringValue, "typed": browser.typed, "offers": browser.offers.map(\.key), "ms": times]
+                        // Its height too: a long address wraps and grows it.
+                        var out: [String: Any] = ["field": field.stringValue, "typed": browser.typed, "offers": browser.offers.map(\.key), "ms": times, "height": Double(field.frame.height)]
                         guard request["go"] as? Bool == true, let tab = browser.active else { answer(out); return }
                         // Then Return, as the field's own delegate takes it:
                         // how long until WebKit is loading the page.
