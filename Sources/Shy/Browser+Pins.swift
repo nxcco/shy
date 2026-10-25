@@ -89,6 +89,16 @@ extension Browser {
         rememberSession()
     }
 
+    /// The page a pin has wandered to made its pinned page: where a
+    /// double-click, ⌘W and a restart take it from now on. It keeps its
+    /// letter and name; every window's copy of the pin follows.
+    func repin(_ tab: Tab) {
+        guard wandered(tab), let here = tab.address, ["http", "https"].contains(here.scheme?.lowercased()) else { return }
+        objectWillChange.send()
+        tab.home = here
+        writeSession(now: true)
+    }
+
     /// A pin no longer on the page it was pinned at.
     func wandered(_ tab: Tab) -> Bool {
         guard tab.pin != nil, let home = tab.home else { return false }

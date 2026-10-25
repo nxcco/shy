@@ -55,6 +55,18 @@ try:
     wander(a, "later")
     st = relaunch(True)
     t.ok("on: left elsewhere at quit, it opens again at home", pinned(st) == ["a"], pinned(st))
+
+    # Made This the Pinned Page: the page it wandered to is its home now.
+    a = st["pins"][0]
+    sv.sp("select", id=a); sv.cmd({"do": "wait", "id": a})
+    t.ok("at home, there is nothing to repin", last(pin(a, repin=True)["home"]) == "a")
+    wander(a, "newhome")
+    t.ok("repinned, its home is the page it is on", last(pin(a, repin=True)["home"]) == "newhome")
+    wander(a, "away")
+    sv.sp("close", id=a); st = sv.sp("state")
+    t.ok("repinned: ⌘W puts it down at the new page", last(tab(st, a)["url"]) == "newhome", tab(st, a)["url"])
+    st = relaunch(True)
+    t.ok("repinned: after a restart it opens at the new page", pinned(st) == ["newhome"], pinned(st))
 finally:
     t.done(); sv.finish()
 sys.exit(1 if t.failed else 0)

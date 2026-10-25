@@ -443,6 +443,10 @@ struct TabMenu: View {
                 Button("Back to Pinned Page") { browser.goHome(tab) }
                     .disabled(tab.home.map { Browser.samePage($0, tab.address) } ?? true)
             }
+            // The page it has wandered to kept as its pinned page instead.
+            if browser.wandered(tab) {
+                Button("Make This the Pinned Page") { browser.repin(tab) }
+            }
             Button("Unpin") { browser.unpin(tab) }
         }
         Divider()
