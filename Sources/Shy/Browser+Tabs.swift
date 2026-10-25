@@ -453,7 +453,6 @@ extension Browser {
         // History and the rest are tabs (InternalPages.swift): ⌘W closes
         // them as it closes any tab, and Escape leaves them be.
         if tuning { tuning = false }
-        else if newsShowing { newsShowing = false }
         else { return false }
         return true
     }

@@ -751,10 +751,6 @@ struct SettingsPanel: View {
                 Line("Report a problem", "Opens a GitHub issue with your version filled in") {
                     Pill("Send Feedback") { Links.writeFeedback() }
                 }
-                Rule()
-                Line("What's new") {
-                    Pill("What's New…") { browser.lead(to: InternalPage(.notes)) }
-                }
             }
 
             Card {

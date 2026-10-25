@@ -581,9 +581,8 @@ struct ContentView: View {
     }
 
     /// What still comes over the page. Settings, History, Downloads,
-    /// Bookmarks, Passwords and the release notes are
-    /// tabs of their own now (see InternalPages.swift); what is left here
-    /// comes once by itself and goes (What's New).
+    /// Bookmarks and Passwords are tabs of their own now (see
+    /// InternalPages.swift).
     @ViewBuilder
     private var panels: some View {
         if browser.tuning {
@@ -591,16 +590,6 @@ struct ContentView: View {
         }
         if let tab = browser.handingOver {
             sheet { HandoverCard(browser: browser, tab: tab) } close: { browser.handingOver = nil }
-        }
-        // What's new, once after an update (see WhatsNew.swift). Every
-        // version's notes are a tab.
-        if browser.newsShowing, let release = WhatsNew.current {
-            sheet {
-                WhatsNewCard(release: release, prefs: browser.prefs, close: { browser.newsShowing = false }) {
-                    browser.newsShowing = false
-                    browser.show(InternalPage(.notes))
-                }
-            } close: { browser.newsShowing = false }
         }
         if browser.reviewing {
             // No dimming for this one: the whole point is to keep looking at
@@ -721,7 +710,6 @@ struct ContentView: View {
                 }
             }
             .onChange(of: browser.activeID) { _, _ in handBack() }
-            .animation(Motion.settle, value: browser.newsShowing)
             .animation(Motion.settle, value: browser.tuning)
             .animation(Motion.settle, value: browser.reviewing)
         .onAppear {

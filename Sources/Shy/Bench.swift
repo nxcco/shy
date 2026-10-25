@@ -461,37 +461,6 @@ final class Bench {
             browser.moveToWindow(tab, target)
             answer(["windows": Browsers.all.count])
 
-        case "news":
-            // The card after an update (see WhatsNew.swift), drawn off screen
-            // to a PNG — the newest release's, whatever this build's version —
-            // or every version's notes; "on" shows the card in the window.
-            guard Store.testing else { answer(["error": "news only works on a --test run"]); return }
-            guard let release = WhatsNew.releases.first else { answer(["error": "no release has a card"]); return }
-            if request["on"] as? Bool == true {
-                browser.newsShowing = true
-                answer(["showing": true])
-                return
-            }
-            guard let path = request["path"] as? String else { answer(["error": "news needs a path"]); return }
-            let root: AnyView = request["notes"] as? Bool == true
-                ? AnyView(ReleaseNotesPanel {}.padding(40).background(Palette.ground))
-                : AnyView(WhatsNewCard(release: release, prefs: browser.prefs, close: {}, notes: {}).padding(40).background(Palette.ground))
-            let host = NSHostingView(rootView: root)
-            host.frame = NSRect(origin: .zero, size: host.fittingSize)
-            let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
-            window.appearance = NSApp.effectiveAppearance
-            window.contentView = host
-            host.layoutSubtreeIfNeeded()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                guard let picture = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { answer(["error": "nothing drawn"]); return }
-                host.cacheDisplay(in: host.bounds, to: picture)
-                do {
-                    try picture.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-                    answer(["saved": path, "size": [Int(host.bounds.width), Int(host.bounds.height)]])
-                } catch { answer(["error": error.localizedDescription]) }
-                window.contentView = nil
-            }
-
         case "quit":
             // ⌘Q, on a test run: the app ends the way it does for you, the
             // session and windows.json written on the way out.
@@ -2868,7 +2837,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "developer", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
+                "tabs", "open", "go", "openmark", "developer", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
             ]])
         }
     }

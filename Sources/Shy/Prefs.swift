@@ -316,11 +316,6 @@ final class Preferences: ObservableObject {
     @Published var applePasswords: Bool {
         didSet { store.set(applePasswords, forKey: "passwords.apple") }
     }
-    /// Shy has been opened before. A fresh install opens straight into the
-    /// browser; this only keeps What's New from greeting it.
-    @Published var welcomed: Bool {
-        didSet { store.set(welcomed, forKey: "welcomed") }
-    }
     /// macOS's own autocorrect, inside web pages: the little "Not ×" that
     /// capitalises what you meant to leave lower-case. As the Mac has it
     /// (System Settings › Keyboard › Correct spelling automatically) until
@@ -533,9 +528,6 @@ final class Preferences: ObservableObject {
         savesPasswords = store.object(forKey: "passwords.save") as? Bool ?? true
         fillsPasswords = store.object(forKey: "passwords.fill") as? Bool ?? true
         applePasswords = store.bool(forKey: "passwords.apple")
-        // Anyone who already has a session was here before the flag
-        // existed.
-        welcomed = store.bool(forKey: "welcomed") || store.object(forKey: "glyph") != nil
         floatingNewTab = store.bool(forKey: "newtab.floating")
         floatWhen = FloatWhen.chosen(store)
         panelSite = store.string(forKey: "panel.site") ?? ""

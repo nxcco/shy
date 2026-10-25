@@ -16,7 +16,6 @@ import SwiftUI
 struct InternalPage: Equatable {
     enum Kind: String, CaseIterable {
         case settings, history, downloads, bookmarks, passwords
-        case notes = "release-notes"
     }
 
     var kind: Kind
@@ -54,7 +53,6 @@ struct InternalPage: Equatable {
         case .downloads: return "Downloads"
         case .bookmarks: return "Bookmarks"
         case .passwords: return "Passwords"
-        case .notes: return "What's New"
         }
     }
 
@@ -65,7 +63,6 @@ struct InternalPage: Equatable {
         case .downloads: return "arrow.down.circle"
         case .bookmarks: return "book"
         case .passwords: return "key"
-        case .notes: return "sparkles"
         }
     }
 
@@ -151,8 +148,6 @@ struct InternalPageView: View {
             BookmarksPanel(browser: browser, bookmarks: browser.bookmarks)
         case .passwords:
             PasswordsPanel(browser: browser)
-        case .notes:
-            ReleaseNotesPanel { browser.putAway(.notes) }
         }
     }
 }
