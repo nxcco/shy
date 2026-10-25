@@ -43,7 +43,7 @@ extension Browser {
     /// ⌘S on a page that wants it too: the fold is Shy's, and the page gets
     /// the same key with another modifier on it — ⇧⌘S, or the first of the
     /// next ones that no command of Shy's has. Delivered as a key the page
-    /// can read, and Shy's own handling lets it through when it comes back.
+    /// can read; if the page leaves it unused and it comes back, Shy drops it.
     func handOver(_ event: NSEvent, to page: NSView) {
         let store = ShortcutStore.shared
         let spare: [NSEvent.ModifierFlags] = [[.command, .shift], [.command, .option], [.command, .option, .shift]]
@@ -57,7 +57,7 @@ extension Browser {
                   characters: flags.contains(.shift) ? "S" : "s", charactersIgnoringModifiers: "s",
                   isARepeat: event.isARepeat, keyCode: event.keyCode)
         else { return }
-        ContentView.passed = moved
+        ContentView.handedOver = moved
         _ = page.performKeyEquivalent(with: moved)
     }
 

@@ -1052,6 +1052,9 @@ struct ContentView: View {
     /// The last key handed to the page before Shy acted on it (see
     /// `pageFirst`): if WebKit sends it back unused, it is Shy's.
     static var passed: NSEvent?
+    /// The key a page was given in place of ⌘S, kept so it is dropped if
+    /// WebKit sends it back unused (see Browser.handOver).
+    static var handedOver: NSEvent?
 
     /// A key a page may want for itself — ⌘K in Slack, ⌘F in a Google Doc,
     /// ⌘S in an editor — goes to the page first, as it does in Chrome, and is
@@ -1119,6 +1122,14 @@ struct ContentView: View {
     ]
 
     private func take(_ event: NSEvent) -> Bool {
+        // The ⇧⌘S a page was handed for its ⌘S (see Browser.handOver), back
+        // unused: nobody's. Let through, the menu took it for ⌘S and the
+        // sidebar folded straight back.
+        if let back = ContentView.handedOver, PageView.same(back, event), event.modifierFlags.contains(.command),
+           event.modifierFlags.intersection([.shift, .option]) == back.modifierFlags.intersection([.shift, .option]) {
+            ContentView.handedOver = nil
+            return true
+        }
         // A question hanging from the window (Ask) answers its own keys. Esc
         // there is its Cancel: taken here, it closed the panel under it and
         // left the question up, with Return still on its first button.
@@ -1371,6 +1382,8 @@ struct ContentView: View {
         // ⌘S is Shy's even on a page that wants it: the page gets ⇧⌘S instead.
         if key == "s", !shifted, flags == .command, let page = event.window?.firstResponder as? PageView,
            ShortcutStore.shared.key(for: "view.fold") == KeyCombo("s") {
+            // Held down, it folds once rather than flickering in and out.
+            if event.isARepeat { return true }
             browser.toggleFold()
             browser.handOver(event, to: page)
             return true
