@@ -1,11 +1,14 @@
 #!/bin/bash
 # The test suite, in one place:
 #
-#   Tests/run.sh unit       the Swift tests (swift test)
+#   Tests/run.sh unit       the Swift tests (swift test) and the registrable
+#                           domains the site locks stand on
 #   Tests/run.sh smoke      the everyday journeys, end to end (smoke.py)
 #   Tests/run.sh security   the boundaries a page must not cross (security.py),
-#                           the agent's (agent_mcp.py), and that a release
-#                           build has no bench in it
+#                           the agent's (agent_mcp.py), an extension's
+#                           (private_extensions.py, panel_cookies.py, the
+#                           shim's origin checks, with node), and that a
+#                           release build has no bench in it
 #   Tests/run.sh            all three
 #
 # Smoke and security drive a debug build, the only kind with the bench; the
@@ -39,12 +42,18 @@ case "$what" in
 esac
 is() { [ "$what" = all ] || [ "$what" = "$1" ]; }
 
-if is unit; then step unit python3 Tests/run-ci-tests.py; fi
+if is unit; then
+    step unit python3 Tests/run-ci-tests.py
+    step registrable Tests/RegistrableRegression/run.sh
+fi
 if is smoke || is security; then debug_build; fi
 if is smoke; then step smoke python3 Tests/smoke.py; fi
 if is security; then
     step security python3 Tests/security.py
     step agent python3 Tests/agent_mcp.py
+    step "extensions in private tabs" python3 Tests/private_extensions.py
+    step "extension panel cookies" python3 Tests/panel_cookies.py
+    step "extension origin checks" node Tests/ExtensionWorkerRecovery/cross-origin-checks.js
     step "release has no bench" no_bench_in_release
 fi
 
