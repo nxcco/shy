@@ -521,6 +521,10 @@ struct SettingsPanel: View {
                     Switch(on: $prefs.sideHides)
                 }
                 Rule()
+                Line("Show the hidden sidebar at the edge", "Folded with ⌘S, it comes out when the pointer meets the edge. Off, only ⌘S shows it") {
+                    Switch(on: $prefs.sidePeeks)
+                }
+                Rule()
                 Line("Show the page as a card", "Rounded corners and a small margin") {
                     Switch(on: Binding(
                         get: { prefs.cards },

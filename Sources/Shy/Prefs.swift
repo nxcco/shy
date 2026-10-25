@@ -156,6 +156,12 @@ final class Preferences: ObservableObject {
     @Published var sideHides: Bool {
         didSet { store.set(sideHides, forKey: "sidebar.hides") }
     }
+    /// A column folded away comes out when the pointer meets its edge. On
+    /// unless turned off; off, only ⌘S (or its button) brings it back.
+    /// Auto-hide always has the edge, being nothing without it.
+    @Published var sidePeeks: Bool {
+        didSet { store.set(sidePeeks, forKey: "sidebar.peeks") }
+    }
     /// Taller lines and larger titles in the column, for anyone who finds
     /// the default hard to read (#570). Off unless asked for.
     @Published var roomyTabs: Bool {
@@ -480,6 +486,7 @@ final class Preferences: ObservableObject {
                                  Preferences.sidePanelWidths.lowerBound), Preferences.sidePanelWidths.upperBound)
         sidePosition = store.string(forKey: "sidebar.position").flatMap(SidebarPosition.init) ?? .left
         sideHides = store.bool(forKey: "sidebar.hides")
+        sidePeeks = store.object(forKey: "sidebar.peeks") as? Bool ?? true
         roomyTabs = store.bool(forKey: "sidebar.roomy")
         let width = store.object(forKey: "sidebar.width") as? Double ?? Double(Metrics.side)
         sideWidth = min(Metrics.sideMax, max(Metrics.sideMin, CGFloat(width)))

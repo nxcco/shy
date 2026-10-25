@@ -202,6 +202,11 @@ struct Fold: View {
         .onChange(of: prefs.sideWidth) { _, _ in
             if browser.folded { hideLights() }
         }
+        .onChange(of: prefs.sidePeeks) { _, _ in
+            resetPending()
+            browser.peeking = false
+            watch()
+        }
         .onChange(of: prefs.sideHides) { _, hides in
             resetPending()
             browser.peeking = false
@@ -251,10 +256,10 @@ struct Fold: View {
     }
 
     /// The pointer is watched only while there is something folded for it
-    /// to bring out, and Settings has the sidebar hide on its own; folded by
-    /// ⌘S alone, the column stays away until ⌘S or its button brings it back.
+    /// to bring out, and Settings lets the edge bring it (Show the hidden sidebar
+    /// at the edge, or auto-hide); otherwise ⌘S or the button brings it back.
     private func watch() {
-        if folding && prefs.sideHides {
+        if folding && (prefs.sideHides || prefs.sidePeeks) {
             pointer.start { follow() }
         } else {
             pointer.stop()
