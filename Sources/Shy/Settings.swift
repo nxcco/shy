@@ -385,11 +385,7 @@ struct SettingsPanel: View {
                 }
             }
             group("Video") {
-                Line("Floating video player", prefs.floatStyle == .shy ? "Keeps the video's page running" : "macOS's own player, with its controls") {
-                    Segmented(options: FloatStyle.allCases.map { ($0, $0.title) }, selection: $prefs.floatStyle)
-                }
-                Rule()
-                Line("Float playing videos automatically", prefs.floatWhen.detail) {
+                Line("Picture in picture automatically", prefs.floatWhen.detail) {
                     Picker("", selection: $prefs.floatWhen) {
                         ForEach(FloatWhen.allCases) { when in
                             Text(when.title).tag(when)

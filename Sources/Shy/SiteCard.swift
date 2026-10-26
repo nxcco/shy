@@ -378,7 +378,7 @@ struct SiteCard: View {
 
         var body: some View {
             HStack(spacing: 0) {
-                Text("Don't Float Videos Here")
+                Text("No Picture in Picture Here")
                     .font(MenuMetrics.font)
                     .foregroundStyle(Color(nsColor: .labelColor))
                     .fixedSize()

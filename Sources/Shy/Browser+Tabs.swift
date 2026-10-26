@@ -28,7 +28,6 @@ extension Browser {
 
     func pair(_ dragged: Tab, with target: Tab, onLeft: Bool) {
         guard canSplit(dragged, with: target) else { return }
-        if floating == dragged.id || floating == target.id { land() }
         let dragged = splittable(dragged)
         let target = splittable(target)
         detachSplit(dragged)
@@ -55,7 +54,6 @@ extension Browser {
             if let right = tabs.first(where: { $0.id == pair.right }) { focusPane(right) }
             return
         }
-        if floating == shown.id { land() }
         let current = splittable(shown)
         let right = Tab(shy: current.shy,
                         configuration: current.shy ? Web.configuration(shy: true, store: current.store)
@@ -427,8 +425,7 @@ extension Browser {
         // An extension's panel opened for one tab goes and comes with it.
         sidePanelFollows(tab)
         // Coming back to the tab whose video is out brings it home first, so
-        // it is never lifted and landed in the same breath.
-        if floating == tab.id { land() }
+        // it is never sent out and back in the same breath.
         if pictured == tab.id { unpicture() }
         if floatPrevious { leaving() }
         activeID = tab.id
@@ -493,10 +490,10 @@ extension Browser {
         heldDialogs.removeValue(forKey: tab.id)?.forEach { $0.dismiss() }
         dropQuestions(for: tab.id)
 
-        // A tab whose page is out in the little window takes the window with
-        // it. Left alone, the window would go on holding a page belonging to a
+        // A tab whose video is in picture in picture takes the window with
+        // it. Left alone, the window went on playing a page belonging to a
         // tab that no longer exists.
-        if floating == tab.id { land(covering: false) }
+        if pictured == tab.id { unpicture() }
 
         // A pinned tab is not closed by ⌘W — it is put down. Only Unpin
         // takes it out of the row.
@@ -772,7 +769,7 @@ extension Browser {
         let partner = split(for: tab).flatMap { pair in tabs.first { $0.id == pair.partner(of: tab.id) } }
         detachSplit(tab)
 
-        if floating == tab.id { land() }
+        if pictured == tab.id { unpicture() }
         if editingTab == tab.id { cancelTabEdit() }
         if activeID == tab.id {
             if let partner {

@@ -31,7 +31,7 @@ enum PeekClick: String, CaseIterable {
 
 /// How long a tab you aren't keeping stays open once you leave it (see
 /// Closing.swift): never, or one of Arc's four choices, counted in hours.
-/// When a playing video floats out by itself (Settings › General).
+/// When a playing video goes into picture in picture by itself (Settings › General).
 enum FloatWhen: String, CaseIterable, Identifiable {
     case never, tabs, tabsOrApps
 
@@ -412,7 +412,7 @@ final class Preferences: ObservableObject {
     @Published var translateAlways: Set<String> {
         didSet { store.set(Array(translateAlways).sorted(), forKey: PageTranslator.alwaysKey) }
     }
-    /// When a playing video comes out into the floating window by itself:
+    /// When a playing video goes into picture in picture by itself:
     /// never, when you go to another tab (Browser.leaving), or then and when
     /// another app comes to the front (Browser.appLeft). Tabs unless chosen.
     @Published var floatWhen: FloatWhen {
@@ -423,14 +423,6 @@ final class Preferences: ObservableObject {
     /// The website last put in the side panel, for View › Side Panel.
     @Published var panelSite: String {
         didSet { store.set(panelSite, forKey: "panel.site") }
-    }
-    /// Which window a floating video goes into: Shy's own, as it always
-    /// was, or macOS's picture in picture (see NativePiP.swift).
-    @Published var floatStyle: FloatStyle {
-        didSet {
-            store.set(floatStyle.rawValue, forKey: "float.style")
-            NativePiP.allowEverywhere()
-        }
     }
     /// Escape on a page filling the screen leaves only when pressed twice
     /// within two seconds, as in Arc; the first puts up a reminder (see
@@ -537,7 +529,6 @@ final class Preferences: ObservableObject {
         floatingNewTab = store.bool(forKey: "newtab.floating")
         floatWhen = FloatWhen.chosen(store)
         panelSite = store.string(forKey: "panel.site") ?? ""
-        floatStyle = store.string(forKey: "float.style").flatMap(FloatStyle.init(rawValue:)) ?? .shy
         escapeTwice = store.bool(forKey: "fullscreen.escapeTwice")
         waitsForPlay = store.bool(forKey: Preferences.waitsKey)
         translatesPages = store.bool(forKey: PageTranslator.key)

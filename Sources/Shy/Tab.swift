@@ -492,9 +492,6 @@ final class Tab: ObservableObject, Identifiable {
     /// is set, and what the window works out from it has to see the new one.
     let immersion = PassthroughSubject<Bool, Never>()
 
-    /// True while this tab's page is out in the little window.
-    @Published var floating = false
-
     /// A sideways swipe in progress, for the disc that shows it.
     @Published var pull: Pull?
 
@@ -1511,18 +1508,6 @@ final class Tab: ObservableObject, Identifiable {
         }
     }
 
-    /// The page as it was when its video went out to the floating window,
-    /// over it while it lands (see Browser.land).
-    func cover(with picture: NSImage) {
-        cover = picture
-    }
-
-    /// That picture off, if it is still the one up.
-    func uncover(_ picture: NSImage) {
-        guard cover === picture else { return }
-        cover = nil
-    }
-
     /// Set when WebKit said the page's process went away while nobody was
     /// looking at the tab. Coming back to it loads the page again rather
     /// than showing the white that is left.
@@ -1796,6 +1781,7 @@ final class Tab: ObservableObject, Identifiable {
         ears.stop()
         quiet?.invalidate()
         quiet = nil
+        let playing = media.frames
         media.forget()
         guard let web = built else { return }
         (delegate as? Browser)?.cancelDisplay(for: web)
@@ -1820,6 +1806,19 @@ final class Tab: ObservableObject, Identifiable {
         web.onTranslate = nil
         web.onSearch = nil
         web.stopLoading()
+        // A view that something still holds goes on playing once detached:
+        // stopped here, and any picture-in-picture or full screen closed.
+        // The view's own teardown takes seconds to reach the web process, and
+        // the sound runs on until it does: so the media is muted and paused in
+        // the page and its playing frames first, which lands at once.
+        let silence = "document.querySelectorAll('video,audio').forEach(m => { m.muted = true; m.pause() }); 0"
+        web.evaluateJavaScript(silence, in: nil, in: Web.world) { _ in }
+        for frame in playing {
+            web.evaluateJavaScript(silence, in: frame, in: Web.world) { _ in }
+        }
+        web.pauseAllMediaPlayback()
+        web.setAllMediaPlaybackSuspended(true)
+        web.closeAllMediaPresentations()
         // Detaching a view doesn't end capture while something still holds it.
         web.setCameraCaptureState(.none, completionHandler: nil)
         web.setMicrophoneCaptureState(.none, completionHandler: nil)

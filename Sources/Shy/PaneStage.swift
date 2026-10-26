@@ -240,8 +240,8 @@ final class PaneStage: NSView {
         let ids = tabs.map(ObjectIdentifier.init)
         if ids != watched {
             watched = ids
-            // A tab going from blank to a page, to sleep or to the floating
-            // window changes what its slot holds; the tab says so, not the
+            // A tab going from blank to a page, or to sleep, changes what
+            // its slot holds; the tab says so, not the
             // window. Put right once per turn of the run loop, however many
             // of its values changed in it.
             watching = tabs.map { tab in
@@ -266,10 +266,10 @@ final class PaneStage: NSView {
     }
 
     /// The page a tab puts on the stage: none while it is blank, one of
-    /// Shy's own pages, asleep or floating, as Page decides it (see
+    /// Shy's own pages, or asleep, as Page decides it (see
     /// Stage.swift).
     private func page(_ tab: Tab) -> NSView? {
-        !tab.isWeb || tab.asleep || tab.floating ? nil : tab.web
+        !tab.isWeb || tab.asleep ? nil : tab.web
     }
 
     private func refill() {

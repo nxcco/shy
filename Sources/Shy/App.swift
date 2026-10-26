@@ -122,7 +122,7 @@ struct ShyApp: App {
                     .shortcut("view.reloadOrigin")
                 Button("Reading Mode") { browser.toggleReader() }
                     .shortcut("view.reader")
-                Button("Float Video") { browser.toggleFloat() }
+                Button("Picture in Picture") { browser.toggleFloat() }
                     .shortcut("view.float")
                 // Websites in the side panel.
                 Menu("Side Panel") {

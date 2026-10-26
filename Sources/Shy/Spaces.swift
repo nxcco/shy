@@ -222,7 +222,9 @@ extension Browser {
         // Which way the icon at the foot turns over: the way the spaces lie.
         if !makingSpace { spaceStep = to > (spaces.firstIndex { $0.id == spaceID } ?? 0) ? 1 : -1 }
         cancelTabEdit()
-        if floater.showing { land() }
+        // A video playing in the tab on screen goes into picture in picture,
+        // as it does when you go to another tab.
+        leaving()
         writeSession(now: true)
         for tab in tabs where visibleTabIDs.contains(tab.id) { tab.touch() }
 
@@ -244,6 +246,8 @@ extension Browser {
                 back.tabs.contains { $0.id == active } ? active : (back.tabs.first { $0.pin == nil } ?? back.tabs[0]).id
             }
             showRow(back.tabs, active: front, splits: back.splits, blank: true)
+            // Back in the space, on the tab whose video went out: home again.
+            if let id = pictured, visibleTabIDs.contains(id) { unpicture() }
             for tab in tabs where visibleTabIDs.contains(tab.id) {
                 if !tab.wake() { tab.revive() }
             }

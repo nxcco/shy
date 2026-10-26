@@ -1,48 +1,23 @@
 import WebKit
 
-/// The floating video as macOS's own picture in picture, for whoever picks
-/// it in Settings › General › The floating video (idea 376). Shy's own
-/// window (Float.swift) stays the default: it floats without a click and
-/// keeps the page alive in it. This hands the playing video to WebKit's
-/// picture in picture instead, the window Safari uses, with the system's
-/// controls, its corners and its place across spaces.
+/// A playing video, into macOS's own picture in picture: the window Safari
+/// uses, with the system's controls, its corners and its place across
+/// spaces. Shy has no player of its own.
 ///
 /// WebKit wants a user gesture for it. A script the app runs in a page
 /// counts as one (WKWebView's evaluateJavaScript is run with the gesture
 /// forced), so ⇧⌘P and leaving the tab or the app can ask; a page that
 /// refuses anyway says so through `answer`.
-enum FloatStyle: String, CaseIterable, Identifiable {
-    case shy, system
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .shy: return "Shy's window"
-        case .system: return "Picture in picture"
-        }
-    }
-}
-
 enum NativePiP {
-    /// Whether picture in picture is the choice (Prefs.floatStyle).
-    static var chosen: Bool { Store.settings.string(forKey: "float.style") == FloatStyle.system.rawValue }
-
     /// WebKit lets a page into picture in picture on macOS only with a
     /// preference outside the public framework, off by default there (Safari
-    /// turns it on). On only while picture in picture is the choice, so with
-    /// Shy's window nothing changes for any page; asked for first, as
-    /// Web.inspector asks, and a WebKit without it answers "refused".
-    static func allow(_ preferences: WKPreferences, on: Bool = chosen) {
+    /// turns it on). Asked for first, as Web.inspector asks, and a WebKit
+    /// without it answers "refused".
+    static func allow(_ preferences: WKPreferences) {
         let set = NSSelectorFromString("_setAllowsPictureInPictureMediaPlayback:")
         guard preferences.responds(to: set) else { return }
         typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
-        unsafeBitCast(preferences.method(for: set), to: Setter.self)(preferences, set, on)
-    }
-
-    /// Every page there is, after the choice changed.
-    @MainActor static func allowEverywhere() {
-        for web in Web.pages.allObjects { allow(web.configuration.preferences) }
+        unsafeBitCast(preferences.method(for: set), to: Setter.self)(preferences, set, true)
     }
 
     /// The largest video playing, into picture in picture. `toggle`: one
@@ -86,4 +61,62 @@ enum NativePiP {
 
     /// Back into the page, whatever is in picture in picture there.
     static let off = Scripts.load("native-pip-off")
+}
+
+/// Sites with a player worth following into picture in picture.
+///
+/// Anywhere else, a playing video is as likely to be a background as a film,
+/// and the difference isn't something a script can tell from the outside. So
+/// the list is of places people go to watch, and the shortcut covers the rest.
+enum Players {
+    /// A host suffix, and for a few shops that also stream, the path that
+    /// separates the film from the product page.
+    private static let known: [(host: String, path: String?)] = [
+        ("youtube.com", nil), ("youtu.be", nil), ("netflix.com", nil),
+        ("primevideo.com", nil), ("amazon.com", "/gp/video"), ("amazon.fr", "/gp/video"),
+        ("amazon.co.uk", "/gp/video"), ("amazon.de", "/gp/video"),
+        ("disneyplus.com", nil), ("tv.apple.com", nil), ("twitch.tv", nil),
+        ("vimeo.com", nil), ("dailymotion.com", nil), ("max.com", nil), ("hbomax.com", nil),
+        ("canalplus.com", nil), ("mycanal.fr", nil), ("arte.tv", nil), ("france.tv", nil),
+        ("tf1.fr", nil), ("6play.fr", nil), ("crunchyroll.com", nil), ("plex.tv", nil),
+        ("peacocktv.com", nil), ("hulu.com", nil), ("paramountplus.com", nil),
+        ("molotov.tv", nil), ("ocs.fr", nil), ("mubi.com", nil), ("criterionchannel.com", nil),
+        ("ted.com", nil), ("nebula.tv", nil), ("curiositystream.com", nil),
+    ]
+
+    /// Hosts a test run's bench counts as players' (see `player` in
+    /// Bench.swift). Empty everywhere else.
+    static var benchHosts: Set<String> = []
+
+    static func knows(_ url: URL?) -> Bool {
+        guard let url, let host = url.host()?.lowercased() else { return false }
+        if benchHosts.contains(host) { return true }
+        let path = url.path().lowercased()
+        return known.contains { entry in
+            guard host == entry.host || host.hasSuffix("." + entry.host) else { return false }
+            guard let needle = entry.path else { return true }
+            return path.hasPrefix(needle)
+        }
+    }
+}
+
+/// Sites whose videos never float out on their own: the site card's Don't
+/// Picture in Picture Here (#267). Only switching tabs or apps is held back; ⇧⌘P
+/// still sends one by hand. Kept by host, as a site's sound is, and
+/// forgotten with the other site choices (Browser.forgetCaptureChoices).
+enum Grounded {
+    static let prefix = "nofloat."
+
+    static func holds(_ host: String, in profile: UUID) -> Bool {
+        Store.settings.bool(forKey: SiteMemory.key(prefix, host, profile))
+    }
+
+    /// Off keeps nothing, as Autoplay's does.
+    static func set(_ on: Bool, for host: String, in profile: UUID) {
+        if on {
+            Store.settings.set(true, forKey: SiteMemory.key(prefix, host, profile))
+        } else {
+            Store.settings.removeObject(forKey: SiteMemory.key(prefix, host, profile))
+        }
+    }
 }

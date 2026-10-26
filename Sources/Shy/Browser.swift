@@ -7,14 +7,12 @@ import Combine
 // is the point of a browser with no features.
 
 /// What every window shares: the settings, History, bookmarks, the
-/// downloads list and the downloads under way, hidden elements, and the
-/// one floating video. Each window's Browser holds only its own tabs and
+/// downloads list and the downloads under way, and hidden elements. Each window's Browser holds only its own tabs and
 /// what is drawn over them.
 @MainActor
 enum Shared {
     static let prefs = Preferences()
     static let loot = Loot()
-    static let floater = Float()
     static let fetches = Fetches()
 }
 
@@ -158,16 +156,6 @@ final class Browser: NSObject, ObservableObject {
     }
 
     let tabSwitcher = TabSwitcher()
-
-    /// The tab whose page is currently out in the little window. Nothing
-    /// floating means no window: the two are checked against each other rather
-    /// than trusted to stay in step.
-    @Published private(set) var floating: Tab.ID? {
-        didSet {
-            guard floating == nil, floater.showing else { return }
-            floater.drop()
-        }
-    }
 
     /// Everything there is to set. Held here so the whole window redraws when
     /// one of them changes.
@@ -531,7 +519,6 @@ final class Browser: NSObject, ObservableObject {
     /// What is hidden on sites, as the page in front's profile keeps it.
     var curtain: Curtain { Profiles.curtain(active?.profile ?? profileID) }
     let loot = Shared.loot
-    let floater = Shared.floater
     /// True while the pointer is picking things to hide.
     @Published private(set) var veiling = false
     /// True while the list of what is hidden here is up.
@@ -1147,11 +1134,11 @@ final class Browser: NSObject, ObservableObject {
 
     /// A window closed and kept goes quiet: what was playing in any of its
     /// tabs, every space's, stops; a call loses the camera and microphone;
-    /// the floating video lands; and nothing plays again until the window
-    /// is back. Kept, it was still playing behind a window you had closed.
+    /// a video in picture in picture comes back; and nothing plays again
+    /// until the window is back. Kept, it was still playing behind a window you had closed.
     private func hush(_ on: Bool) {
         if on {
-            if floating != nil { land(covering: false) }
+            unpicture()
             cancelCapture()
         }
         for tab in tabs + parkedTabs {
@@ -1304,55 +1291,6 @@ final class Browser: NSObject, ObservableObject {
         guard !websitePopup else { return }
         restoreSession()
         preloadSpaces()
-    }
-
-    /// The floating video's buttons answer the window whose video it is:
-    /// set as it comes out of one (see lift).
-    private func ownFloater() {
-        floater.onReturn = { [weak self] in
-            guard let self else { return }
-            // The window closes first, and unconditionally. Hanging that on
-            // finding the tab again is how a little window survives the button
-            // meant to dismiss it.
-            let came = self.floating
-            self.land()
-            if let came, let tab = self.tabs.first(where: { $0.id == came }) {
-                self.select(tab)
-            }
-            // Never a test run's: a probe started hidden stays off every screen.
-            guard !Store.testing else { return }
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.windows.first { $0.contentView != nil }?.makeKeyAndOrderFront(nil)
-        }
-        floater.onSkip = { [weak self] seconds in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInShy(Isolate.skip(seconds))
-        }
-        floater.onProgress = { [weak self] answer in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInShy(Isolate.where_) { found in
-                MainActor.assumeIsolated {
-                    guard let pair = found as? [Any], pair.count == 2,
-                          let through = pair[0] as? Double,
-                          let playing = pair[1] as? Bool
-                    else { return }
-                    answer(through, playing)
-                }
-            }
-        }
-        floater.onPlayPause = { [weak self] answer in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInShy(Isolate.toggle) { playing in
-                MainActor.assumeIsolated { answer((playing as? Bool) ?? true) }
-            }
-        }
-        floater.onClose = { [weak self] in self?.land() }
     }
 
     /// The row of tabs the space on screen had last time, or one empty tab.
@@ -1625,7 +1563,7 @@ final class Browser: NSObject, ObservableObject {
         for questions in heldDialogs.values { questions.forEach { $0.dismiss() } }
         heldDialogs = [:]
         dropQuestions()
-        if floating != nil { land(covering: false) }
+        unpicture()
         if peekTab != nil { closePeek() }
         for tab in tabs + parkedTabs { tab.close() }
         parked = [:]
@@ -1821,7 +1759,7 @@ final class Browser: NSObject, ObservableObject {
         if let web = tab.built { cancelDisplay(for: web) }
         let partner = split(for: tab).flatMap { pair in tabs.first { $0.id == pair.partner(of: tab.id) } }
         detachSplit(tab)
-        if floating == tab.id { land() }
+        if pictured == tab.id { unpicture() }
         if editingTab == tab.id { cancelTabEdit() }
         if activeID == tab.id {
             if let partner {
@@ -2219,7 +2157,7 @@ final class Browser: NSObject, ObservableObject {
     /// the page rather than staying behind as an empty one; otherwise the
     /// page gets a tab of its own, in front.
     func arrive(_ url: URL) {
-        if let active, active.isBlank, typed.isEmpty, !active.floating {
+        if let active, active.isBlank, typed.isEmpty {
             active.go(to: url)
             editing = false
         } else {
@@ -2229,10 +2167,10 @@ final class Browser: NSObject, ObservableObject {
 
     /// A bookmark, or a page from a list of them: into the tab you are on,
     /// the way every bookmarks bar has ever worked — into a new one with ⌘
-    /// held, or when the one you are on is busy playing in the float.
+    /// held.
     func visit(_ url: URL) {
         let apart = NSApp.currentEvent?.modifierFlags.contains(.command) ?? false
-        if let active, !apart, !active.floating {
+        if let active, !apart {
             active.go(to: url)
             editing = false
             typed = ""
@@ -2247,7 +2185,7 @@ final class Browser: NSObject, ObservableObject {
     /// exception, since nothing is lost by using it. With ⌘ it opens behind.
     func openBookmark(_ url: URL) {
         let behind = NSApp.currentEvent?.modifierFlags.contains(.command) ?? false
-        if !behind, let active, active.isBlank || active.page?.kind == .bookmarks, active.pin == nil, !active.floating {
+        if !behind, let active, active.isBlank || active.page?.kind == .bookmarks, active.pin == nil {
             active.go(to: url)
             editing = false
             typed = ""
@@ -2525,10 +2463,10 @@ final class Browser: NSObject, ObservableObject {
     /// existing because you went to look something up.
     func leaving() {
         guard prefs.floatsOnLeave else { return }
-        lift(active, quietly: true, otherwise: otherPane)
+        picture(active, quietly: true, otherwise: otherPane)
     }
 
-    /// With a pair on screen, its other page: what floats when the focused
+    /// With a pair on screen, its other page: what goes when the focused
     /// one has nothing playing.
     private var otherPane: Tab? {
         guard let pair = activeSplit, let id = activeID else { return nil }
@@ -2542,33 +2480,23 @@ final class Browser: NSObject, ObservableObject {
 
     func appLeft() {
         guard prefs.floatsAway, Browsers.front == nil || Browsers.front === self else { return }
-        liftedAway = !floater.showing && pictured == nil
-        lift(active, quietly: true, otherwise: otherPane)
+        liftedAway = pictured == nil
+        picture(active, quietly: true, otherwise: otherPane)
     }
 
     /// Back, and still on the tab it came from: into the tab again.
     func appBack() {
         defer { liftedAway = false }
-        if liftedAway, let id = floating, id == activeID { land() }
         if liftedAway, let id = pictured, id == activeID { unpicture() }
     }
 
-    /// ⌘⇧P, for lifting one out by hand.
+    /// ⌘⇧P, for sending one by hand, or bringing it back.
     func toggleFloat() {
-        if floater.showing {
-            land()
-            return
-        }
-        if prefs.floatStyle == .system {
-            picture(active, quietly: false, toggle: true, otherwise: otherPane)
-            return
-        }
-        lift(active, quietly: false, otherwise: otherPane)
+        picture(active, quietly: false, toggle: true, otherwise: otherPane)
     }
 
-    /// The tab whose video Shy last sent to macOS's picture in picture
-    /// (Settings › General › The floating video), to bring back when you
-    /// return to it, as Shy's own window lands.
+    /// The tab whose video Shy last sent to macOS's picture in picture, to
+    /// bring back when you return to it.
     private(set) var pictured: Tab.ID?
 
     /// The video playing in `tab` into picture in picture (NativePiP).
@@ -2601,150 +2529,8 @@ final class Browser: NSObject, ObservableObject {
     func unpicture() {
         guard let id = pictured else { return }
         pictured = nil
-        tabs.first { $0.id == id }?.web.evaluateInShy(NativePiP.off)
-    }
-
-    /// Everything but the video goes out of the way, and the page it lives in
-    /// moves house — into a small window that stays above everything.
-    /// `otherwise`: the other page of a pair, tried when this one has
-    /// nothing playing.
-    private func lift(_ tab: Tab?, quietly: Bool, otherwise: Tab? = nil) {
-        if prefs.floatStyle == .system { return picture(tab, quietly: quietly, otherwise: otherwise) }
-        // A tab just put down with ⌘W has no page to lift a video out of, and
-        // asking it would only build an empty view to ask.
-        guard let tab, tab.isWeb, !tab.asleep, !floater.showing else {
-            if let otherwise { lift(otherwise, quietly: quietly) }
-            return
-        }
-        // A video filling the screen stays in its own space, as in Safari.
-        // Its page is lent to WebKit's full-screen window, and moving it out
-        // into the floating one left that window up, empty and black, to
-        // come back to.
-        guard tab.web.fullscreenState == .notInFullscreen else { return }
-        // On its own, only from a site whose video is the point of the site.
-        // A hero background on a studio's home page is a video too, and it
-        // followed people around the desktop. Nor from one you grounded in
-        // its site card. ⌘⇧P still lifts from anywhere.
-        if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map({ Grounded.holds($0, in: tab.profile) }) == true {
-            if let otherwise { lift(otherwise, quietly: quietly) }
-            return
-        }
-        // A picture of the page as it is, asked for in the same breath as the
-        // isolation and before it: the page's process answers in the order
-        // it is asked, so the picture is of the page before anything moved.
-        // Isolating only once the picture is back would be a tenth of a
-        // second late, and a muted video, which WebKit stops when nobody can
-        // see it, might no longer be playing. The video's frame in the
-        // picture covers the little window, and the whole of it the tab when
-        // the video lands, each until the page has settled there.
-        //
-        // At no more than a million and a bit pixels, the size of the page in
-        // points or less: WebKit paints a picture of a page on the processor,
-        // and one of the whole page at a Retina screen's size took half a
-        // second (YouTube, 1412×728 points: 480 ms; 110 ms at one pixel a
-        // point). The video's frame is cut from it at about the little
-        // window's size anyway, and the tab's picture is up for a moment.
-        let shape = tab.web.bounds.size
-        let fine = tab.web.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let most = (1_200_000 * shape.width / max(shape.height, 1)).squareRoot()
-        let picture = WKSnapshotConfiguration()
-        picture.afterScreenUpdates = false
-        picture.snapshotWidth = NSNumber(value: Double(min(shape.width, most) / fine))
-        var shot: NSImage??
-        var found: Any??
-        // Going to another tab, the stage holds on to this page, unseen,
-        // until it is in the little window or has nothing to float.
-        let stage = tab.web.superview as? StageView
-        stage?.keep(tab.web)
-        func both() {
-            guard let shot, let found else { return }
-            lifted(tab, shot: shot, found: found, quietly: quietly, otherwise: otherwise)
-            stage?.letGo(tab.web)
-        }
-        tab.web.takeSnapshot(with: picture) { image, _ in
-            MainActor.assumeIsolated {
-                shot = .some(image)
-                both()
-            }
-        }
-        tab.web.evaluateInShy(Isolate.on) { answer in
-            MainActor.assumeIsolated {
-                found = .some(answer)
-                both()
-            }
-        }
-    }
-
-    /// The page isolated, or not, and pictured as it was before: into the
-    /// little window, or on to the other page of a pair.
-    private func lifted(_ tab: Tab, shot: NSImage?, found answer: Any?, quietly: Bool, otherwise: Tab?) {
-        guard let found = answer as? [String: Any], found["floating"] as? Bool == true else {
-            if let otherwise { return lift(otherwise, quietly: quietly) }
-            if !quietly { announce("Nothing is playing here") }
-            return
-        }
-        // Out again before it had settled in its tab: the page isn't as it
-        // was left yet, and the picture from the first time still is.
-        var left = shot
-        if landed?.tab == tab.id {
-            left = landed?.picture
-            landing.end()
-        }
-        leftAs = left.map { (tab.id, $0) }
-        floating = tab.id
-        tab.floating = true
-        ownFloater()
-        let still = shot.flatMap { shot in
-            Float.still(
-                of: shot,
-                picture: (found["picture"] as? [NSNumber] ?? []).map(\.doubleValue),
-                page: (found["page"] as? [NSNumber] ?? []).map(\.doubleValue)
-            )
-        }
-        floater.lift(tab.web, still: still)
-    }
-
-    /// The page as it was when its video went out, for covering the tab with
-    /// while it lands.
-    private var leftAs: (tab: Tab.ID, picture: NSImage)?
-    /// The tab covered now, and with what, until its page has settled.
-    private var landed: (tab: Tab.ID, picture: NSImage)?
-    private let landing = Settling()
-
-    /// Back into its tab. The stage takes the page again on its next layout,
-    /// which is what the self-healing there is for.
-    ///
-    /// The tab shows the page as it was left until the page is that again
-    /// (see Isolate.off). Put back as it comes, it showed the video alone at
-    /// the little window's size, then the page around it, then the video
-    /// growing into its place. `covering`: false for a tab on its way out,
-    /// with nobody to see it land.
-    func land(covering: Bool = true) {
-        // Another window's video: that window takes it back.
-        if floating == nil, let owner = Browsers.all.first(where: { $0 !== self && $0.floating != nil }) {
-            return owner.land(covering: covering)
-        }
-        // The window closes whatever else is true. Tying that to the bookkeeping
-        // is how a little window outlives the thing that opened it.
-        if floater.showing { floater.drop() }
-        let left = leftAs
-        leftAs = nil
-        guard let id = floating, let tab = tabs.first(where: { $0.id == id }) else { return }
-        floating = nil
-        // One landing at a time: one still settling elsewhere is uncovered now.
-        landing.end()
-        if covering, let left, left.tab == id {
-            tab.cover(with: left.picture)
-            landed = left
-        }
-        tab.floating = false
-        tab.web.evaluateInShy(Isolate.off)
-        guard landed != nil else { return }
-        landing.watch(tab.web, within: 1.5) { [weak self, weak tab] in
-            guard let self, let landed = self.landed else { return }
-            self.landed = nil
-            tab?.uncover(landed.picture)
-        }
+        // Its tab may be parked in another space by now.
+        (tabs + parkedTabs).first { $0.id == id }?.web.evaluateInShy(NativePiP.off)
     }
 
     func prepare(_ tab: Tab) {

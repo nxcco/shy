@@ -122,19 +122,8 @@
     ./bench picture PATH               test run: the whole window, pages included, drawn to a PNG (start the probe hidden)
     ./bench film peek|unpeek|fold PATH [N] [SECS]  the window drawn N times while it animates → PATH-00.png… — --test runs only
     ./bench film select ID PATH [N] [SECS]        the same, while selecting a tab
-    ./bench film float|land PATH [SECS] [key|switch|app]
-                                       the tab in front's video out into its floating window, or back, by ⇧⌘P,
-                                       by going to another tab (and back), or by another app coming forward: every
-                                       frame the page draws for SECS (1), its size, the video's box and how much
-                                       of the view it fills, when the covers over the little window and the
-                                       tab are up, and what WebKit has handed over to draw → PATH.json; from a
-                                       probe started hidden, both
-                                       windows kept off every screen — --test runs only
-    ./bench float screens [two] | place X Y | swipe DX DY [STEPS] [MS] | wheel DX DY | click
-                                       test run: the floating window's gestures (after film float, so it is
-                                       off every screen), on a made-up 1440×900 screen, or two side by side:
-                                       where a flick, a pull at a side, a dock or a click on the sliver
-                                       leaves it, and how far it swings on the way
+    ./bench player HOST                test run: count HOST as a film site, whose videos go into picture in
+                                       picture by themselves
     ./bench ui KEY VALUE               settings/passwords/history/downloads/bookmarks/hidden on|off,
                                        import on|off|extensions|BROWSER,
                                        look light|dark|system, sidebar on|off, side left|right, spaces on|off, sharedpins on|off, swipepages on|off, confirm on|off, hides on|off,
@@ -335,6 +324,9 @@ def main(argv):
         if not 1 <= len(args) <= 2: sys.exit("usage: bench column PATH [HEIGHT]")
         request["path"] = os.path.abspath(args[0])
         if len(args) == 2: request["height"] = float(args[1])
+    elif verb == "player":
+        if len(args) != 1: sys.exit("usage: bench player HOST")
+        request["host"] = args[0]
     elif verb == "space":
         if args and args[0] == "new":
             fresh = args[-1] == "fresh"
@@ -516,30 +508,15 @@ def main(argv):
     elif verb == "picture":
         if len(args) != 1: sys.exit("usage: bench picture PATH")
         request["path"] = os.path.abspath(args[0])
-    elif verb == "float":
-        usage = "usage: bench float screens [two] | place X Y | swipe DX DY [STEPS] [MS] | wheel DX DY | click"
-        if not args or args[0] not in ("screens", "place", "swipe", "wheel", "click", "state"): sys.exit(usage)
-        request["action"] = args[0]
-        if args[0] == "screens":
-            request["two"] = args[1:] == ["two"]
-        else:
-            try: request["args"] = [float(a) for a in args[1:]]
-            except ValueError: sys.exit(usage)
     elif verb == "film":
         if args[:1] == ["select"]:
             if len(args) < 3: sys.exit("usage: bench film select ID PATH [FRAMES] [EVERY]")
             request["id"] = args.pop(1)
-        if len(args) not in (2, 3, 4) or args[0] not in ("peek", "unpeek", "fold", "none", "float", "land", "select"):
-            sys.exit("usage: bench film peek|unpeek|fold|none|float|land PATH [FRAMES] [EVERY]")
+        if len(args) not in (2, 3, 4) or args[0] not in ("peek", "unpeek", "fold", "none", "select"):
+            sys.exit("usage: bench film peek|unpeek|fold|none PATH [FRAMES] [EVERY]")
         request["action"], request["path"] = args[0], os.path.abspath(args[1])
-        if args[0] in ("float", "land"):
-            if len(args) > 2: request["seconds"] = float(args[2])
-            if len(args) > 3:
-                if args[3] not in ("key", "switch", "app"): sys.exit("usage: bench film float|land PATH [SECS] [key|switch|app]")
-                request["via"] = args[3]
-        else:
-            if len(args) > 2: request["frames"] = int(args[2])
-            if len(args) > 3: request["every"] = float(args[3])
+        if len(args) > 2: request["frames"] = int(args[2])
+        if len(args) > 3: request["every"] = float(args[3])
     elif verb == "image-data":
         if len(args) not in (1, 2): sys.exit("usage: bench image-data URL [ID]")
         request["url"] = args[0]

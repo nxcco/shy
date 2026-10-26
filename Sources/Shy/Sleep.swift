@@ -14,7 +14,7 @@ import WebKit
 // Some tabs never sleep, because waking them couldn't give back what they
 // were doing: the one on screen, pinned tabs (those are put down by hand,
 // with ⌘W), a tab playing sound, on a call, sending a download, holding its
-// video out in the little window, or holding something typed and not sent.
+// video in picture in picture, or holding something typed and not sent.
 // A pin stays awake only in the space on screen: in a space you aren't in it
 // sleeps after the same wait as the tabs beside it, unless its site may send
 // notifications, which a page asleep couldn't (#569). Five spaces of five
@@ -171,7 +171,7 @@ extension Browser {
     func busy(_ tab: Tab) -> String? {
         if keepsAwake(tab) { return "kept awake for this site" }
         if tab.noisy { return "playing sound" }
-        if tab.floating || floating == tab.id { return "its video is out" }
+        if pictured == tab.id { return "its video is out" }
         if let web = tab.built {
             if web.cameraCaptureState != .none || web.microphoneCaptureState != .none { return "on a call" }
             if #available(macOS 15.4, *), ExtensionCapture.screen(web) { return "recording the screen" }

@@ -24,13 +24,8 @@ struct Page: View {
         ZStack {
             // A tab put down with ⌘W has no view, and asking for one here
             // would build an empty one a frame before the stage moves on.
-            //
-            // Nor is a floating page asked for. Handing the same view over
-            // before and after the float changes nothing SwiftUI can see, so
-            // the stage was never told to take it back when it landed, and
-            // the tab stayed empty. Nothing, then the page, is a change.
             if holdsPage {
-                WebStage(page: !tab.isWeb || tab.asleep || tab.floating ? nil : tab.web, corner: corner)
+                WebStage(page: !tab.isWeb || tab.asleep ? nil : tab.web, corner: corner)
             }
 
             if let page = tab.page, let browser {
@@ -41,8 +36,7 @@ struct Page: View {
                 // The page as it was left, while it is rebuilt underneath —
                 // anchored where the page itself starts, and never in the
                 // way of a click meant for the page. Up at once, since what
-                // it covers is not fit to be seen (a page waking up, or one
-                // landing from the floating window); off with a fade.
+                // it covers is not fit to be seen (a page waking up); off with a fade.
                 Image(nsImage: cover)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -65,17 +59,6 @@ struct Page: View {
                     .transition(.opacity)
             }
 
-            if tab.floating {
-                // The tab is not empty, its page is simply elsewhere. Saying so
-                // is kinder than a white rectangle.
-                Text("This page is playing in the floating window.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Palette.muted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Palette.ground)
-                    .transition(.opacity)
-            }
-
             if let failure = tab.failure {
                 Trouble(message: failure) { tab.reload() }
                     .transition(.opacity)
@@ -85,7 +68,6 @@ struct Page: View {
         }
         .animation(Motion.quick, value: tab.page?.kind)
         .animation(Motion.quick, value: tab.failure)
-        .animation(Motion.quick, value: tab.floating)
         .animation(Motion.quick, value: tab.reader)
         .animation(.easeOut(duration: 0.2), value: tab.cover == nil)
         .animation(.easeOut(duration: 0.16), value: tab.pull == nil)
@@ -264,7 +246,7 @@ final class StageView: NSView {
     /// What this stage has been told to show, and the only thing it keeps.
     ///
     /// It used to track that *and* what it was holding, and reconcile the two.
-    /// One divergence between them — a page taken by the floating window, a tab
+    /// One divergence between them — a tab
     /// closed at the wrong moment, an update that arrived out of order — and
     /// the stage would sit there holding nothing while believing it held
     /// something. That is the white page, and it came back every time from a
@@ -273,15 +255,6 @@ final class StageView: NSView {
     /// Now there is one fact and one rule: show `wanted`, and put that right on
     /// every layout. Nothing to fall out of step with.
     private weak var wanted: NSView?
-
-    /// A page on its way out to the floating window (Browser.lift), kept
-    /// here unseen under the one on show until the little window takes it,
-    /// or it turns out to have nothing playing. Taken out of every window
-    /// as the tab changed, the page let go of the layers it had drawn and
-    /// built them all again in the little window, its video last; going out
-    /// by switching tabs still jumped where ⇧⌘P didn't. Kept in a window,
-    /// it goes out the way ⇧⌘P sends it.
-    private weak var parting: NSView?
 
     /// Pages on a call — camera, microphone or screen in use — kept here
     /// unseen under the one on show when you go to another tab, as long as
@@ -309,18 +282,6 @@ final class StageView: NSView {
     /// Whether this page is one kept here unseen for its call.
     func holdsCall(_ view: NSView) -> Bool {
         calls[ObjectIdentifier(view)]?.web === view
-    }
-
-    func keep(_ page: NSView) {
-        guard page.superview === self else { return }
-        parting = page
-    }
-
-    func letGo(_ page: NSView) {
-        guard parting === page else { return }
-        parting = nil
-        if page.superview === self, page !== wanted { page.removeFromSuperview() }
-        page.alphaValue = 1
     }
 
     /// The Web Inspector each page off show had docked beside it. WebKit
@@ -364,10 +325,6 @@ final class StageView: NSView {
     }
 
     func show(_ page: NSView?) {
-        if let page, page === parting {
-            parting = nil
-            page.alphaValue = 1
-        }
         if let leaving = wanted, leaving !== page, let dock = subviews.first(where: Self.isInspector) {
             Self.docks.setObject(dock, forKey: leaving)
             dock.removeFromSuperview()
@@ -401,10 +358,6 @@ final class StageView: NSView {
         for view in subviews where view !== wanted && !(docked && Self.isInspector(view)) {
             // Unseen, and still drawn: WebKit asks whether its view is in a
             // window and not hidden, not whether anything shows of it.
-            if view === parting {
-                view.alphaValue = 0
-                continue
-            }
             if Self.onCall(view) {
                 hold(view)
                 continue
@@ -421,7 +374,7 @@ final class StageView: NSView {
         }
 
         guard let wanted, window != nil else { return }
-        if wanted.superview === self, wanted.alphaValue == 0, wanted !== parting,
+        if wanted.superview === self, wanted.alphaValue == 0,
            (wanted as? PageView)?.unpainted != true {
             // Back from being kept for its call: seen again, and over the
             // others — the order of a view's subviews, changed without
@@ -485,7 +438,6 @@ final class StageView: NSView {
     /// there goes to the page on show.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
-        if let parting, let hit, hit === parting || hit.isDescendant(of: parting) { return nil }
         if let hit, let held = subviews.first(where: { holdsCall($0) && (hit === $0 || hit.isDescendant(of: $0)) }),
            held !== wanted {
             guard let wanted, wanted.superview === self else { return nil }
