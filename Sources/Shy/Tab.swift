@@ -29,7 +29,7 @@ enum Web {
     /// included, and registering a name twice is a hard crash.
     @MainActor static func release(_ controller: WKUserContentController) {
         for name in [ScrollRelay.name, VeilRelay.name, FormRelay.name, ImageRelay.name, MediaKeys.name,
-                     StoreRelay.name, PasskeyRelay.name, MiddleRelay.name, IconRelay.name, PopupGestureRelay.name, DuskRelay.name,
+                     StoreRelay.name, PasskeyRelay.name, MiddleRelay.name, IconRelay.name, PopupGestureRelay.name,
                      TranslateRelay.name, DevTools.name] {
             controller.removeScriptMessageHandler(forName: name, contentWorld: world)
             controller.removeScriptMessageHandler(forName: name, contentWorld: .page)
@@ -385,10 +385,6 @@ final class Tab: ObservableObject, Identifiable {
     /// True while the page has been stripped back to its article.
     @Published private(set) var reader = false
 
-    /// Asking the site for its markdown, which can take a moment; a second
-    /// ⇧⌘R meanwhile is the same request, not another.
-    private var seekingTwin = false
-
     /// Leaving reading mode reloads rather than putting the old markup back:
     /// restoring the HTML gives you a page that looks right and does nothing,
     /// because every listener the page had was thrown away with it.
@@ -403,44 +399,7 @@ final class Tab: ObservableObject, Identifiable {
             done(true)
             return
         }
-        guard !seekingTwin else { return }
-        guard Shared.prefs.readsTwins else {
-            guess(done)
-            return
-        }
-        seekingTwin = true
-        let page = web.url
-        web.callAsyncJavaScript(Reader.twin, arguments: [:], in: nil, in: Web.world) { [weak self] result in
-            guard let self else { return }
-            self.seekingTwin = false
-            // Gone somewhere else while the twin was on its way: it belongs
-            // to a page that isn't there any more, and so does the guess.
-            guard self.web.url == page else { return }
-            guard let found = try? result.get() as? [String: Any],
-                  let text = found["text"] as? String,
-                  let address = (found["url"] as? String).flatMap(URL.init(string:)) else {
-                self.guess(done)
-                return
-            }
-            let twin = Markdown.page(text, base: address)
-            guard !twin.html.isEmpty else {
-                self.guess(done)
-                return
-            }
-            let from = (found["from"] as? String).map { $0.isEmpty ? "markdown" : "\($0) · markdown" } ?? "markdown"
-            let arguments: [String: Any] = [
-                "html": twin.html,
-                "title": twin.title ?? found["title"] as? String ?? "",
-                "from": from,
-                "sheet": Reader.sheet,
-                "readerLook": Reader.look.rawValue,
-            ]
-            self.web.callAsyncJavaScript(Reader.show, arguments: arguments, in: nil, in: Web.world) { [weak self] result in
-                let worked = (try? result.get()) as? String == "read"
-                if worked { self?.reader = true }
-                done(worked)
-            }
-        }
+        guess(done)
     }
 
     /// The page's own article, worked out from the page (see Reader.script).
@@ -544,14 +503,6 @@ final class Tab: ObservableObject, Identifiable {
     /// True while something on the page is making noise, so the row can say
     /// which tab it is coming from.
     @Published var noisy = false
-    /// Darkened by Shy, as its page last said (see Dusk.swift).
-    @Published var dusked = false
-    /// What the page measured: true, dark by itself; nil, not yet measured.
-    var duskNative: Bool?
-    /// The page's frames that asked whether it is darkened, to be told
-    /// when that changes. Let go of with the page (see Browser's
-    /// decidePolicyFor).
-    var duskFrames: [WKFrameInfo] = []
     /// Silenced by hand from its speaker or its menu: the page plays on and
     /// is not heard. WebKit keeps the mute on the view from one page to the
     /// next, so it is only set again on a view built new, as a sleeping tab
@@ -620,7 +571,6 @@ final class Tab: ObservableObject, Identifiable {
     private let shop = StoreRelay()
     private let iconChanges = IconRelay()
     private let middles = MiddleRelay()
-    private let dusk = DuskRelay()
     var popupGesture = PopupGesture()
     /// Windows this page asked for and was refused, newest last, a few at
     /// most: the quiet sign beside its title offers them (BlockedPopups.swift).
@@ -654,11 +604,6 @@ final class Tab: ObservableObject, Identifiable {
     /// A tab that keeps nothing: its own cookies, no history, no place in the
     /// session. Signed in as nobody, and forgotten when it goes.
     let shy: Bool
-
-    /// The account last filled here from Apple's Passwords app, so sending
-    /// it isn't offered a second place in Shy's keychain. A keyed hash of
-    /// the password, never the password.
-    var appleFill: AppleFill?
 
     /// A tab a script opened through the bench, beside yours. Signed in as
     /// you, so it sees what you see — but never selected for you, never in
@@ -897,7 +842,6 @@ final class Tab: ObservableObject, Identifiable {
         hovered.tab = self
         controller.add(hovered, contentWorld: .defaultClient, name: HoveredLink.name)
         controller.add(middles, contentWorld: Web.world, name: MiddleRelay.name)
-        controller.add(dusk, contentWorld: Web.world, name: DuskRelay.name)
         controller.add(translateRelay, contentWorld: Web.world, name: TranslateRelay.name)
         PopupGestureRelay.install(on: controller)
         Shield.shared.protect(controller)
@@ -935,9 +879,6 @@ final class Tab: ObservableObject, Identifiable {
                         self.committed = fresh
                     }
                     if moved { self.adoptIcon() }
-                    // A darkened page that moved to another address of its
-                    // own is watched again for a while (see Dusk.swift).
-                    if self.dusked, !moved { self.built?.evaluateInShy("window.__officeDusk && window.__officeDusk.again()") }
                 }
             },
             web.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
@@ -977,7 +918,6 @@ final class Tab: ObservableObject, Identifiable {
         shop.tab = self
         iconChanges.tab = self
         middles.tab = self
-        dusk.tab = self
         translateRelay.tab = self
         ears.watch(web) { [weak self] on in self?.heard(on) }
         return web
@@ -1100,15 +1040,6 @@ final class Tab: ObservableObject, Identifiable {
         if PageTranslator.enabled {
             controller.addUserScript(
                 WKUserScript(source: PageTranslator.announce, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: Web.world)
-            )
-        }
-        // Only while it is on and not paused: otherwise pages get nothing
-        // (see Dusk.swift). Before the document, so a site known to be light
-        // is never seen white. Every frame: a frame darkens its own document,
-        // led by its page.
-        if let dusk = Dusk.shared.script(for: Dusk.host(of: url ?? pageAddress), in: profile) {
-            controller.addUserScript(
-                WKUserScript(source: dusk, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Web.world)
             )
         }
         // Only with Developer Mode on for this tab: what its bar says of the
@@ -1409,7 +1340,6 @@ final class Tab: ObservableObject, Identifiable {
         memory = nil
         picture = nil
         cover = nil
-        appleFill = nil
         peeked = nil
         popupSites = []
         pending = url

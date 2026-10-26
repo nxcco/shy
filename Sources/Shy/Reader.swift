@@ -6,12 +6,6 @@ import SwiftUI
 // one and it holds up: the piece of the page carrying the most prose, punished
 // for every link inside it — because navigation, related-articles rails and
 // comment threads are all made of links, and prose is not.
-//
-// Unless the site has already answered it. More and more publish a markdown
-// copy of each page, written for language models and just as good for a
-// person: the article, decided by whoever wrote it (see `twin`). When there
-// is one it is drawn instead (see Markdown.swift), in the same page as the
-// guess would have been.
 
 enum Reader {
     /// The one look both kinds of reading share.
@@ -88,55 +82,15 @@ enum Reader {
     /// The page's own stylesheets go first. Left in, they reach the reading
     /// page through every rule written for a bare element (Tailwind's reset
     /// took the numbers off every list) and every font the page loaded.
-    /// Shy's own stay: each has an `office-` id, and Dusk and Find on Page
-    /// keep theirs in adoptedStyleSheets, which are left as they are. Done
+    /// Shy's own stay: each has an `office-` id, and Find on Page
+    /// keeps its own in adoptedStyleSheets, which are left as they are. Done
     /// once, as reading mode opens; a page that adds a sheet back later keeps
     /// it, because a watcher that took it away again would fight any
     /// extension (Dark Reader, Stylus) that puts its own back, forever.
     static let present = Scripts.load("reader-present")
 
-    /// The guess, for a page with no twin. Called with `sheet`.
+    /// The guess. Called with `sheet`.
     static let script = present + Scripts.load("reader")
-
-    /// The site's own markdown for this page, if it has some. Answers the
-    /// text and the address it came from, with the page's title and host
-    /// for when the markdown has no heading; or null.
-    ///
-    /// Three places, in order, all of them the site's own say-so:
-    ///
-    /// - the page is markdown already, a README opened as it is;
-    /// - the page names its twin, `<link rel="alternate" type="text/markdown">`
-    ///   (Mintlify, Cloudflare's docs and others write one on every page);
-    /// - the same address with `.md` on the end, which llms.txt proposed and
-    ///   docs sites took up (Anthropic's, Vercel's, Bun's).
-    ///
-    /// Asking the page's own address for markdown with an Accept header finds
-    /// more, but what it mostly finds is Cloudflare converting the whole page
-    /// on the fly, menus, footers and all: worse than the guess, and a second
-    /// render of the page on every site that has nothing to give.
-    ///
-    /// Only a response that says it is markdown counts, so that a site
-    /// answering every address with its home page, or a 404 page, is never
-    /// read as one; anything else is dropped at the headers, before its body
-    /// comes down. Only the page's own origin is asked, and only an answer
-    /// from it read: a twin named on another site, or a redirect to one, is
-    /// not the site's say-so about this page, and reading mode never sends a
-    /// request beyond the page's own site. The request goes from the page,
-    /// with its cookies, so a site you are signed in to gives the twin you'd
-    /// see. Nothing is cached:
-    /// a server that answers markdown without saying it varies by what was
-    /// asked for would otherwise leave it where Back finds it.
-    static let twin = Scripts.load("reader-twin")
-
-    /// The twin, drawn: `html` from Markdown.page, set in the same page the
-    /// guess makes. Called with `html`, `title`, `from` and `sheet`.
-    static let show = present + """
-
-    var wrap = document.createElement('div');
-    wrap.innerHTML = html;
-    present(wrap, title, from, sheet);
-    return 'read';
-    """
 
     /// Light, dark, or as the window is: chosen on an article, and kept for
     /// the next one. Light whenever reading mode doesn't follow the window.

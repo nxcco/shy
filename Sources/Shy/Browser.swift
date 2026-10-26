@@ -619,17 +619,6 @@ final class Browser: NSObject, ObservableObject {
     /// The sign-in box the caret is in, for a list that changes while it is
     /// there: the page's passkeys arrive when they arrive.
     var field: (tab: Tab.ID, spot: CGRect, passwords: Bool, name: Bool)?
-    /// Counts the boxes Apple Passwords was asked about: an answer for a box
-    /// the caret has left since is dropped.
-    var appleAsk = 0
-    /// Pairing with Apple Passwords from under a sign-in box: the card that
-    /// takes the code, over the page it was asked from. Native, never in the
-    /// page; the page learns nothing of it.
-    @Published var applePairing: ApplePairing?
-    /// The Passwords app's connection. One for the whole app; a test gives
-    /// its own, with a made-up helper.
-    var applePasswords = ApplePasswords.shared
-    var pairingWatch: AnyCancellable?
     /// The list, without secrets: see `Kept` and `Vault.all()`.
     @Published var saved: [Kept] = []
     @Published var hunting = ""
@@ -1400,20 +1389,6 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
-        // Dark pages (see Dusk.swift), turned on or off, paused, or switched
-        // for a site: every tab's next page, and the page each is showing now.
-        Dusk.shared.$revision
-            .dropFirst()
-            .sink { [weak self] _ in
-                // Published before it is set; the pages read the set one.
-                DispatchQueue.main.async { self?.redusk() }
-            }
-            .store(in: &bag)
-        // A page darkened or let go: the View menu's line says which.
-        Dusk.shared.objectWillChange
-            .sink { [weak self] in self?.objectWillChange.send() }
-            .store(in: &bag)
-
         // Every open page that hasn't a size of its own takes the new one.
         // Asleep, a tab has no page to resize; it takes it on waking.
         prefs.$pageZoom
@@ -1494,9 +1469,6 @@ final class Browser: NSObject, ObservableObject {
 
     private func relook() {
         Favicons.relook(tabs.filter { !$0.asleep })
-        // Dark pages are only ever put into a page while Shy is dark: a
-        // change of look takes them in, or lets them go.
-        redusk()
     }
 
     func writeSession(now: Bool = false) {
@@ -2596,8 +2568,6 @@ final class Browser: NSObject, ObservableObject {
             // A password manager extension that asked Chrome's way to do the
             // saving itself.
             if #available(macOS 15.4, *), Extensions.of(profileID).passwordSavingTakenBy != nil { return }
-            // Just filled from the Passwords app: it is kept there already.
-            if tab.appleFill?.matches(host: host, user: user, password: password) == true { return }
             let profile = self.profile(of: tab)
             let known = Vault.kept(for: host, in: profile)
             // Nothing to ask about one that is already known. Only that
@@ -3069,75 +3039,6 @@ final class Browser: NSObject, ObservableObject {
     func resetZoom() { active?.resetZoom() }
 
     /// ⌘⇧R. The article, and nothing that was arranged around it.
-    // MARK: - dark pages
-
-    /// Whether ⇧⌘D has anything to do: on, not paused, and the frame dark,
-    /// since a light frame darkens nothing.
-    var canDusk: Bool { canDusk(active) }
-
-    /// The same for a given tab: the site card's, which in Split View can be
-    /// the page beside the one with the keys.
-    func canDusk(_ tab: Tab?) -> Bool {
-        prefs.darkensPages && !Dusk.shared.paused && Dusk.frameIsDark
-            && Dusk.host(of: tab?.pageAddress) != nil
-    }
-
-    /// ⇧⌘D: the site you're on, darkened or left as it is, the other way
-    /// from now. Kept for the site; in a private tab, for this page alone.
-    func toggleDusk() {
-        guard canDusk, let tab = active else { return }
-        dusk(!tab.dusked, tab)
-    }
-
-    func dusk(_ on: Bool, _ tab: Tab) {
-        guard let host = Dusk.host(of: tab.pageAddress) else { return }
-        if tab.shy {
-            tab.built?.evaluateInShy(Dusk.shared.forced(for: host, on))
-        } else {
-            Dusk.shared.choose(on, for: host, native: tab.duskNative, in: tab.profile)
-        }
-    }
-
-    /// ⌥⇧⌘D: every page as its site made it, until pressed again or Shy
-    /// quits. For showing someone a site the way they see it.
-    func pauseDusk() {
-        guard prefs.darkensPages else { return }
-        Dusk.shared.pause(!Dusk.shared.paused)
-        announce(Dusk.shared.paused ? "Pages as their sites made them, until ⌥⇧⌘D" : "Light pages darkened again")
-    }
-
-    /// The darkening as it now stands, into every tab's next page and the
-    /// page each is showing: taken over, let go, or, for a site not known
-    /// yet, looked at.
-    private func redusk() {
-        for tab in tabs + parkedTabs {
-            tab.arm(hiding: Profiles.curtain(tab.profile).css(on: curtain.host(of: tab.address)))
-            guard let web = tab.built else { continue }
-            let host = Dusk.host(of: tab.pageAddress)
-            if Dusk.shared.unsure(host, in: tab.profile) { duskLook(tab) } else { web.evaluateInShy(Dusk.shared.update(for: host, in: tab.profile)) }
-        }
-    }
-
-    /// A page on a site not known to be light, looked at from outside as it
-    /// is drawn (see Dusk.look). Light, and it is darkened now, and every
-    /// page of the site after it from its first frame; dark, and it is left
-    /// with nothing in it.
-    func duskLook(_ tab: Tab) {
-        guard let web = tab.built, let url = web.url, let host = Dusk.host(of: url),
-              Dusk.shared.unsure(host, in: tab.profile), !tab.dusked else { return }
-        Dusk.look(at: web) { [weak self, weak tab] dark in
-            MainActor.assumeIsolated {
-                guard let self, let tab, let dark, tab.built === web, web.url == url, Dusk.shared.unsure(host, in: tab.profile) else { return }
-                tab.duskNative = dark
-                // A private tab remembers nothing, not even this.
-                if !tab.shy { Dusk.shared.saw(host, dark: dark) }
-                guard !dark, let script = Dusk.shared.script(for: host, light: true, in: tab.profile) else { return }
-                web.evaluateInShy(script)
-                tab.arm(hiding: Profiles.curtain(tab.profile).css(on: self.curtain.host(of: tab.address)))
-            }
-        }
-    }
-
     func toggleReader() {
         guard let tab = active else { return }
         tab.toggleReader { [weak self] worked in

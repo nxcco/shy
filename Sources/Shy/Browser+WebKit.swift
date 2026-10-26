@@ -160,9 +160,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             tab.arm(hiding: Profiles.curtain(tab.profile).css(on: host), to: url)
             // And the blocker, on or off for where it is going.
             Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.shy ? nil : tab.profile)
-            // The frames that were told about the last page's darkening go
-            // with it.
-            tab.duskFrames.removeAll()
             // And the frames that played, and the count to the media keys.
             tab.leaving()
         }
@@ -881,8 +878,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, renderingProgressDidChange events: UInt) {
         guard events & PageView.firstFrame != 0 else { return }
         (webView as? PageView)?.showFirstFrame()
-        // Dark pages: a page's first frame is what it looks like.
-        if let tab = tab(for: webView) { duskLook(tab) }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -891,9 +886,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         (webView as? PageView)?.showFirstFrame()
         guard let tab = anyTab(for: webView), let url = tab.address else { return }
         tab.uncover()
-        // And again once it has all come in, for a page that drew its look
-        // late, or never had a first frame to say so.
-        duskLook(tab)
         // The find bar still open over a page that has just come in: look
         // for the same words on it.
         if tab.id == activeID, finding, findSpec == nil,

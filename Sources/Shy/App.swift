@@ -136,21 +136,6 @@ struct ShyApp: App {
                     Button("This Page") { if let tab = browser.active { browser.openInSidePanel(tab) } }
                         .disabled(!(browser.active?.isWeb ?? false) || (browser.active?.shy ?? true))
                 }
-                // Dark pages, only once they are on (Settings › Appearance).
-                if browser.prefs.darkensPages {
-                    Divider()
-                    Toggle("Darken This Site", isOn: Binding(
-                        get: { browser.active?.dusked ?? false },
-                        set: { _ in browser.toggleDusk() }
-                    ))
-                    .shortcut("view.dusk")
-                    .disabled(!browser.canDusk)
-                    Toggle("Pause Darkening", isOn: Binding(
-                        get: { Dusk.shared.paused },
-                        set: { _ in browser.pauseDusk() }
-                    ))
-                    .shortcut("view.duskPause")
-                }
                 Divider()
                 Button("Hide Elements…") { browser.toggleHiding() }
                     .shortcut("view.hide")
@@ -1307,7 +1292,6 @@ struct ContentView: View {
         if ShortcutStore.shared.anyChanged, let combo = KeyCombo(event: event) {
             if let command = ShortcutStore.shared.customCommand(on: combo) {
                 if command.section == .spaces { return false }
-                if Command.dusk.contains(command.id), !browser.prefs.darkensPages { return false }
                 command.run(browser)
                 return true
             }
@@ -1330,15 +1314,6 @@ struct ContentView: View {
            event.shortcutKey == "r" {
             if pageFirst(event, key: "r", shifted: false) { return false }
             browser.reload(fromOrigin: true)
-            return true
-        }
-
-        // ⌥⇧⌘D, dark pages paused (see Dusk.swift), here rather than left to
-        // the View menu: its line only exists while dark pages are on, and a
-        // menu line that appears after launch doesn't take its key.
-        if flags.contains(.option), shifted, !flags.contains(.control), browser.prefs.darkensPages,
-           event.characters(byApplyingModifiers: [])?.lowercased() == "d" {
-            browser.pauseDusk()
             return true
         }
 
@@ -1401,11 +1376,6 @@ struct ContentView: View {
             browser.copyAddress()
         case "d" where !shifted:
             browser.duplicate()
-        // Dark pages, the site you're on (see Dusk.swift). Off, the key is
-        // the page's.
-        case "d" where shifted:
-            guard browser.prefs.darkensPages else { return false }
-            browser.toggleDusk()
         case "n" where shifted:
             browser.newShyTab()
         // Shown, or brought forward if open: never a second one, and never

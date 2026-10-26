@@ -84,7 +84,7 @@ VERSION="$(tr -d '[:space:]' < VERSION)"
 # without parsing version strings.
 BUILD="$(date +%Y%m%d%H%M)"
 # The oldest macOS this runs on, in the plist.
-MINIMUM="14.0"
+MINIMUM="26.0"
 
 # -Osize for a release: 14% less binary (5.39 → 4.65 MB) at the same speed —
 # launch 337 against 338 ms, a scroll frame 0.26 against 0.25 ms, a key typed
@@ -102,9 +102,10 @@ cp "$BINARY" "$APP/Contents/MacOS/$NAME"
 # way that SDK's macOS drew it: built with the macOS 27 SDK, a Mac on 27 gets
 # 27's window buttons and controls; said to be built with an older one, it
 # gets that one's. Swift Build, SwiftPM's default since Xcode 27, writes the
-# oldest macOS the app runs on in both places (minos 14.0, sdk 14.0 — the
+# oldest macOS the app runs on in both places (minos 14.0, sdk 14.0, as it
+# was then — the
 # native build system wrote sdk 27.0 from the same sources), and the app came
-# out in macOS 14's looks on every Mac. The SDK it really was built with is
+# out in the oldest macOS's looks on every Mac. The SDK it really was built with is
 # put back; the oldest macOS stays as it is.
 SDK="$(xcrun --sdk macosx --show-sdk-version)"
 vtool -set-build-version macos "$MINIMUM" "$SDK" -replace \
@@ -146,11 +147,8 @@ rm -rf "$ICONSET"
 # comes with Xcode 26 — with anything older, or only the command-line tools,
 # the app keeps the .icns alone, as before. Only Assets.car is kept, not
 # actool's own .icns: the one above goes on being the disk image's icon and
-# the fallback. (macOS 14 and 15 show the flat pictures actool puts in
-# Assets.car, drawn from the same document: the same mark, to within a
-# pixel, on a plate with Apple's own corners.) --optimization space keeps
-# those pictures zipped rather than lzfse'd: 666 KB of catalog instead of
-# 800, every style still in it.
+# the fallback. With macOS 26 the oldest it runs on, actool leaves out the
+# flat pictures older systems needed, which were most of the catalog.
 ICONNAME=""
 ICONCAR="build/AppIcon.car"
 rm -rf "$ICONCAR"

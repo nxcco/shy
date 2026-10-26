@@ -346,13 +346,6 @@ struct SettingsPanel: View {
                 Line("Appearance") {
                     Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.look)
                 }
-                // Only where it can do something: in Light, nothing is darkened.
-                if prefs.look != .light {
-                    Rule()
-                    Line("Darken sites without a dark mode", "⇧⌘D for the current site, ⌥⇧⌘D to pause everywhere") {
-                        Switch(on: $prefs.darkensPages)
-                    }
-                }
                 Rule()
                 Line("Default page zoom", "⌘+ and ⌘− still set each site's own") {
                     // The number itself takes it back to 100%.
@@ -369,10 +362,6 @@ struct SettingsPanel: View {
                 }
             }
             group("Reading") {
-                Line("Reading mode uses a site's own Markdown", "When the site publishes one, as most docs sites do") {
-                    Switch(on: $prefs.readsTwins)
-                }
-                Rule()
                 Line("Reading mode follows dark mode") {
                     Switch(on: $prefs.readerFollowsLook)
                 }
@@ -637,7 +626,6 @@ struct SettingsPanel: View {
                     }
                 }
             }
-            ApplePasswordsCard(prefs: prefs)
             Card {
                 Line("Import passwords", "From another browser on this Mac") {
                     Pill("Import…") { browser.importFile() }

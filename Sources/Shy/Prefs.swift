@@ -315,12 +315,6 @@ final class Preferences: ObservableObject {
     @Published var fillsPasswords: Bool {
         didSet { store.set(fillsPasswords, forKey: "passwords.fill") }
     }
-    /// Accounts from the Mac's Passwords app under the sign-in box too, by
-    /// Apple's helper for its Chrome extension (ApplePasswords.swift). Off
-    /// unless turned on: unofficial, and it pairs with a code.
-    @Published var applePasswords: Bool {
-        didSet { store.set(applePasswords, forKey: "passwords.apple") }
-    }
     /// macOS's own autocorrect, inside web pages: the little "Not ×" that
     /// capitalises what you meant to leave lower-case. As the Mac has it
     /// (System Settings › Keyboard › Correct spelling automatically) until
@@ -339,14 +333,6 @@ final class Preferences: ObservableObject {
     /// anyone reads to as big as a page is worth.
     static let zooms: [Double] = stride(from: 50, through: 300, by: 5).map { Double($0) / 100 }
 
-    /// Pages with no dark look of their own darkened while the frame is
-    /// dark (see Dusk.swift). Off unless asked for.
-    @Published var darkensPages: Bool {
-        didSet {
-            store.set(darkensPages, forKey: "pages.dusk")
-            Dusk.shared.on = darkensPages
-        }
-    }
 
     /// A click of the wheel scrolls the page as on Windows (see AutoScroll.swift).
     /// Off unless asked for.
@@ -373,12 +359,6 @@ final class Preferences: ObservableObject {
     /// The modifier chosen in Settings › Shortcuts; Shift-click by default.
     @Published var peekClick: PeekClick {
         didSet { store.set(peekClick.rawValue, forKey: "links.peekClick") }
-    }
-    /// Reading mode shows a site's own markdown copy of the page when it
-    /// publishes one, and works the article out only when it doesn't (see
-    /// Reader.twin). Off unless asked for.
-    @Published var readsTwins: Bool {
-        didSet { store.set(readsTwins, forKey: "reader.twins") }
     }
     /// Reading mode goes dark with the window, with a light/dark/window
     /// switch in its corner (see ReaderLook). Off unless asked for: the
@@ -525,7 +505,6 @@ final class Preferences: ObservableObject {
         asksWhereToSave = store.bool(forKey: "downloads.ask")
         savesPasswords = store.object(forKey: "passwords.save") as? Bool ?? true
         fillsPasswords = store.object(forKey: "passwords.fill") as? Bool ?? true
-        applePasswords = store.bool(forKey: "passwords.apple")
         floatingNewTab = store.bool(forKey: "newtab.floating")
         floatWhen = FloatWhen.chosen(store)
         panelSite = store.string(forKey: "panel.site") ?? ""
@@ -534,13 +513,9 @@ final class Preferences: ObservableObject {
         translatesPages = store.bool(forKey: PageTranslator.key)
         translateAlways = Set(store.stringArray(forKey: PageTranslator.alwaysKey) ?? [])
         peekClick = store.string(forKey: "links.peekClick").flatMap(PeekClick.init(rawValue:)) ?? .shift
-        readsTwins = store.bool(forKey: "reader.twins")
         readerFollowsLook = store.bool(forKey: "reader.follows")
         littleLinks = store.bool(forKey: "links.little")
         alwaysShowsDownloads = store.bool(forKey: "downloads.button")
-        let dusk = store.bool(forKey: "pages.dusk")
-        darkensPages = dusk
-        Dusk.shared.on = dusk
         let scrolls = store.bool(forKey: "autoscroll")
         autoScroll = scrolls
         AutoScroll.on = scrolls

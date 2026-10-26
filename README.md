@@ -6,7 +6,7 @@ A small browser for the Mac. It keeps to itself.
 
 We took the best of Arc and Safari, and a few things from Chrome.
 
-macOS 14 or later · 8.2 MB installed, 4.1 MB zipped · MIT
+macOS 26 or later · 7.5 MB installed, 3.8 MB zipped · MIT
 
 **Status:** feature complete. Now it's about safety, security, performance and small fixes.
 
