@@ -392,7 +392,43 @@ struct TabMenu: View {
     let close: () -> Void
 
     var body: some View {
-        singleMenu
+        if browser.selectedTabIDs.contains(tab.id) && browser.visibleSelectedTabCount > 1 {
+            pickedMenu
+        } else {
+            singleMenu
+        }
+    }
+
+    /// Right-clicked among tabs picked with ⇧ or ⌘: what can be done to all
+    /// of them at once.
+    @ViewBuilder
+    private var pickedMenu: some View {
+        let picked = browser.pickedTabs
+        let count = picked.count
+        if count == 2 && !browser.pickedTabsArePaired {
+            Button("Open 2 Tabs in Split View") { browser.pairPickedTabs(focus: tab) }
+                .disabled(browser.pickedPair == nil)
+            Divider()
+        }
+        Button("Pin \(count) Tabs") { browser.pinPicked() }
+            .disabled(!picked.contains { $0.pin == nil && $0.isWeb && !$0.shy })
+        Menu("Move \(count) Tabs to Space") {
+            ForEach(browser.spaces.filter { $0.id != browser.spaceID }) { space in
+                Button {
+                    browser.movePicked(toSpace: space.id)
+                } label: {
+                    Label(space.name, systemImage: space.symbol)
+                }
+            }
+        }
+        .disabled(browser.spaces.count < 2)
+        Button("Put \(count) Tabs to Sleep") { browser.sleepPicked() }
+        Divider()
+        Button("Copy Addresses") { browser.copySelectedTabLinks() }
+            .disabled(browser.selectedTabLinkCount == 0)
+        Divider()
+        Button("Close \(count) Tabs") { browser.closePicked() }
+        Button("Deselect") { browser.clearTabSelection() }
     }
 
     /// In sections, the way Safari's and Chrome's tab menus go: the tab

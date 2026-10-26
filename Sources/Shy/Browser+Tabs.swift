@@ -135,8 +135,34 @@ extension Browser {
 
     /// The tabs picked in the column (⌘- or ⇧-click) that are shown, in the
     /// column's order.
-    private var pickedTabs: [Tab] {
+    var pickedTabs: [Tab] {
         selectableTabs.filter { selectedTabIDs.contains($0.id) }
+    }
+
+    /// What a right-click among the picked tabs does to all of them, then
+    /// the picking is over.
+    func closePicked() {
+        let picked = pickedTabs
+        clearTabSelection()
+        for tab in picked { close(tab) }
+    }
+
+    func pinPicked(listed: Bool = false) {
+        let picked = pickedTabs.filter { $0.pin == nil && $0.isWeb && !$0.shy }
+        clearTabSelection()
+        for tab in picked { pin(tab, listed: listed) }
+    }
+
+    func movePicked(toSpace id: UUID) {
+        let picked = pickedTabs
+        clearTabSelection()
+        for tab in picked { move(tab, toSpace: id) }
+    }
+
+    func sleepPicked() {
+        let picked = pickedTabs
+        clearTabSelection()
+        for tab in picked { sleep(tab) }
     }
 
     /// Exactly two tabs picked, and already the two pages of one pair.

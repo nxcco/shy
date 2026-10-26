@@ -50,6 +50,16 @@ final class Browser: NSObject, ObservableObject {
     /// Tabs picked with Command or Shift. The active page remains where it is.
     @Published private(set) var selectedTabIDs: Set<Tab.ID> = []
     private var selectionAnchor: Tab.ID?
+    /// The spaces whose pinned squares, rows and folders are folded away,
+    /// leaving only the open tabs. Kept across launches.
+    @Published private(set) var pinsFolded: Set<UUID> = Set(
+        (Store.settings.stringArray(forKey: "pinsFolded") ?? []).compactMap(UUID.init)
+    )
+    var pinsHidden: Bool { pinsFolded.contains(spaceID) }
+    func togglePins() {
+        if !pinsFolded.insert(spaceID).inserted { pinsFolded.remove(spaceID) }
+        Store.settings.set(pinsFolded.map(\.uuidString), forKey: "pinsFolded")
+    }
     @Published var splits: [TabSplit] = []
     /// The folder whose name is being typed, in place (see FolderRow).
     @Published var editingFolderID: UUID?

@@ -220,7 +220,7 @@ struct SideBar: View {
                 .frame(maxHeight: .infinity)
             } else if browser.spaces[index].id == browser.spaceID {
                 VStack(alignment: .leading, spacing: 0) {
-                    if !browser.squarePins.isEmpty || ghostSquare != nil {
+                    if !browser.pinsHidden, !browser.squarePins.isEmpty || ghostSquare != nil {
                         pinned
                             .padding(.bottom, 10)
                             // A square carried down over the rows passes
@@ -357,15 +357,15 @@ struct SideBar: View {
             }
             VStack(spacing: SideBar.gap) {
                 // Under the folders, as on screen.
-                if showsLine(kept: listed.count + lines.count, loose: rest.count) {
+                if showsLine(kept: listed.count + lines.count + pins.count, loose: rest.count) {
                     KeepLine(clears: false) {}
                 }
+                newTab
                 ForEach(rest) { tab in
                     rowItem(tab, tabs: row.tabs, splits: row.splits, activeID: row.active,
                             interactive: false, pill: pill, close: {})
                 }
             }
-            newTab
         }
         .allowsHitTesting(false)
     }
@@ -391,7 +391,7 @@ struct SideBar: View {
     /// from what was drawn rather than measured: a measurement would arrive a
     /// frame late, and for one frame the whole column would drag the window.
     private var rowsEnd: CGFloat {
-        let pins = browser.squarePins.count
+        let pins = browser.pinsHidden ? 0 : browser.squarePins.count
         let pinBlock = pins == 0 ? 0 : (pinCells(pins).map(\.maxY).max() ?? 0) + 10
         return Metrics.strip + pinBlock + AgentSection.height(agent, row: rowHeight) + rowsHeight
     }
@@ -400,13 +400,15 @@ struct SideBar: View {
     /// up the same way, with a few points to spare: what decides whether
     /// they scroll.
     private var rowsHeight: CGFloat {
-        let listed = browser.listedPins.count
+        let kept = browser.listedPins.count
+        let listed = browser.pinsHidden ? 0 : kept
         // A folder's own line is as tall as a tab's.
-        let lines = browser.folderLines.count
+        let keptLines = browser.folderLines.count
+        let lines = browser.pinsHidden ? 0 : keptLines
         let rows = looseTabs
         let listBlock = CGFloat(listed) * (rowHeight + SideBar.gap) + (listed > 0 ? SideBar.gap : 0)
             + CGFloat(lines) * (rowHeight + SideBar.gap) + (lines > 0 ? SideBar.gap : 0)
-            + (showsLine(kept: listed + lines, loose: rows.count) ? KeepLine.height + SideBar.gap : 0)
+            + (showsLine(kept: kept + keptLines + browser.squarePins.count, loose: rows.count) ? KeepLine.height + SideBar.gap : 0)
         // A pair is two lines (see SplitTabItem).
         let pairs = rows.filter { browser.split(for: $0) != nil }.count
         let loose = CGFloat(rows.count) * (rowHeight + SideBar.gap) + CGFloat(pairs) * rowHeight
@@ -717,9 +719,15 @@ struct SideBar: View {
             let loose = looseTabs
             // Under the folders: Clear keeps them, as it keeps the pins, so
             // everything above the line is what stays.
-            if showsLine(kept: browser.listedPins.count + browser.folderLines.count, loose: loose.count) {
-                KeepLine(clears: !loose.isEmpty, newFolder: { browser.newFolder() }) { browser.clearTabs() }
+            let kept = browser.listedPins.count + browser.folderLines.count + browser.squarePins.count
+            if showsLine(kept: kept, loose: loose.count) {
+                KeepLine(clears: !loose.isEmpty, newFolder: { browser.newFolder() },
+                         folded: kept > 0 ? browser.pinsHidden : nil, kept: kept,
+                         fold: { withAnimation(Motion.settle) { browser.togglePins() } }) { browser.clearTabs() }
             }
+            // Right under the line, so it stays where the hand expects it
+            // however many tabs there are below.
+            newTab
             let ghost: Int? = if case .loose(let at)? = crossing?.target { at } else { nil }
             // In a stack of their own, measured, for where a pin carried
             // among them would land.
@@ -888,10 +896,11 @@ struct SideBar: View {
     /// which scroll as one.
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
-            listed
-            folderRows
+            if !browser.pinsHidden {
+                listed
+                folderRows
+            }
             loose
-            newTab
         }
     }
 
@@ -900,7 +909,6 @@ struct SideBar: View {
 
     private var newTab: some View {
         Quiet(icon: "plus", title: "New tab", height: rowHeight, size: prefs.sideTitle) { browser.launch() }
-            .padding(.top, SideBar.gap)
     }
 
     /// One small door at the bottom: the settings.
@@ -1311,12 +1319,34 @@ struct KeepLine: View {
     let clears: Bool
     /// Its menu's New Folder, on the column on screen.
     var newFolder: (() -> Void)? = nil
+    /// Whether what is kept above the line is folded away; nil when nothing
+    /// is kept, so there is nothing to fold.
+    var folded: Bool? = nil
+    var kept = 0
+    var fold: (() -> Void)? = nil
     let act: () -> Void
 
     @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 6) {
+            if let folded, let fold, folded || hovering {
+                Button(action: fold) {
+                    HStack(spacing: 3) {
+                        Image(systemName: folded ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                        if folded {
+                            Text("\(kept) pinned")
+                                .font(.system(size: 11))
+                        }
+                    }
+                    .foregroundStyle(Palette.muted)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(folded ? "Show the pinned tabs and folders" : "Hide the pinned tabs and folders, leaving the open ones")
+                .transition(.opacity)
+            }
             Rectangle()
                 .fill(Palette.hairline)
                 .frame(height: 1)
@@ -1340,7 +1370,10 @@ struct KeepLine: View {
         .frame(height: KeepLine.height)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .contextMenu { if let newFolder { Button("New Folder", action: newFolder) } }
+        .contextMenu {
+            if let newFolder { Button("New Folder", action: newFolder) }
+            if let folded, let fold { Button(folded ? "Show Pinned Tabs" : "Hide Pinned Tabs", action: fold) }
+        }
         .animation(Motion.quick, value: hovering)
     }
 }
