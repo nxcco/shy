@@ -319,14 +319,18 @@ struct SideBar: View {
     private func preview(_ row: Parked, space: UUID, pill: Namespace.ID) -> some View {
         let folders = Pins.folders(space)
         let known = Set(folders.map(\.id))
+        // Folded in that space as it is when it lands: the same rows, so
+        // nothing moves as it comes in.
+        let hidden = browser.pinsFolded.contains(space)
         let free = row.tabs.filter { $0.pin != nil && $0.folder.map(known.contains) != true }
         let pins = free.filter { !$0.listed }
         let listed = free.filter(\.listed)
         let lines = Folders.lines(folders, pins: row.tabs.filter { $0.pin != nil }, front: row.front)
+        let kept = listed.count + lines.count + pins.count
         let rest = row.loose
         let cells = pinCells(pins.count)
         return VStack(alignment: .leading, spacing: 0) {
-            if !pins.isEmpty {
+            if !pins.isEmpty, !hidden {
                 VStack(spacing: 0) {
                     PinGrid(cells: cells) {
                         ForEach(Array(pins.enumerated()), id: \.element.id) { index, tab in
@@ -341,13 +345,13 @@ struct SideBar: View {
             // as a space comes in, not drawn when it lands.
             AgentSection(browser: browser, prefs: prefs, agent: agent)
             VStack(spacing: SideBar.gap) {
-                ForEach(listed) { tab in
+                ForEach(hidden ? [] : listed) { tab in
                     SideRow(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active,
                             pill: pill, close: {}, interactive: false)
                 }
             }
-            .padding(.bottom, listed.isEmpty ? 0 : SideBar.gap)
-            if !lines.isEmpty {
+            .padding(.bottom, listed.isEmpty || hidden ? 0 : SideBar.gap)
+            if !lines.isEmpty, !hidden {
                 VStack(spacing: SideBar.gap) {
                     ForEach(lines) { line in
                         folderLine(line, activeID: row.active, interactive: false, pill: pill)
@@ -357,8 +361,8 @@ struct SideBar: View {
             }
             VStack(spacing: SideBar.gap) {
                 // Under the folders, as on screen.
-                if showsLine(kept: listed.count + lines.count + pins.count, loose: rest.count) {
-                    KeepLine(clears: false) {}
+                if showsLine(kept: kept, loose: rest.count) {
+                    KeepLine(clears: false, folded: kept > 0 ? hidden : nil, kept: kept) {}
                 }
                 newTab
                 ForEach(rest) { tab in
