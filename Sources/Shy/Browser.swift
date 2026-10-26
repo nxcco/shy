@@ -2469,7 +2469,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// The tab whose video Shy last sent to macOS's picture in picture, to
     /// bring back when you return to it.
-    private(set) var pictured: Tab.ID?
+    var pictured: Tab.ID?
 
     /// The video playing in `tab` into picture in picture (NativePiP).
     /// `toggle`: ⇧⌘P, which also brings one back.

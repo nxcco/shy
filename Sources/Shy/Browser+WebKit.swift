@@ -871,6 +871,34 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         tab.uncover(after: 0.45)
     }
 
+    /// Picture in picture's button that sends the video back: its tab
+    /// comes forward first, from another space if it is parked there, as
+    /// Safari brings back its tab. WebKit waits for the page to be on
+    /// screen before it puts the video back; left in a tab nobody was
+    /// looking at, it waited, put the video into the unseen page anyway,
+    /// and the video stopped there.
+    @objc(_webViewFullscreenMayReturnToInline:)
+    func webViewFullscreenMayReturnToInline(_ webView: WKWebView) {
+        guard let tab = anyTab(for: webView) else { return }
+        // WebKit is bringing it back already: going to the tab mustn't ask again.
+        if pictured == tab.id { pictured = nil }
+        if let space = parked.first(where: { $0.value.tabs.contains { $0 === tab } })?.key {
+            switchSpace(to: space)
+        }
+        if tabs.contains(where: { $0 === tab }), activeID != tab.id { select(tab, floatPrevious: false) }
+        guard !Store.testing else { return }
+        Browsers.show(self)
+        NSApp.activate()
+    }
+
+    /// Out of picture in picture, by whatever way: nothing is to be brought
+    /// back on return to its tab any more.
+    @objc(_webView:hasVideoInPictureInPictureDidChange:)
+    func webView(_ webView: WKWebView, hasVideoInPictureInPictureDidChange inPicture: Bool) {
+        guard !inPicture, let tab = anyTab(for: webView), pictured == tab.id else { return }
+        pictured = nil
+    }
+
     /// The page has drawn something: a view kept out of sight until now, so
     /// as not to show the white it starts as, comes in. WebKit calls this only
     /// on a view asked to — see `PageView.holdForFirstFrame()`.
