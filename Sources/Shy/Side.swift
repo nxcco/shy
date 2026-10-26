@@ -1333,7 +1333,7 @@ struct KeepLine: View {
             if let folded, let fold, folded || hovering {
                 Button(action: fold) {
                     HStack(spacing: 3) {
-                        Image(systemName: folded ? "chevron.right" : "chevron.down")
+                        Image(systemName: folded ? "chevron.down" : "chevron.up")
                             .font(.system(size: 8, weight: .semibold))
                         if folded {
                             Text("\(kept) pinned")
