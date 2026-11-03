@@ -59,7 +59,7 @@ struct ShyApp: App {
                 Button("Open Address…") { browser.edit() }
                     .shortcut("file.openAddress")
                 Divider()
-                // Another browser's bookmarks, history, passwords and the
+                // Another browser's bookmarks, history and the
                 // rest, as Safari's File › Import From: the one sheet every
                 // other way in opens too.
                 Button("Bring In a File…") { browser.importFile() }
@@ -269,8 +269,6 @@ struct ShyApp: App {
             CommandGroup(after: .appSettings) {
                 Button("Settings…") { browser.tuning = true }
                     .shortcut("app.settings")
-                Button("Passwords…") { browser.managing = true }
-                    .shortcut("app.passwords")
             }
             QuitAndHelp()
         }

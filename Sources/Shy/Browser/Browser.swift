@@ -10,8 +10,9 @@ import Combine
 // that is beside it, one concern to a file: Browser+Tabs, +Rows, +Opening and
 // +Windows for tabs and where they go; +Field and +TabAddress for typing an
 // address; +Find, +Curtain, +Picture and +Capture for what happens on a page;
-// +Bookmarks, +Passwords, +Downloads, +Clearing and +Announce for what is kept
-// and said; +Pins, +Profiles, +InternalPages and +WebKit for the rest.
+// +Bookmarks, +Import, +Downloads, +Clearing and +Announce for what is kept
+// and said; +Passkeys for the list under a passkey box; +Pins, +Profiles,
+// +InternalPages and +WebKit for the rest.
 
 /// What every window shares: the settings, History, bookmarks, the
 /// downloads list and the downloads under way, and hidden elements. Each window's Browser holds only its own tabs and
@@ -285,13 +286,10 @@ final class Browser: NSObject, ObservableObject {
     /// What a private tab took off its page, kept for that page only.
     var passingVeils: [Tab.ID: [String]] = [:]
 
-    // MARK: - passwords (the rest in Browser+Passwords.swift)
-    /// A name and password a page has just sent, waiting to be offered a place
-    /// in the keychain. Held only until you answer.
-    @Published var offering: Offer?
-    /// The accounts kept for the site whose sign-in box has the caret, and
-    /// where that box is — a list hangs from it, and a click fills the form.
-    /// Nothing is put into a page until you have pointed at it.
+    // MARK: - passkeys (the rest in Browser+Passkeys.swift)
+    /// The passkeys the Mac holds for the site whose passkey box has the
+    /// caret, and where that box is — a list hangs from it. Nothing reaches
+    /// the page until you have pointed at one.
     @Published var suggesting: Suggesting?
     /// Set once you have picked, so the list doesn't come straight back for
     /// the box you are still in. Cleared when the caret leaves the boxes.
@@ -300,18 +298,13 @@ final class Browser: NSObject, ObservableObject {
     /// instant: clicking a row can take the caret out of the page first, and
     /// a list that vanished on the way down would never be clicked.
     var lowering: DispatchWorkItem?
-    /// The page whose accounts were last looked up for the box the caret is
+    /// The page whose passkeys were last looked up for the box the caret is
     /// in. The box reports where it is on every frame of a scroll so the
-    /// list can follow it; the keychain is asked once per box, not per frame.
-    var looked: (tab: Tab.ID, host: String, clear: Bool, name: Bool)?
-    /// The sign-in box the caret is in, for a list that changes while it is
+    /// list can follow it; the Mac is asked once per box, not per frame.
+    var looked: (tab: Tab.ID, host: String)?
+    /// The passkey box the caret is in, for a list that changes while it is
     /// there: the page's passkeys arrive when they arrive.
-    var field: (tab: Tab.ID, spot: CGRect, passwords: Bool, name: Bool)?
-    /// The list, without secrets: see `Kept` and `Vault.all()`.
-    @Published var saved: [Kept] = []
-    @Published var hunting = ""
-    /// A Remove All… under way, off the main thread (see `forgetShown`).
-    @Published var forgetting = false
+    var field: (tab: Tab.ID, spot: CGRect)?
 
     // One state keeps closing History from leaving its clearing controls open.
     @Published var recallMode: RecallMode?
@@ -544,7 +537,7 @@ final class Browser: NSObject, ObservableObject {
                       tab.id == field.tab
                 else { return }
                 looked = nil
-                hang(from: tab, field.spot, passwords: field.passwords, name: field.name)
+                hang(from: tab, field.spot)
             }
             .store(in: &bag)
 

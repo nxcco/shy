@@ -7,8 +7,8 @@
 #
 # Signed with "Shy Local", a code-signing certificate of your own in the
 # login keychain (build.sh finds it), so each build is the same app to
-# macOS: the passwords in the keychain and the camera's and microphone's
-# yes stay with it from one build to the next. Without it the build is
+# macOS: the camera's and microphone's yes, and what it keeps in the
+# keychain, stay with it from one build to the next. Without it the build is
 # ad-hoc, a new app to macOS every time, and this stops rather than install
 # one.
 #

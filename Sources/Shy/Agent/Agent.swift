@@ -335,7 +335,7 @@ final class Agent: NSObject, ObservableObject {
             // and then goes; a page that sends itself off the site is stopped
             // instead (see decidePolicyFor).
             let host = url.host()?.lowercased() ?? ""
-            if Vault.registrable(host) != handover.site {
+            if Registrable.of(host) != handover.site {
                 return end(page, "the agent left \(handover.site) for \(host)") { go() }
             }
             if handover.acts, handover.asks { permit(page, what, verb: verb, at: nil, answer, act: go) } else { go() }

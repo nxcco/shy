@@ -29,7 +29,7 @@ import WebKit
 // mediation) gets the same, carried the same way: the request is checked and
 // kept, waiting, and the Mac is asked only which passkeys it holds for the
 // site — a question with no sheet, no operation left open. They are offered
-// in the list under the field, beside the passwords, and nothing reaches the
+// in the list under the field, and nothing reaches the
 // page until you pick one: then the Mac's sheet, for that passkey alone, and
 // the page's waiting request is answered with it. A new page, the page
 // letting it go, or the page asking again ends the wait.
@@ -896,4 +896,12 @@ final class PasskeyRelay: NSObject, WKScriptMessageHandlerWithReply {
         .replacingOccurrences(of: "__SHY_NAME__", with: "\(name)")
         .replacingOccurrences(of: "__SHY_ASKED__", with: "\(asked)")
         .replacingOccurrences(of: "__SHY_ANSWERED__", with: "\(answered)")
+}
+
+extension Registrable {
+    /// example.com for www.example.com and accounts.example.com; bbc.co.uk
+    /// stays bbc.co.uk. By the list macOS keeps (Passkeys.publicSuffix).
+    static func of(_ host: String) -> String {
+        domain(of: host, isSuffix: Passkeys.publicSuffix.map { test in { test($0 as CFString) } })
+    }
 }

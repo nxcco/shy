@@ -250,9 +250,7 @@ extension Tab {
         onLink = nil
         onPick = nil
         onPickEnd = nil
-        onSignIn = nil
         onField = nil
-        onCredentials = nil
         discard()
         // The last private tab gone, in every window: what its pages wore
         // goes with it.

@@ -18,7 +18,6 @@ extension Browser {
         bookmarks.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &profileBag)
-        if pageTab(.passwords) != nil { relist() }
         objectWillChange.send()
     }
 
@@ -57,7 +56,7 @@ extension Browser {
         let name = Profiles.shared.profile(profile).name
         let own = space.sharesSignIns != true && !space.isFirst
         Ask.sure("Move “\(space.name)” to “\(name)”?",
-                 detail: "Its tabs reload signed in as \(name), with nothing of their old session, and what you do there from now on is kept in \(name)'s history, bookmarks and passwords."
+                 detail: "Its tabs reload signed in as \(name), with nothing of their old session, and what you do there from now on is kept in \(name)'s history and bookmarks."
                     + (own ? " The sign-ins this space had of its own are erased." : ""),
                  confirm: "Move") { [weak self] in self?.setProfile(profile, of: id) }
     }

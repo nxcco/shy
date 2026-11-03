@@ -228,7 +228,7 @@ final class Extensions: NSObject, ObservableObject {
         self.profile = profile
         WKWebExtension.MatchPattern.registerCustomURLScheme(Extensions.scheme)
         // A test run keeps its extensions' storage apart, as it does its
-        // cookies and passwords. Another profile's is its own, under the
+        // cookies. Another profile's is its own, under the
         // profile's id, as its sign-ins are.
         let configuration: WKWebExtensionController.Configuration = profile != Profile.personalID
             ? .init(identifier: Store.webKitID(profile))

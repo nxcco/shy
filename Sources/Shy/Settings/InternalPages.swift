@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// Shy's own pages — Settings, History, Downloads, Bookmarks, Passwords,
+// Shy's own pages — Settings, History, Downloads, Bookmarks,
 // and the release notes — each in a tab of its own, as
 // chrome://settings is in Chrome, rather than a card over the page. A tab
 // is something you can leave open beside your work, come back to with ⌃Tab,
@@ -15,7 +15,7 @@ import SwiftUI
 /// Which of Shy's own pages, and where inside it.
 struct InternalPage: Equatable {
     enum Kind: String, CaseIterable {
-        case settings, history, downloads, bookmarks, passwords
+        case settings, history, downloads, bookmarks
     }
 
     var kind: Kind
@@ -52,7 +52,6 @@ struct InternalPage: Equatable {
         case .history: return "History"
         case .downloads: return "Downloads"
         case .bookmarks: return "Bookmarks"
-        case .passwords: return "Passwords"
         }
     }
 
@@ -62,7 +61,6 @@ struct InternalPage: Equatable {
         case .history: return "clock"
         case .downloads: return "arrow.down.circle"
         case .bookmarks: return "book"
-        case .passwords: return "key"
         }
     }
 
@@ -130,9 +128,6 @@ struct InternalPageView: View {
                 if browser.activeID != tab.id, browser.split(for: tab) != nil { browser.focusPane(tab) }
             })
             .transition(.opacity)
-            // Brought back from the last session, the list of passwords
-            // is read as the page is first drawn.
-            .onAppear { if page.kind == .passwords, browser.saved.isEmpty { browser.relist() } }
     }
 
     @ViewBuilder
@@ -146,8 +141,6 @@ struct InternalPageView: View {
             DownloadsPanel(browser: browser, loot: browser.loot)
         case .bookmarks:
             BookmarksPanel(browser: browser, bookmarks: browser.bookmarks)
-        case .passwords:
-            PasswordsPanel(browser: browser)
         }
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
-// The pieces every panel is made of, so that Settings, History, Downloads,
-// Passwords and Bookmarks read as one kind of thing: the same plate, the
+// The pieces every panel is made of, so that Settings, History, Downloads
+// and Bookmarks read as one kind of thing: the same plate, the
 // same title with the cross beside it, the same hairline cards with a rule
 // between lines, the same field for searching. Built once here; each panel
 // only says what goes in it.

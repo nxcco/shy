@@ -5,9 +5,9 @@ import Darwin
 // browser Shy can't read directly, from another Mac, or from Safari,
 // whose own files macOS keeps from other apps.
 //
-// One chooser takes all of it. A bookmarks page (.html), a passwords file
-// (.csv), or Safari's own export — File › Export Browsing Data, a ZIP with
-// its bookmarks, its passwords and a history file per profile. The files in
+// One chooser takes all of it. A bookmarks page (.html), or Safari's own
+// export — File › Export Browsing Data, a ZIP with its bookmarks and a
+// history file per profile (its passwords file is left alone). The files in
 // that ZIP are named in the Mac's language, so they are told apart by what
 // they hold, not by their names.
 
@@ -21,7 +21,7 @@ enum ImportFile {
     }
 
     /// A folder of its own for what an import unpacks or copies (a Safari
-    /// export's Passwords.csv in the clear, another browser's databases),
+    /// export's files, another browser's databases),
     /// named for this process so another copy of Shy running beside it
     /// never takes it for a leftover.
     nonisolated static func scratchFolder() -> URL {
@@ -144,13 +144,10 @@ enum ImportFile {
     struct Found {
         var bookmarks: [Bookmark] = []
         var places: [Place] = []
-        /// A passwords file's text, for Vault.take(csv:).
-        var passwords: [String] = []
-        /// Safari's export holds passwords in the clear; said once brought in.
         /// Known by its history file, which only Safari's export has.
         var fromSafari = false
 
-        var isEmpty: Bool { bookmarks.isEmpty && places.isEmpty && passwords.isEmpty }
+        var isEmpty: Bool { bookmarks.isEmpty && places.isEmpty }
         fileprivate var safariHistory = false
     }
 
@@ -253,7 +250,7 @@ enum ImportFile {
     }
 
     private static func isImportFile(_ file: URL) -> Bool {
-        ["html", "htm", "csv", "json"].contains(file.pathExtension.lowercased())
+        ["html", "htm", "json"].contains(file.pathExtension.lowercased())
     }
 
     private static func label(for file: URL, relativeTo root: URL?) -> String {
@@ -271,12 +268,6 @@ enum ImportFile {
             }) {
                 found.bookmarks += marks
             }
-        case "csv":
-            let data = try readData(file, control: control) { completed, total in
-                control.report(Progress(message: "\(label): Reading CSV", completed: completed, total: total))
-            }
-            try control.checkCancellation()
-            if let text = String(data: data, encoding: .utf8) { found.passwords.append(text) }
         case "json":
             if let places = try history(in: file, control: control, counter: counter, label: label) {
                 found.safariHistory = true

@@ -41,7 +41,7 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
         // sent to may carry what the sign-in just got (a sign-in code a
         // redirect hands another site), and the copy is taken back first.
         // The agent can go there itself afterwards, signed out.
-        guard !main || Vault.registrable(host) == handover.site else {
+        guard !main || Registrable.of(host) == handover.site else {
             return end(page, "the page tried to leave \(handover.site) for \(host)") { decisionHandler(.cancel) }
         }
         // A form sent with your sign-in: never on a read-only handover, and

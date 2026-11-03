@@ -1,6 +1,6 @@
 # Security
 
-Shy handles your passwords, your history and every page you open, so a
+Shy handles your sign-ins, your history and every page you open, so a
 hole in it matters more than most bugs. If you find one, please tell us
 privately first.
 

@@ -78,7 +78,7 @@ extension Agent {
         guard pages.count < Agent.most else { return "The agent has \(Agent.most) pages open — close one first" }
         guard let host = url.host()?.lowercased() else { return "Not a page on the web" }
         let page = make()
-        page.handover = Handover(site: Vault.registrable(host), host: host, cookies: cookies.count,
+        page.handover = Handover(site: Registrable.of(host), host: host, cookies: cookies.count,
                                  stored: storage.count, acts: acts, asks: asks,
                                  ends: Date().addingTimeInterval(TimeInterval(minutes * 60)))
         if storage.count > 0 { seed(page, storage) }

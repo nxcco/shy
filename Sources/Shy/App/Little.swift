@@ -448,7 +448,7 @@ private struct LittleToast: View {
 
 /// A website's sized pop-up or an extension's popup window: the
 /// browser's tab on screen as the small window shows a page, the site over
-/// it. Its tabs, checks and passwords are the browser's, as in any window.
+/// it. Its tabs and checks are the browser's, as in any window.
 struct PopupWindowView: View {
     @ObservedObject var browser: Browser
 
@@ -466,7 +466,6 @@ struct PopupWindowView: View {
                             if ask.screen { ScreenQuestion(browser: browser, ask: ask) }
                             else { CaptureQuestion(browser: browser, ask: ask) }
                         }
-                        if let offer = browser.offering { PasswordOffer(browser: browser, offer: offer) }
                     }
                     .padding(12)
                 }

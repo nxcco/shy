@@ -1,13 +1,8 @@
 import WebKit
 
 // What the page says about itself that a browser has to know: where the
-// keyboard is, whether it is about to take the screen, and whether there is a
-// sign-in on it — and when one has just been sent, so the password can be
-// offered a place in the keychain.
-//
-// Filling goes through the field's own setter and fires the events a keystroke
-// would. Assigning to .value behind a framework's back leaves it thinking the
-// box is still empty, which is a sign-in button that stays grey.
+// keyboard is, whether it is about to take the screen, and where a box it
+// marks for passkeys is, so the Mac's passkeys can hang from it.
 
 final class FormRelay: NSObject, WKScriptMessageHandler {
     static let name = "officeForms"
@@ -23,36 +18,19 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
               let body = message.body as? [String: Any],
               let kind = body["kind"] as? String
         else { return }
-        // Where the message came from, as WebKit knows it: the tab's address
-        // may already be the next site's by the time it is read.
-        let from = message.frameInfo.securityOrigin.host.lowercased()
-        // A name or password longer than any real one is not a sign-in.
-        let user = String((body["user"] as? String ?? "").prefix(512))
-        let password = body["password"] as? String ?? ""
         MainActor.assumeIsolated {
             switch kind {
-            case "form":
-                tab?.foundSignIn()
-            case "submit":
-                guard password.utf8.count <= 1024 else { return }
-                tab?.sentSignIn(user: user, password: password, from: from)
-            case "name":
-                tab?.gaveName(user)
-            case "settled":
-                tab?.settleSignIn(navigated: false)
             case "focus":
                 // Set only when it changes: every assignment to a published
                 // value redraws whatever watches the tab, same value or not.
                 let typing = body["typing"] as? Bool ?? false
                 if tab?.typing != typing { tab?.typing = typing }
-                // Which sign-in box the caret is in, and where it sits on the
-                // page — so a list of accounts can hang from it.
-                // A box of a name and password, or one the page marks for
-                // passkeys alone ("webauthn"), which takes no password.
+                // Whether the caret is in a box the page marks for passkeys
+                // ("webauthn"), and where it sits on the page — so the Mac's
+                // passkeys can hang from it.
                 if let rect = body["rect"] as? [String: Double],
                    let x = rect["x"], let y = rect["y"], let w = rect["w"], let h = rect["h"] {
-                    tab?.fieldFocused(CGRect(x: x, y: y, width: w, height: h), passwords: body["passwords"] as? Bool ?? true,
-                                      name: body["name"] as? Bool ?? false)
+                    tab?.fieldFocused(CGRect(x: x, y: y, width: w, height: h))
                 } else {
                     tab?.fieldFocused(nil)
                 }
@@ -69,7 +47,7 @@ final class FormRelay: NSObject, WKScriptMessageHandler {
         }
     }
 
-    /// Whether sites are offered passkeys here (Settings › Passwords).
+    /// Whether sites are offered passkeys here (Settings › Privacy).
     ///
     /// A build without Apple's browser entitlement can't do them: WebKit then
     /// answers isUserVerifyingPlatformAuthenticatorAvailable() with false,

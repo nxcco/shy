@@ -529,9 +529,7 @@ enum ExtensionShims {
     static var awake: [String: IOPMAssertionID] = [:]
 
     /// chrome.privacy and chrome.proxy: what each extension set, kept across
-    /// launches as Chrome keeps it. Shy acts on one of them — an
-    /// extension turning the browser's own offer to save passwords off,
-    /// which is how every password manager asks Chrome to step aside.
+    /// launches as Chrome keeps it, for the extension to read back.
     private static func setting(_ api: String, _ details: [String: Any], extension id: String, owner: Extensions) -> Any? {
         let parts = api.split(separator: ":", maxSplits: 1).map(String.init)
         guard parts.count == 2 else { return nil }
@@ -553,9 +551,11 @@ enum ExtensionShims {
 
     private static func defaultSetting(_ name: String, owner: Extensions) -> Any? {
         switch name {
-        case "privacy.services.passwordSavingEnabled": return owner.browser?.prefs.savesPasswords ?? true
         case "privacy.network.webRTCIPHandlingPolicy": return "default"
-        case "privacy.websites.doNotTrackEnabled", "privacy.websites.adMeasurementEnabled",
+        // Shy keeps no passwords of its own: a password manager asking
+        // whether the browser offers to save them is told no.
+        case "privacy.services.passwordSavingEnabled",
+             "privacy.websites.doNotTrackEnabled", "privacy.websites.adMeasurementEnabled",
              "privacy.websites.fledgeEnabled", "privacy.websites.topicsEnabled",
              "privacy.services.safeBrowsingExtendedReportingEnabled": return false
         case "proxy.settings": return ["mode": "system"]

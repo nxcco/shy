@@ -110,38 +110,10 @@ extension Browser {
             if blank { self?.open(url, foreground: true, from: tab) } else { tab.go(to: url) }
         }
 
-        // The caret in a sign-in box: the accounts kept for this site hang
-        // from the box, and go when the caret does. Nothing is filled on
-        // its own — the way Safari does it, and what a person expects.
-        tab.onField = { [weak self] tab, spot, passwords, name in
-            self?.hang(from: tab, spot, passwords: passwords, name: name)
-        }
+        // The caret in a passkey box: the Mac's passkeys for this site hang
+        // from the box, and go when the caret does.
+        tab.onField = { [weak self] tab, spot in self?.hang(from: tab, spot) }
 
-        tab.onCredentials = { [weak self] tab, host, user, password, clear in
-            // an extension's own page isn't a site: Bitwarden's unlock pin was offered as its password.
-            guard let self, prefs.savesPasswords, !password.isEmpty, !tab.shy,
-                  !Vault.isNever(host, in: self.profile(of: tab)), tab.address.flatMap(Browser.extensionHost(of:)) == nil
-            else { return }
-            // A password manager extension that asked Chrome's way to do the
-            // saving itself.
-            if #available(macOS 15.4, *), Extensions.of(profileID).passwordSavingTakenBy != nil { return }
-            let profile = self.profile(of: tab)
-            let known = Vault.kept(for: host, in: profile)
-            // Nothing to ask about one that is already known. Only that
-            // account's secret is read, not every one kept for the site.
-            if var same = known.first(where: { $0.user == user }).flatMap(Vault.login), same.password == password {
-                // Where it was last used is where it is offered from now on.
-                same.clear = clear
-                Vault.touch(same)
-                return
-            }
-            let offer = Offer(
-                login: Login(host: host, user: user, password: password, used: nil, clear: clear, profile: profile),
-                changed: known.contains { $0.user == user }
-            )
-            guard offering != offer else { return }
-            offering = offer
-        }
         tab.onPickTrouble = { [weak self] _, reason in
             self?.announce("Couldn't hide that — \(reason)")
         }

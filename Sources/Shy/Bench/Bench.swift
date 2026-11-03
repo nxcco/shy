@@ -165,7 +165,7 @@ final class Bench {
         case "developer", "probe", "press", "key", "resize", "hoversweep", "hit", "field", "switcher", "recording":
             inputCommand(verb, request, browser, answer)
 
-        case "suggest", "sitesearch", "bookmark", "dropdown", "marks", "import-file", "remove-folder", "passwords", "history", "import-file-start", "import-file-status", "import-file-cancel", "tab-type", "menus", "textcheck", "menu", "keyeq", "image-data":
+        case "suggest", "sitesearch", "bookmark", "dropdown", "marks", "import-file", "remove-folder", "history", "import-file-start", "import-file-status", "import-file-cancel", "tab-type", "menus", "textcheck", "menu", "keyeq", "image-data":
             libraryCommand(verb, request, browser, answer)
 
         case "find", "translate", "visible", "notifications", "answer", "accounts":
@@ -186,7 +186,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "openmark", "developer", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "player", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "passwords", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
+                "tabs", "open", "go", "openmark", "developer", "close", "wait", "sleep", "select", "text", "nowplaying", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "player", "window", "pages", "picture", "pdf", "place", "folder", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "pull", "magnify", "wheel", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "find", "answer", "visible", "notifications", "popups", "suggest", "translate", "handover", "approve", "agentpage", "shut",
             ]])
         }
     }

@@ -268,7 +268,7 @@ fi
 # Signing. A Developer ID certificate, when there is one, with the hardened
 # runtime Gatekeeper insists on for anything notarised; otherwise "Shy
 # Local", a certificate of your own made on this Mac (see install.sh), which
-# keeps the app the same app from build to build — the keychain's passwords
+# keeps the app the same app from build to build — its keychain items
 # and the camera's yes stay with it; otherwise ad-hoc, which is enough for
 # the app to run on the machine that built it, as a new app every build.
 IDENTITY="${SHY_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \

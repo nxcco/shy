@@ -5,7 +5,7 @@ import WebKit
 
 #if DEBUG
 extension Bench {
-    /// Suggestions, site search, bookmarks, imports, passwords, history, menus and the text a page is typed into.
+    /// Suggestions, site search, bookmarks, imports, history, menus and the text a page is typed into.
     func libraryCommand(_ verb: String, _ request: [String: Any], _ browser: Browser, _ answer: @escaping ([String: Any]) -> Void) {
         switch verb {
         case "suggest":
@@ -215,8 +215,8 @@ extension Bench {
             Task { @MainActor in
                 let took = await browser.takeFile(URL(fileURLWithPath: path))
                 answer(["said": took.said, "bookmarks": took.bookmarks, "already": took.already, "places": took.places,
-                        "kept": took.kept, "skipped": took.skipped, "cancelled": took.cancelled,
-                        "total": browser.bookmarks.count, "top": browser.bookmarks.roots.map(\.title), "saved": browser.saved.count])
+                        "cancelled": took.cancelled,
+                        "total": browser.bookmarks.count, "top": browser.bookmarks.roots.map(\.title)])
             }
 
         case "remove-folder":
@@ -229,25 +229,6 @@ extension Bench {
             else { answer(["error": "no top-level folder by that title"]); return }
             browser.bookmarks.askRemove(folder)
             answer(["asked": title])
-        case "passwords":
-            // The passwords panel's list, narrowed as its search box would
-            // narrow it, and with "remove" its Remove All… / Remove N…, which
-            // `ui confirm` answers. Only on a SHY_PROBE run: it takes
-            // passwords out of the keychain (the test world's own, by label).
-            guard Store.testing else { answer(["error": "passwords only works on a --test run"]); return }
-            if let filter = request["filter"] as? String { browser.hunting = filter }
-            browser.relist()
-            if request["remove"] as? Bool == true { browser.forgetShown() }
-            // Answered once the removals, off the main thread, are done.
-            func settled() {
-                guard !browser.forgetting else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { settled() }
-                    return
-                }
-                answer(["count": browser.saved.count, "shown": browser.shownSites.reduce(0) { $0 + $1.logins.count },
-                        "announced": browser.announcement ?? ""])
-            }
-            settled()
 
         case "history":
             // History on a --test run: "take" puts an address in as an import

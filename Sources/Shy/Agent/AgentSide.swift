@@ -335,7 +335,7 @@ struct HandoverCard: View {
     @State private var trouble: String?
 
     private var host: String { found?.url.host() ?? tab.address?.host() ?? "this site" }
-    private var site: String { Vault.registrable(host) }
+    private var site: String { Registrable.of(host) }
 
     var body: some View {
         Plate("Hand over to the agent", width: 420, close: { browser.handingOver = nil }) {

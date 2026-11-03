@@ -192,10 +192,6 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            if let offer = browser.offering {
-                PasswordOffer(browser: browser, offer: offer)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
             StoreOffer(browser: browser)
             if browser.veiling {
                 hint("Click anything to hide it   ⌘Z undo   esc done")
@@ -205,11 +201,10 @@ struct ContentView: View {
         .padding(.bottom, 30)
         .animation(Motion.settle, value: browser.veiling)
         .animation(Motion.settle, value: browser.asking)
-        .animation(Motion.settle, value: browser.offering)
     }
 
-    /// What still comes over the page. Settings, History, Downloads,
-    /// Bookmarks and Passwords are tabs of their own now (see
+    /// What still comes over the page. Settings, History, Downloads and
+    /// Bookmarks are tabs of their own now (see
     /// InternalPages.swift).
     @ViewBuilder
     private var panels: some View {

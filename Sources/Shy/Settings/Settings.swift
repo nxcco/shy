@@ -20,7 +20,7 @@ struct SettingsPanel: View {
     @State private var page: Page = Page(rawValue: Store.settings.string(forKey: "settings.page") ?? "") ?? .general
 
     enum Page: String, CaseIterable, Identifiable {
-        case general, tabs, profiles, shortcuts, extensions, passwords, downloads, privacy, agents, about
+        case general, tabs, profiles, shortcuts, extensions, downloads, privacy, agents, about
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -29,7 +29,6 @@ struct SettingsPanel: View {
             case .profiles: return "Profiles & Spaces"
             case .shortcuts: return "Shortcuts"
             case .extensions: return "Extensions"
-            case .passwords: return "Passwords"
             case .downloads: return "Downloads"
             case .privacy: return "Privacy"
             case .agents: return "Agents"
@@ -43,7 +42,6 @@ struct SettingsPanel: View {
             case .profiles: return "person.2"
             case .shortcuts: return "keyboard"
             case .extensions: return "puzzlepiece.extension"
-            case .passwords: return "key"
             case .downloads: return "arrow.down.circle"
             case .privacy: return "hand.raised"
             case .agents: return "cursorarrow.rays"
@@ -182,7 +180,6 @@ struct SettingsPanel: View {
                     case .profiles: ProfilesPage(browser: browser)
                     case .shortcuts: ShortcutsPage(browser: browser, store: .shared, prefs: prefs)
                     case .extensions: ExtensionsPage(browser: browser)
-                    case .passwords: passwords
                     case .downloads: downloads
                     case .agents: agents
                     case .privacy: privacy

@@ -72,7 +72,7 @@ final class Tab: ObservableObject, Identifiable {
     /// The address of the page that is actually on screen. `address` moves
     /// to where the tab is going as soon as a load starts, while the page
     /// and its certificate are still the old one's: what is said about the
-    /// connection, and which passwords a sign-in box is offered, go by this
+    /// connection, and which page may ask for a passkey, go by this
     /// one, set when the new page has arrived.
     @Published var committed: URL?
     /// The view has drawn its first frame; until then the peek shows its
@@ -81,7 +81,7 @@ final class Tab: ObservableObject, Identifiable {
     @Published var painted = false
     /// Like `restAddress`: once the tab has a view, only what arrived. A
     /// window a page opened toward another site, stopped and wrote into
-    /// itself, would otherwise be shown, shared and offered passwords as
+    /// itself, would otherwise be shown, shared and offered passkeys as
     /// that site while nothing of it ever loaded.
     var pageAddress: URL? { built == nil ? address : committed }
     /// What the tab says at rest about where its page is (AtRest.swift):
@@ -199,17 +199,9 @@ final class Tab: ObservableObject, Identifiable {
 
     /// What the page hands back when you point at something and click it.
     var onPick: ((Tab, String, String, String) -> Void)?
-    /// The page has a sign-in on it; the page has just sent one.
-    var onSignIn: ((Tab) -> Void)?
-    /// The caret has entered or left one of the sign-in boxes; where the box
-    /// is, in the web view's points, or nil when it has left. Then whether
-    /// it goes with a password, and whether it is a first step's name box,
-    /// which takes the name alone.
-    var onField: ((Tab, CGRect?, Bool, Bool) -> Void)?
-    /// The site the sign-in was sent from — not the one it landed on —
-    /// then the name and the password, and whether that page came over
-    /// plain http.
-    var onCredentials: ((Tab, String, String, String, Bool) -> Void)?
+    /// The caret has entered or left a box the page marks for passkeys;
+    /// where the box is, in the web view's points, or nil when it has left.
+    var onField: ((Tab, CGRect?) -> Void)?
     var onPickEnd: ((Tab) -> Void)?
     var onPickTrouble: ((Tab, String) -> Void)?
     /// Right-click landed on an image. WebKit's own menu offers to copy or
@@ -394,20 +386,6 @@ final class Tab: ObservableObject, Identifiable {
         #endif
         self.configuration = configuration ?? Web.configuration(shy: shy)
     }
-
-    /// The name a sign-in that asks for it first was just sent, for the
-    /// page after it: that one asks for the password alone, with no box
-    /// for the name, and a password saved without its name is half a
-    /// login. In memory only — never written down — for this tab alone,
-    /// a few minutes, and only for the same site: a private tab's name
-    /// never reaches another tab, and another site never sees it.
-    var named: (site: String, user: String, at: Date)?
-
-    /// A name and password the page has just sent — held, not yet offered.
-    /// Whether the sign-in worked is only known afterwards: a page that
-    /// comes back without a password box took it, one that still has the
-    /// box refused it, and only the first is worth remembering.
-    var sent: (host: String, user: String, password: String, clear: Bool, at: Date)?
 
     /// Set when WebKit said the page's process went away while nobody was
     /// looking at the tab. Coming back to it loads the page again rather
