@@ -10,7 +10,7 @@ import WebKit
 // turning spaces on signs nobody out.
 //
 // A space's sites live in a WebKit store of their own, made by identifier;
-// history, bookmarks, the passwords in the keychain, settings and
+// history, bookmarks, settings and
 // extensions are shared by every space. Switching swaps the row of tabs:
 // the ones left behind are parked, their sound paused, and they sleep
 // after half an hour as any tab does, pins included unless their site may
@@ -517,14 +517,14 @@ enum SpaceMenu {
         let icon = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
         icon.submenu = icons
         menu.addItem(icon)
-        // The profile it signs in, keeps history, bookmarks and passwords as.
+        // The profile it signs in, keeps history and bookmarks as.
         let profiles = NSMenu()
         for profile in Profiles.shared.list {
             profiles.addItem(item(profile.name, checked: here.profileID == profile.id) { browser.askToMove(here.id, to: profile.id) })
         }
         profiles.addItem(.separator())
         profiles.addItem(item("New Profile…") {
-            Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords. “\(here.name)” moves into it.",
+            Ask.name("New Profile", detail: "Signed out of everything, with no history or bookmarks. “\(here.name)” moves into it.",
                      placeholder: "Work", confirm: "Create") { name in
                 browser.setProfile(Profiles.shared.add(named: name).id, of: here.id)
             }

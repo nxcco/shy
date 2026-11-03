@@ -1,83 +1,6 @@
 (function () {
   if (Object.prototype.hasOwnProperty.call(window, '__officeForms')) return;
 
-  // The password box, and the last box before it that could hold a name.
-  function pair() {
-    var boxes = document.querySelectorAll('input[type="password"]');
-    var pass = null;
-    for (var p = 0; p < boxes.length; p++) {
-      var b = boxes[p];
-      var r = b.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) { pass = b; break; }
-    }
-    if (!pass) return null;
-    var scope = pass.form || (pass.closest && pass.closest('form')) || document;
-    var all = scope.querySelectorAll('input');
-    var user = null;
-    for (var i = 0; i < all.length; i++) {
-      if (all[i] === pass) break;
-      var kind = (all[i].type || 'text').toLowerCase();
-      if (kind === 'text' || kind === 'email' || kind === 'tel') user = all[i];
-    }
-    return { user: user, pass: pass };
-  }
-
-  // A sign-in that asks for the name first and the password on a page
-  // of its own after it — impots.gouv.fr, Google, Microsoft, Okta. With
-  // no password box in sight, a box is the name's when the page says so
-  // (autocomplete "username" or "email") beside one other box at most,
-  // or when it is the only box to type in that its form has, with a
-  // button to send it. Never a search box, a code's or a coupon's.
-  function texty(el) {
-    if (!el || (el.tagName || '').toLowerCase() !== 'input' || el.disabled || el.readOnly) return false;
-    var kind = (el.type || 'text').toLowerCase();
-    if (['text', 'email', 'tel', 'number'].indexOf(kind) < 0) return false;
-    var r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  }
-  function aside(el) {
-    var words = [el.name, el.id, el.getAttribute('autocomplete'), el.getAttribute('aria-label'),
-      el.getAttribute('placeholder')].join(' ').toLowerCase();
-    if (/(^|[\s_-])(q|title)($|[\s_-])|query|search|otp|otc|one-time|captcha|code|coupon|promo/.test(words)) return true;
-    return !!(el.closest && el.closest('[role="search"]'));
-  }
-  function nameBox(el) {
-    if (!texty(el) || aside(el)) return false;
-    var scope = el.form || (el.closest && el.closest('form')) || document;
-    var all = scope.querySelectorAll('input'), others = 0;
-    for (var i = 0; i < all.length; i++) {
-      if (all[i] !== el && texty(all[i]) && !aside(all[i])) others++;
-    }
-    if (/(^|\s)(username|email)(\s|$)/i.test(el.getAttribute('autocomplete') || '')) return others <= 1;
-    return others === 0 &&
-      !!scope.querySelector('button, input[type="submit"], input[type="image"], [role="button"]');
-  }
-  // The name box of a first step, if this page is one: the box the
-  // caret is in, or else the one box on the page that is. A page with
-  // more than a handful of boxes to type in is not a first step.
-  function named() {
-    if (pair()) return null;
-    var el = document.activeElement;
-    if (nameBox(el)) return el;
-    var all = document.querySelectorAll('input'), seen = [];
-    for (var i = 0; i < all.length; i++) {
-      if (texty(all[i]) && !aside(all[i])) seen.push(all[i]);
-      if (seen.length > 6) return null;
-    }
-    for (var j = 0; j < seen.length; j++) { if (nameBox(seen[j])) return seen[j]; }
-    return null;
-  }
-
-  function put(box, value) {
-    if (!box) return;
-    var setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype, 'value'
-    );
-    if (setter && setter.set) { setter.set.call(box, value); } else { box.value = value; }
-    box.dispatchEvent(new Event('input', { bubbles: true }));
-    box.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
   // What was typed by hand and not yet sent, box by box. A page whose
   // boxes still hold it is not put to sleep: waking it couldn't bring
   // that back. A box emptied by sending — a chat's composer — no longer
@@ -108,106 +31,7 @@
     return false;
   }
 
-  window.__officeForms = {
-    unsaved: unsaved,
-    fill: function (user, password) {
-      var both = pair();
-      if (!both) return false;
-      if (both.user && !both.user.value) put(both.user, user);
-      put(both.pass, password);
-      return true;
-    },
-    // The name alone, into a first step's box: there is no password
-    // box yet, and none is filled anywhere.
-    name: function (user) {
-      var box = named();
-      if (!box) return false;
-      put(box, user);
-      return true;
-    },
-    // Whether there is still a sign-in on the page. Asked after a
-    // password went out, to tell a sign-in that took from one refused.
-    hasPassword: function () { return !!pair(); }
-  };
-
-  // What is in the boxes when they are sent. Said every time — a click
-  // on "show password" says it too — because the browser only listens
-  // once the page has moved on, and keeps the last thing it heard.
-  //
-  // A first step says the name it is sending: the page after it asks
-  // for the password alone, and the name is what the browser saves it
-  // under.
-  function offer() {
-    var both = pair();
-    if (!both) {
-      var box = named();
-      var name = box ? box.value.trim() : '';
-      if (name) window.webkit.messageHandlers.officeForms.postMessage({ kind: 'name', user: name });
-      return;
-    }
-    if (!both.pass.value) return;
-    window.webkit.messageHandlers.officeForms.postMessage({
-      kind: 'submit',
-      user: both.user ? both.user.value : '',
-      password: both.pass.value
-    });
-  }
-
-  // A person's submit, Return or click only: a page that makes up its own
-  // (dispatchEvent) with a password it set itself would be offered for
-  // saving under whatever site the tab is on by the time it is asked.
-  document.addEventListener('submit', function (e) { if (e.isTrusted) offer(); }, true);
-  document.addEventListener('keydown', function (e) {
-    if (!e.isTrusted || e.key !== 'Enter') return;
-    var both = pair();
-    if (both && (document.activeElement === both.pass || document.activeElement === both.user)) offer();
-    else if (!both && nameBox(document.activeElement)) offer();
-  }, true);
-  // Plenty of sign-in buttons aren't in a form and never fire submit.
-  document.addEventListener('click', function (e) {
-    if (!e.isTrusted) return;
-    var el = e.target;
-    if (!el || !el.closest) return;
-    if (el.closest('button, input[type="submit"], [role="button"]')) {
-      setTimeout(offer, 0);
-    }
-  }, true);
-
-  var told = false;
-  function tell() {
-    if (told || !pair()) return;
-    told = true;
-    window.webkit.messageHandlers.officeForms.postMessage({ kind: 'form' });
-  }
-  if (document.readyState === 'complete') { tell(); }
-  else { window.addEventListener('load', tell); }
-  // A form the page builds for itself, a moment after it loads — or the
-  // password step of a sign-in that asks for the name first.
-  setTimeout(tell, 700);
-  setTimeout(tell, 2200);
-  // The boxes going away without a new page — a sign-in done in place —
-  // is the other way a sign-in shows it took.
-  //
-  // Looked at a quarter of a second after the page changes, not at every
-  // change: a chat writing out its answer changes the page on every word,
-  // and looking for the boxes each time — through the whole page — made
-  // a long conversation slower with every word it wrote (3,000 words:
-  // 0.3 s without this, up to 3.7 s with it, and climbing).
-  var settling = null, looking = null;
-  function look() {
-    looking = null;
-    if (!told) { tell(); return; }
-    if (pair()) return;
-    told = false;
-    clearTimeout(settling);
-    settling = setTimeout(function () {
-      if (pair()) return;
-      window.webkit.messageHandlers.officeForms.postMessage({ kind: 'settled' });
-    }, 400);
-  }
-  new MutationObserver(function () {
-    if (!looking) looking = setTimeout(look, 250);
-  }).observe(document.documentElement, { childList: true, subtree: true });
+  window.__officeForms = { unsaved: unsaved };
 
   // Whether the caret is somewhere on the page that takes typing.
   //
@@ -242,35 +66,25 @@
   }
   function caret(scrolled) {
     var el = document.activeElement;
-    // The boxes are only looked for with the caret in one: this runs on
-    // every frame of every scroll, and looking goes through the whole page.
-    var both = el && (el.tagName || '').toLowerCase() === 'input' ? pair() : null;
     var rect = null;
-    var passwords = !!(both && el && (el === both.user || el === both.pass));
-    // A first step's name box: the accounts hang from it as from a
-    // name box beside a password, and a pick puts in the name alone.
-    var name = !both && !!el && (el.tagName || '').toLowerCase() === 'input' && nameBox(el);
-    if (name) passwords = true;
-    if (passwords || forPasskeys(el)) {
+    if (forPasskeys(el)) {
       var r = el.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) rect = { x: r.left, y: r.top, w: r.width, h: r.height };
     }
     var typing = editable(el);
-    var now = typing + (rect ? ' ' + passwords + ' ' + name + ' ' + rect.x + ' ' + rect.y + ' ' + rect.w + ' ' + rect.h : '');
+    var now = typing + (rect ? ' ' + rect.x + ' ' + rect.y + ' ' + rect.w + ' ' + rect.h : '');
     if (scrolled === true && now === said) return;
     said = now;
     window.webkit.messageHandlers.officeForms.postMessage({
       kind: 'focus',
       typing: typing,
-      rect: rect,
-      passwords: passwords,
-      name: name
+      rect: rect
     });
   }
 
   // The box moves when the page scrolls or the window changes size, and
   // whatever hangs from it has to move too. Once a frame at most, and
-  // only when something did change: with the caret nowhere near a sign-in,
+  // only when something did change: with the caret nowhere near a passkey box,
   // every frame of every scroll used to send the same answer again.
   var moving = false;
   function moved() {

@@ -175,7 +175,7 @@ extension ContentView {
         return !browser.reviewing && !browser.bookmarksOpen &&
             !browser.veiling && !browser.summoning && !browser.makingSpace &&
             browser.peekTab == nil && browser.editingTab == nil &&
-            browser.asking == nil && browser.offering == nil && browser.suggesting == nil
+            browser.asking == nil && browser.suggesting == nil
     }
 
     /// The keys of the top row, by where they sit rather than what they type.

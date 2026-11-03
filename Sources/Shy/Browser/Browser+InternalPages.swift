@@ -27,7 +27,6 @@ extension Browser {
             tuning = true
             return active
         }
-        if page.kind == .passwords { relist() }
         if page.kind == .history, pageTab(.history) == nil { recallMode = .history }
         let tab: Tab
         if let open = pageTab(page.kind) {
@@ -58,8 +57,8 @@ extension Browser {
         return tab
     }
 
-    /// From one of these pages to another — Settings' "Passwords…", Bring
-    /// Things Over's "Show bookmarks": the same tab goes there, and Back
+    /// From one of these pages to another — Bring Things Over's "Show
+    /// bookmarks": the same tab goes there, and Back
     /// comes back, as a link would. Unless that page is already open in a
     /// tab of its own, which is then the one shown.
     func lead(to page: InternalPage) {

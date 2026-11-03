@@ -22,7 +22,6 @@ import split_view as sv  # noqa: E402
 
 sv.use("security")
 
-CODE = "SECRET42"
 
 
 class H(BaseHTTPRequestHandler):
@@ -31,16 +30,7 @@ class H(BaseHTTPRequestHandler):
         url = urlparse(self.path); page = url.path; q = parse_qs(url.query)
         headers = []
         seen.append(self.path)
-        if page == "/login":
-            body = """<form id=f><input id=code type=password autocomplete=current-password autofocus><button>Sign in</button></form>
-<script>document.getElementById('f').addEventListener('submit', async e => { e.preventDefault();
-  await fetch('/api/login', {method: 'POST', body: document.getElementById('code').value}); document.body.innerHTML = '<h1>Signed in</h1>'; });</script>"""
-        elif page == "/box":
-            # A sign-in box filling its whole frame, so a click on the frame lands in it.
-            body = "<input id=code type=password autocomplete=current-password style='position:fixed;inset:0;width:100%;height:100%'>"
-        elif page == "/framer":
-            body = f"<iframe id=go src='http://127.0.0.1:{q['port'][0]}/box' style='width:400px;height:200px;border:0'></iframe>"
-        elif page == "/top":
+        if page == "/top":
             body = f"<script>addEventListener('message', e => window.got = e.data)</script><iframe src='http://localhost:{port}/set'></iframe>"
         elif page == "/set":
             body, headers = "<script>location = '/check'</script>", [("Set-Cookie", "framed=1; Path=/")]
@@ -87,7 +77,6 @@ def open_page(url, **f):
     id = sv.cmd({"do": "open", "url": url, **f})["id"]
     sv.cmd({"do": "wait", "id": id}); time.sleep(0.6)
     return id
-def acc(**f): return sv.cmd({"do": "accounts", **f})
 def opened(name): return [x for x in sv.cmd({"do": "tabs"})["tabs"] if urlparse(x["url"]).path == f"/opened-{name}"]
 def text(id, selector): return sv.ev(id, f"(document.querySelector('{selector}') || {{}}).textContent || ''") or ""
 
@@ -150,26 +139,6 @@ def front(url):
     id = sv.sp("open", url=url)["resultID"]
     sv.sp("select", id=id); time.sleep(1.2)
     return id
-
-
-def passwords(t):
-    acc(forget=True)
-    a = front(f"{SITE}/login")
-    sv.ev(a, "var b = document.getElementById('code'); b.focus();"
-             "Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(b, '%s');"
-             "b.dispatchEvent(new Event('input', {bubbles: true})); document.querySelector('button').click(); true" % CODE)
-    time.sleep(3); acc(keep=True)
-    t.ok("a password is kept for 127.0.0.1", acc().get("kept") == 1)
-    front(f"{SITE}/login")
-    t.ok("its own site's sign-in box offers it", acc().get("shown") is True)
-    front(f"{OTHER}/login")
-    r = acc()
-    t.ok("another site's sign-in box is offered nothing", not r.get("rows"), r)
-    framer = front(f"{OTHER}/framer?port={PORT}")
-    sv.cmd({"do": "tap", "id": framer, "selector": "#go"}); time.sleep(0.8)
-    t.ok("(control) the click landed in the framed box", sv.ev(framer, "document.activeElement.tagName") == "IFRAME")
-    r = acc()
-    t.ok("its sign-in box framed in another site is offered nothing", not r.get("rows"), r)
 
 
 def profiles(t):
@@ -245,12 +214,9 @@ def main():
         cookies(t)
         private_tabs(t)
         popups(t)
-        passwords(t)
         profiles(t)
         developer(t)
     finally:
-        try: acc(forget=True)
-        except Exception: pass
         srv.shutdown(); srv.server_close()
         t.done(); sv.finish()
     sys.exit(1 if t.failed else 0)

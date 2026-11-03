@@ -62,7 +62,7 @@ final class ImportFileTests: XCTestCase {
         try writeBookmark("Deep", url: "https://deep.example/", to: deepFolder.appendingPathComponent("too-deep.html"))
         try writeBookmark("Hidden", url: "https://hidden.example/", to: root.appendingPathComponent(".hidden.html"))
         try writeBookmark("Hidden folder", url: "https://hidden-folder.example/", to: hiddenFolder.appendingPathComponent("hidden.html"))
-        let unreadable = root.appendingPathComponent("unreadable.csv")
+        let unreadable = root.appendingPathComponent("unreadable.html")
         try "unreadable fixture".write(to: unreadable, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: unreadable.path)
         let canReadUnreadable: Bool
@@ -85,7 +85,7 @@ final class ImportFileTests: XCTestCase {
         XCTAssertEqual(first.bookmarks.map(\.title), expected)
         XCTAssertEqual(second.bookmarks.map(\.title), expected)
         if !canReadUnreadable {
-            XCTAssertTrue(first.passwords.isEmpty, "an unreadable folder member must not discard the valid bookmarks or become a password file")
+            XCTAssertEqual(first.bookmarks.count, expected.count, "an unreadable folder member must not discard the valid bookmarks")
         }
     }
 
@@ -104,9 +104,9 @@ final class ImportFileTests: XCTestCase {
             control.report(.init(message: "Reading file", completed: count, total: 100_000))
         }
         Thread.sleep(forTimeInterval: 0.12)
-        control.report(.init(message: "Saving passwords", completed: 0, total: 3))
+        control.report(.init(message: "Adding history", completed: 0, total: 3))
         Thread.sleep(forTimeInterval: 0.12)
-        control.report(.init(message: "Saving passwords", completed: 3, total: 3))
+        control.report(.init(message: "Adding history", completed: 3, total: 3))
 
         lock.lock()
         let captured = updates
@@ -114,7 +114,7 @@ final class ImportFileTests: XCTestCase {
         let elapsed = ProcessInfo.processInfo.systemUptime - started
         XCTAssertLessThanOrEqual(captured.count, Int(elapsed / 0.1) + 1)
         XCTAssertEqual(captured.first?.completed, 0)
-        let savingStage = captured.first { $0.message == "Saving passwords" }
+        let savingStage = captured.first { $0.message == "Adding history" }
         XCTAssertEqual(savingStage?.completed, 0, "a new phase should reset its displayed count")
         XCTAssertEqual(captured.last?.completed, 3)
         XCTAssertEqual(captured.last?.total, 3)
@@ -160,34 +160,17 @@ final class ImportFileTests: XCTestCase {
         XCTAssertLessThan(progressThrough, (html as NSString).length)
     }
 
-    func testPasswordCSVPrecancelAndProgressNeverContainsItsContents() throws {
+    func testPasswordCSVIsLeftAlone() throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let file = root.appendingPathComponent("passwords.csv")
         let secret = "private-test-password-91c"
-        let csv = "url,username,password\nhttps://example.com,alice,\(secret)\n"
-        try csv.write(to: file, atomically: true, encoding: .utf8)
-        let cancelled = ImportFile.Control()
-        cancelled.cancel()
-        XCTAssertThrowsError(try ImportFile.read(file, control: cancelled)) { error in
-            XCTAssertTrue(error is CancellationError)
-        }
+        try "url,username,password\nhttps://example.com,alice,\(secret)\n".write(to: file, atomically: true, encoding: .utf8)
 
         var updates: [ImportFile.Progress] = []
         let control = ImportFile.Control { updates.append($0) }
-        let imported = try ImportFile.read(file, control: control)
-        XCTAssertEqual(imported.passwords, [csv])
-        XCTAssertTrue(updates.contains { $0.message == "passwords.csv: Reading CSV" })
-        XCTAssertTrue(updates.allSatisfy { !$0.message.contains(secret) })
-        XCTAssertTrue(updates.contains { $0.total != nil })
-
-        updates.removeAll()
-        let safeToSkip = "url,username,password\n,alice,\(secret)\n"
-        let vaultControl = ImportFile.Control { updates.append($0) }
-        let result = Vault.take(csv: safeToSkip, control: vaultControl, in: Profile.personalID)
-        XCTAssertEqual(result.kept, 0)
-        XCTAssertEqual(result.skipped, 1)
-        XCTAssertTrue(updates.contains { $0.message == "Reading password CSV…" })
+        let imported = try ImportFile.read(root, control: control)
+        XCTAssertTrue(imported.isEmpty)
         XCTAssertTrue(updates.allSatisfy { !$0.message.contains(secret) })
     }
 

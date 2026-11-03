@@ -37,7 +37,6 @@ extension Bench {
             // app, and every window the app owns.
             var out: [String: Any] = [
                 "settings": browser.tuning,
-                "passwords": browser.managing,
                 // A question hanging from the window (Ask), still unanswered.
                 "sheet": browser.window?.attachedSheet != nil,
                 // The button of that question that Return presses.
@@ -52,7 +51,6 @@ extension Bench {
                 "bookmarkCount": browser.bookmarks.count,
                 "field": browser.editing,
                 "suggesting": browser.suggesting != nil,
-                "offering": browser.offering != nil,
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
                 // Developer Mode, and whether its bar is on screen.

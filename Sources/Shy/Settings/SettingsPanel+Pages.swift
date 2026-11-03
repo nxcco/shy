@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The pages of Settings after General: agents, tabs, passwords, downloads, privacy, about.
+// The pages of Settings after General: agents, tabs, downloads, privacy, about.
 extension SettingsPanel {
     /// What may drive Shy from outside it: AI agents, through shy-mcp
     /// (Agent.swift), and what each of its calls may do; and the bench.
@@ -166,57 +166,6 @@ extension SettingsPanel {
         }
     }
 
-    /// Says so when a password manager extension has taken the saving over.
-    private var savingDetail: String {
-        if #available(macOS 15.4, *), let name = Extensions.shared.passwordSavingTakenBy {
-            return "\(name) does the saving — it asked Shy not to offer"
-        }
-        return "Once per site, never again where you say no"
-    }
-
-    var passwords: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Card {
-                Line("Saved passwords", "Kept in the macOS keychain, opened with Touch ID") {
-                    Pill("Open…") { browser.lead(to: InternalPage(.passwords)) }
-                }
-                Rule()
-                Line("Offer to save passwords", savingDetail) {
-                    Switch(on: $prefs.savesPasswords)
-                }
-                Rule()
-                Line("Autofill sign-ins") {
-                    Switch(on: $prefs.fillsPasswords)
-                }
-                Rule()
-                Line(
-                    "Offer passkeys",
-                    !prefs.passkeysPossible
-                        ? "Needs an Apple entitlement this build doesn't have — off keeps sites to the password"
-                        : Passkeys.access == .denied
-                        ? "macOS was told no — System Settings › Privacy & Security › Passkeys Access for Web Browsers"
-                        : "Touch ID or iCloud Keychain, where sites support them"
-                ) {
-                    Switch(on: $prefs.passkeys)
-                }
-                if !Vault.never(in: browser.profileID).isEmpty {
-                    Rule()
-                    Line("Sites you told never to save", Vault.never(in: browser.profileID).count == 1 ? "1 site" : "\(Vault.never(in: browser.profileID).count) sites") {
-                        Pill("Forget") {
-                            Vault.setNever([], in: browser.profileID)
-                            browser.announce("Every site can ask again")
-                        }
-                    }
-                }
-            }
-            Card {
-                Line("Import passwords", "From another browser on this Mac") {
-                    Pill("Import…") { browser.importFile() }
-                }
-            }
-        }
-    }
-
     var downloads: some View {
         Card {
             Line("Save to", prefs.downloads.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) {
@@ -261,6 +210,18 @@ extension SettingsPanel {
                 Rule()
                 Line("Prevent cross-site tracking", "As in Safari. Off, rarely visited sites stay signed in, but trackers can follow you") {
                     Switch(on: Binding(get: { !prefs.keepsSignIns }, set: { prefs.keepsSignIns = !$0 }))
+                }
+            }
+            group("Sign-in") {
+                Line(
+                    "Offer passkeys",
+                    !prefs.passkeysPossible
+                        ? "Needs an Apple entitlement this build doesn't have — off keeps sites to the password"
+                        : Passkeys.access == .denied
+                        ? "macOS was told no — System Settings › Privacy & Security › Passkeys Access for Web Browsers"
+                        : "Touch ID or iCloud Keychain, where sites support them"
+                ) {
+                    Switch(on: $prefs.passkeys)
                 }
             }
             group("Site permissions") {

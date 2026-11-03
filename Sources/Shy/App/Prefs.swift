@@ -307,14 +307,6 @@ final class Preferences: ObservableObject {
     @Published var asksWhereToSave: Bool {
         didSet { store.set(asksWhereToSave, forKey: "downloads.ask") }
     }
-    /// Offer to keep a password the first time a site sees it.
-    @Published var savesPasswords: Bool {
-        didSet { store.set(savesPasswords, forKey: "passwords.save") }
-    }
-    /// Put a kept name and password into a sign-in as soon as one appears.
-    @Published var fillsPasswords: Bool {
-        didSet { store.set(fillsPasswords, forKey: "passwords.fill") }
-    }
     /// macOS's own autocorrect, inside web pages: the little "Not ×" that
     /// capitalises what you meant to leave lower-case. As the Mac has it
     /// (System Settings › Keyboard › Correct spelling automatically) until
@@ -503,8 +495,6 @@ final class Preferences: ObservableObject {
             : (store.string(forKey: "downloads")).map { URL(fileURLWithPath: $0) }
                 ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         asksWhereToSave = store.bool(forKey: "downloads.ask")
-        savesPasswords = store.object(forKey: "passwords.save") as? Bool ?? true
-        fillsPasswords = store.object(forKey: "passwords.fill") as? Bool ?? true
         floatingNewTab = store.bool(forKey: "newtab.floating")
         floatWhen = FloatWhen.chosen(store)
         panelSite = store.string(forKey: "panel.site") ?? ""

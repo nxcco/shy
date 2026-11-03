@@ -3,16 +3,15 @@ import SwiftUI
 import WebKit
 
 // Profiles, as in Arc: a profile holds the sign-ins and site data, the
-// history, the bookmarks and the passwords, and each space belongs to one.
+// history and the bookmarks, and each space belongs to one.
 // Going to a space is going to its profile, in the same window: the tabs
 // there are signed in as the profile is, the address field offers its
-// history, the bookmarks are its own, and a password saved or filled in is
-// its own. Several spaces can share a profile — Work and Work Research,
+// history, and the bookmarks are its own. Several spaces can share a profile — Work and Work Research,
 // both signed in to the same mail.
 //
 // There is always one, "Personal": everything there was before profiles,
-// left where it was — the same store, history.json, bookmarks.json and
-// keychain items — so nobody's data moves, and every space is in it until
+// left where it was — the same store, history.json and bookmarks.json —
+// so nobody's data moves, and every space is in it until
 // it is given another. A space with sign-ins of its own from before keeps
 // them, inside whichever profile it is in.
 //
@@ -190,8 +189,8 @@ final class Profiles: ObservableObject {
     }
 
     /// A profile and all it holds, gone: its spaces close with their tabs,
-    /// and its cookies, sign-ins, site data, history, bookmarks and
-    /// passwords are erased from this Mac. Personal stays, and so does the
+    /// and its cookies, sign-ins, site data, history and bookmarks are
+    /// erased from this Mac. Personal stays, and so does the
     /// first space, which can't be deleted: it comes back to Personal,
     /// signed out. `browser`: the window whose spaces go.
     func delete(_ id: UUID, from browser: Browser) {
@@ -250,7 +249,6 @@ final class Profiles: ObservableObject {
         }
         // And any copy of them once set aside as unreadable.
         Store.forgetUnreadable { $0.contains(id.uuidString) }
-        Vault.forgetAll(in: id)
         // What it remembered about sites, its camera, microphone, screen,
         // location and notification answers among them.
         SiteMemory.forget(id)
@@ -267,13 +265,13 @@ struct ProfilesPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Each profile keeps its own sign-ins, history, bookmarks and passwords. Right-click a space to rename it, move it to another profile or delete it.")
+                Text("Each profile keeps its own sign-ins, history and bookmarks. Right-click a space to rename it, move it to another profile or delete it.")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 Pill("New Profile…") {
-                    Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
+                    Ask.name("New Profile", detail: "Signed out of everything, with no history or bookmarks.",
                              placeholder: "Work", confirm: "Create") { profiles.add(named: $0) }
                 }
             }
@@ -381,7 +379,7 @@ struct ProfilesPage: View {
     private func askDelete(_ profile: Profile, spaces: [Space]) {
         let going = spaces.filter { !$0.isFirst }
         let named = going.map { "“\($0.name)”" }.joined(separator: ", ")
-        let erased = "cookies, sign-ins, history, bookmarks and passwords are erased from this Mac. This can't be undone."
+        let erased = "cookies, sign-ins, history and bookmarks are erased from this Mac. This can't be undone."
         var detail = going.isEmpty ? "Its " + erased
             : (going.count == 1 ? "Its space \(named) closes" : "Its spaces \(named) close") + " with their tabs, and its " + erased
         if spaces.contains(where: \.isFirst) {

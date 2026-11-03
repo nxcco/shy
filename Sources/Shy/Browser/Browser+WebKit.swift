@@ -258,7 +258,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         let top = onScreen?.host()?.lowercased() ?? ""
         let asker = source?.securityOrigin.host.lowercased() ?? ""
         let ownSite = source?.isMainFrame == true
-            || (!top.isEmpty && !asker.isEmpty && Vault.registrable(asker) == Vault.registrable(top))
+            || (!top.isEmpty && !asker.isEmpty && Registrable.of(asker) == Registrable.of(top))
         // No target frame is a new window asked for: the frame asking is
         // judged, as for any other frame.
         guard action.targetFrame?.isMainFrame ?? false || clicked || ownSite else {
@@ -940,8 +940,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             look(forward: true)
         }
         tellStore(tab)
-        // A page that arrived after a password went out: did the sign-in take?
-        tab.settleSignIn()
         // A page in a language you always translate, or one that slept
         // translated (Translate.swift). Nothing at all while it's off.
         tab.translateIfWanted()

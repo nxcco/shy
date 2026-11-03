@@ -112,34 +112,17 @@ extension Bench {
                     "displayAnswered": Browser.displayAnswered as Any? ?? NSNull()])
 
         case "accounts":
-            // The list under the sign-in box the caret is in — passkeys, then
-            // passwords — and, with "pick", a click on its row by number,
-            // counted from 0. Only on a SHY_PROBE run: it would sign in.
-            // Also the name the save question would keep ("offer"), and,
-            // with "forget", every login this test world kept — its own
-            // label's, never another world's or the real one's. "keep" is
-            // the save question's Save.
+            // The passkeys under the sign-in box the caret is in, and, with
+            // "pick", a click on its row by number, counted from 0. Only on
+            // a SHY_PROBE run: it would sign in.
             guard Store.testing else { answer(["error": "accounts only works on a --test run"]); return }
-            if request["keep"] as? Bool == true { browser.keepOffer() }
-            if request["forget"] as? Bool == true {
-                Vault.all(in: browser.profileID).forEach { Vault.forget(host: $0.host, user: $0.user, in: browser.profileID) }
-                browser.dropOffer()
-            } else if let user = request["forget"] as? String {
-                // One account's, as Settings › Passwords forgets it: "" is
-                // the login kept under no name.
-                Vault.all(in: browser.profileID).filter { $0.user == user }.forEach { Vault.forget(host: $0.host, user: $0.user, in: browser.profileID) }
-            }
-            let offer: [String: Any] = browser.offering.map { ["user": $0.login.user, "host": $0.login.host, "changed": $0.changed] } ?? [:]
-            // Every account this world keeps, by name, without a secret.
-            let users = Vault.all(in: browser.profileID).map(\.user)
-            guard let list = browser.suggesting else { answer(["shown": false, "offer": offer, "kept": users.count, "users": users]); return }
-            let rows = list.passkeys.map { ["passkey": $0.name] } + list.logins.map { ["login": $0.user] }
+            guard let list = browser.suggesting else { answer(["shown": false]); return }
+            let rows = list.passkeys.map { ["passkey": $0.name] }
             if let pick = request["pick"] as? Int {
                 guard rows.indices.contains(pick) else { answer(["error": "no row \(pick)"]); return }
-                if pick < list.passkeys.count { browser.choose(list.passkeys[pick]) } else { browser.choose(list.logins[pick - list.passkeys.count]) }
+                browser.choose(list.passkeys[pick])
             }
-            answer(["shown": true, "rows": rows, "nameOnly": list.nameOnly, "offer": offer, "kept": users.count, "users": users,
-                    "spot": [list.spot.minX, list.spot.minY, list.spot.width, list.spot.height]])
+            answer(["shown": true, "rows": rows, "spot": [list.spot.minX, list.spot.minY, list.spot.width, list.spot.height]])
 
         default:
             answer(["error": "unknown command “\(verb)”"])

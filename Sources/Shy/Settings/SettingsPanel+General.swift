@@ -30,7 +30,7 @@ extension SettingsPanel {
                 Rule()
                 // What another browser exported, now or any time later: the same
                 // sheet as File › Bring In a File….
-                Line("Import from a file", "Bookmarks (HTML), passwords (CSV) or a Safari export (ZIP)") {
+                Line("Import from a file", "Bookmarks (HTML) or a Safari export (ZIP)") {
                     Pill("Import…") { browser.importFile() }
                 }
                 Rule()

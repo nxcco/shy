@@ -246,8 +246,8 @@ struct NewSpaceCard: View {
     @State private var name = ""
     @State private var icon = "briefcase"
     @State private var choosing = false
-    /// The profile it is in: signed in, and keeping history, bookmarks and
-    /// passwords, as that profile does.
+    /// The profile it is in: signed in, and keeping history and bookmarks,
+    /// as that profile does.
     @State private var profile = Profile.personalID
     @ObservedObject private var profiles = Profiles.shared
     @State private var hovering = false
@@ -259,7 +259,7 @@ struct NewSpaceCard: View {
             get: { profile },
             set: { picked in
                 guard picked == ProfileChoice.making else { return profile = picked }
-                Ask.name("New Profile", detail: "Signed out of everything, with no history, bookmarks or passwords.",
+                Ask.name("New Profile", detail: "Signed out of everything, with no history or bookmarks.",
                          placeholder: "Work", confirm: "Create") { profile = profiles.add(named: $0).id }
             }
         )) {
@@ -270,7 +270,7 @@ struct NewSpaceCard: View {
         .labelsHidden()
         .pickerStyle(.menu)
         .fixedSize()
-        .help("The profile it signs in as, and keeps its history, bookmarks and passwords in")
+        .help("The profile it signs in as, and keeps its history and bookmarks in")
     }
 
     var body: some View {

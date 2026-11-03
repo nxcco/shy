@@ -15,7 +15,6 @@ extension Bench {
             // Open or close the app's own panels, to reproduce what a person
             // did without a person.
             if let on = request["settings"] as? Bool { browser.tuning = on }
-            if let on = request["passwords"] as? Bool, Store.testing { browser.managing = on }
             if let on = request["history"] as? Bool { browser.recalling = on }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }

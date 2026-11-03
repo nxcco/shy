@@ -89,13 +89,13 @@ id=$(./bench --test open https://example.com)
 
 ## Chrome
 
-`probe` prints the window as JSON: panels (`settings`, `welcome`, `passwords`, `history`, `downloads`, `bookmarks`), whether the address field is open, modal title, `look`, `appearance`, the key window, every window's frame, and traffic-light positions. It also reports `sidebar`, `sidePosition` (`left` or `right`), `sideWidth`, and `activePageFrame` (`x`, `y`, `width`, `height` in points from the window's top-left) when the active page is in the main window. Use it for chrome. `shot` cannot see chrome.
+`probe` prints the window as JSON: panels (`settings`, `welcome`, `history`, `downloads`, `bookmarks`), whether the address field is open, modal title, `look`, `appearance`, the key window, every window's frame, and traffic-light positions. It also reports `sidebar`, `sidePosition` (`left` or `right`), `sideWidth`, and `activePageFrame` (`x`, `y`, `width`, `height` in points from the window's top-left) when the active page is in the main window. Use it for chrome. `shot` cannot see chrome.
 
 `ui KEY VALUE` changes chrome and answers `{"ok": true}`. On a test world unless they asked for it on theirs.
 
 | Key | Value |
 |---|---|
-| `settings` `passwords` `welcome` `history` `downloads` `bookmarks` `hidden` `sidebar` `extensions` | `on` or `off` |
+| `settings` `welcome` `history` `downloads` `bookmarks` `hidden` `sidebar` `extensions` | `on` or `off` |
 | `side` | `left` or `right` |
 | `look` | `light`, `dark`, or `system` |
 
