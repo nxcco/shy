@@ -81,10 +81,15 @@ final class ExtensionUpdateTests: XCTestCase {
                              version: "1", enabled: false, fromStore: true, permissions: [])
         let started = expectation(description: "First update requested")
         let response = UpdateResponse()
-        URLProtocol.registerClass(UpdateProtocol.self)
+        // The store is asked through Crx.session, which a registered
+        // protocol doesn't reach: answered here instead.
+        let kept = Crx.session
+        let answering = Crx.cookieFree()
+        answering.protocolClasses = [UpdateProtocol.self]
+        Crx.session = URLSession(configuration: answering)
         UpdateProtocol.response = response
         defer {
-            URLProtocol.unregisterClass(UpdateProtocol.self)
+            Crx.session = kept
             UpdateProtocol.response = nil
         }
         response.started = started

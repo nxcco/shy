@@ -95,10 +95,31 @@ enum Crx {
         return parts.url!
     }
 
+    /// The store's packages and its answers about updates, fetched with no
+    /// cookies at all. URLSession.shared keeps its cookies in this app's
+    /// own jar, ~/Library/HTTPStorages/io.github.nxcco.shy.binarycookies —
+    /// the very file WebKit's network process keeps Personal's sign-ins in.
+    /// Two processes then wrote one file, each its own copy, and the older
+    /// copy won now and then: YouTube's "Reject all" never stayed, and a
+    /// Google sign-in went with it. Nothing here needs a cookie: the update
+    /// address is public, and its downloads are signed (see `verify`).
+    /// A var only so a test can answer for the store (protocolClasses).
+    static var session = URLSession(configuration: cookieFree())
+
+    static func cookieFree() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
+        configuration.urlCache = nil
+        return configuration
+    }
+
     static func fetch(_ id: String) async throws -> Data {
         var request = URLRequest(url: downloadURL(for: id))
         request.timeoutInterval = 60
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw Refused.download(http.statusCode)
         }
