@@ -94,6 +94,35 @@ final class BoundaryTests: XCTestCase {
         XCTAssertNil(Crx.id(in: String(repeating: "z", count: 32)), "letters past p")
     }
 
+    /// The app's own cookie jar is the file Personal's sign-ins live in,
+    /// written by WebKit's network process. Anything in Shy's own process
+    /// that reaches for that jar writes the same file from an older copy,
+    /// and a sign-in or a cookie choice disappears.
+    func testShysOwnProcessNeverWritesThePersonalCookieJar() throws {
+        let configuration = Crx.session.configuration
+        XCTAssertNil(configuration.httpCookieStorage)
+        XCTAssertFalse(configuration.httpShouldSetCookies)
+        XCTAssertEqual(configuration.httpCookieAcceptPolicy, .never)
+
+        let sources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let files = try XCTUnwrap(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
+        var offenders: [String] = []
+        for case let file as URL in files where file.pathExtension == "swift" {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for (number, line) in text.components(separatedBy: "\n").enumerated() {
+                let code = line.trimmingCharacters(in: .whitespaces)
+                guard !code.hasPrefix("//") else { continue }
+                if code.contains("URLSession.shared") || code.contains("HTTPCookieStorage.shared")
+                    || code.contains("URLSessionConfiguration.default") {
+                    offenders.append("\(file.lastPathComponent):\(number + 1)")
+                }
+            }
+        }
+        XCTAssertEqual(offenders, [], "these share the jar Personal's cookies are kept in")
+    }
+
     func testAnUpdateOnlyEverGoesUp() {
         XCTAssertTrue(Extensions.newer("1.2.10", than: "1.2.9"))
         XCTAssertTrue(Extensions.newer("2", than: "1.9.9.9"))

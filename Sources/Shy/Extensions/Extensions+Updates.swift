@@ -37,7 +37,7 @@ extension Extensions {
             URLQueryItem(name: "x", value: "id=\(item.id)&v=\(item.version)&uc"),
         ]
         guard let url = parts.url,
-              let (data, _) = try? await URLSession.shared.data(from: url),
+              let (data, _) = try? await Crx.session.data(from: url),
               let xml = String(data: data, encoding: .utf8),
               // The answer is the <updatecheck> element alone: status="ok"
               // with a version when there is a newer one, "noupdate" when
