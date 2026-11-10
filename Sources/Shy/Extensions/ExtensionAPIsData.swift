@@ -31,7 +31,8 @@ extension ExtensionShims {
                 find(key, in: browser.bookmarks.roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
             }
         case "bookmarks.getRecent":
-            let count = (first as? Int) ?? 10
+            // Never below none: a negative count would stop the app.
+            let count = max(0, (first as? Int) ?? 10)
             return flat(browser.bookmarks.roots).filter { !$0.node.isFolder }.suffix(count).reversed()
                 .map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
         case "bookmarks.search":
@@ -83,7 +84,7 @@ extension ExtensionShims {
             let start = (spec["startTime"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
                 ?? Date().addingTimeInterval(-24 * 3600)
             let end = (spec["endTime"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) } ?? .distantFuture
-            let limit = spec["maxResults"] as? Int ?? 100
+            let limit = max(0, spec["maxResults"] as? Int ?? 100)
             return browser.history.everything(matching: text)
                 .filter { $0.last >= start && $0.last <= end }
                 .sorted { $0.last > $1.last }
@@ -137,18 +138,25 @@ extension ExtensionShims {
                 browser.namedDownloads[url] = (name as NSString).lastPathComponent
             }
             ExtensionShims.askedDownloads[url] = id
+            // The number the file will have in the list once it lands, which
+            // search, open and show then find it by.
+            let number = browser.loot.promise(url)
             let download = await web.startDownload(using: URLRequest(url: url))
             browser.keep(download)
-            return browser.loot.kept.count + 1
+            return number
         case "downloads.search":
-            return browser.loot.kept.enumerated().map { index, keep in
-                ["id": index + 1, "url": keep.url.absoluteString, "finalUrl": keep.url.absoluteString,
-                 "filename": keep.path, "state": "complete", "exists": keep.stillThere,
-                 "startTime": ISO8601DateFormatter().string(from: keep.date), "mime": ""] as [String: Any]
+            // This profile's own, by the number each keeps for good.
+            let wanted = (first as? [String: Any])?["id"] as? Int
+            return browser.loot.kept.filter { $0.seen(by: owner.profile) && (wanted == nil || $0.number == wanted) }.map { keep in
+                let address = keep.source?.absoluteString ?? keep.url.absoluteString
+                return ["id": keep.number, "url": address, "finalUrl": address,
+                        "filename": keep.path, "state": "complete", "exists": keep.stillThere,
+                        "startTime": ISO8601DateFormatter().string(from: keep.date), "mime": ""] as [String: Any]
             }
         case "downloads.open", "downloads.show":
-            guard let index = first as? Int, browser.loot.kept.indices.contains(index - 1) else { return nil }
-            let keep = browser.loot.kept[index - 1]
+            guard let number = first as? Int,
+                  let keep = browser.loot.kept.first(where: { $0.number == number && $0.seen(by: owner.profile) })
+            else { return nil }
             if api == "downloads.open" {
                 // As in Chrome, opening asks for its own permission; and only
                 // a file this extension downloaded itself, not any of yours.
@@ -210,7 +218,7 @@ extension ExtensionShims {
 
         // MARK: sessions — the tabs you closed
         case "sessions.getRecentlyClosed":
-            let limit = (first as? [String: Any])?["maxResults"] as? Int ?? 25
+            let limit = max(0, (first as? [String: Any])?["maxResults"] as? Int ?? 25)
             return browser.closedHere.reversed().prefix(limit).map { ghost in
                 ["lastModified": Int(Date().timeIntervalSince1970),
                  "tab": ["sessionId": ghost.id.uuidString, "url": ghost.url.absoluteString, "title": ghost.title,
@@ -250,8 +258,19 @@ extension ExtensionShims {
 
     /// chrome.browsingData, from what WebKit and Shy keep.
     static func clear(_ what: [String: Bool], options: [String: Any], browser: Browser) async throws {
-        let since = Date(timeIntervalSince1970: (options["since"] as? Double ?? 0) / 1000)
+        // A number however it came: a whole one from a page is no Double.
+        let after = (options["since"] as? NSNumber)?.doubleValue ?? 0
+        let since = Date(timeIntervalSince1970: after / 1000)
         let origins = (options["origins"] as? [String])?.compactMap { URL(string: $0)?.host() }
+        let excluded = (options["excludeOrigins"] as? [String])?.compactMap { URL(string: $0)?.host() }
+        // WebKit removes a site's data whole, with no date, or everything
+        // since a date, never both: asked for both, it is refused rather
+        // than taking more than the extension asked for.
+        if origins != nil || excluded != nil, after > 0 {
+            throw Unsupported(what: "Shy can't remove a site's data from a given time only: leave out since, or the origins")
+        }
+        // A site's record by its registrable domain, as WebKit keeps them.
+        let names = { (hosts: [String], record: String) in hosts.contains { $0 == record || $0.hasSuffix("." + record) } }
         var types = Set<String>()
         let map: [String: [String]] = [
             "cache": [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeFetchCache],
@@ -266,16 +285,26 @@ extension ExtensionShims {
         // from another profile and left that profile's own untouched.
         let store = await MainActor.run { Spaces.store(for: browser.spaceID) }
         if !types.isEmpty {
-            if let origins {
+            if origins != nil || excluded != nil {
                 let records = await store.dataRecords(ofTypes: types)
-                let hit = records.filter { record in origins.contains { $0 == record.displayName || $0.hasSuffix("." + record.displayName) } }
+                let hit = records.filter { record in
+                    origins.map { names($0, record.displayName) } ?? true
+                        && !(excluded.map { names($0, record.displayName) } ?? false)
+                }
                 await store.removeData(ofTypes: types, for: hit)
             } else {
                 await store.removeData(ofTypes: types, modifiedSince: since)
             }
         }
         if what["history"] == true, origins == nil {
-            for trace in browser.history.everything() where trace.last >= since { browser.history.forget(trace.key) }
+            // A page of a site left out stays, by the same rule, or under it.
+            let kept = { (host: String?) in
+                guard let host, let excluded else { return false }
+                return names(excluded, host) || excluded.contains { host.hasSuffix("." + $0) }
+            }
+            for trace in browser.history.everything() where trace.last >= since && !kept(trace.url.host()) {
+                browser.history.forget(trace.key)
+            }
         }
     }
 

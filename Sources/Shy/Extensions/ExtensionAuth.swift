@@ -289,8 +289,11 @@ enum ExtensionAuth {
     /// what it carries would be delivered as the flow's answer: only the
     /// tab the flow was started in may finish it, or a window that tab's
     /// page opened, since some providers finish the sign-in in a popup.
-    static func intercept(_ url: URL, browser: Browser, from webView: WKWebView) -> Bool {
-        guard url.scheme?.lowercased() == "https", let host = url.host()?.lowercased(), host.hasSuffix(".chromiumapp.org") else { return false }
+    /// And only that page itself: a frame inside it is often another site's
+    /// (an ad, a widget), which could otherwise finish the sign-in with a
+    /// token of its own.
+    static func intercept(_ url: URL, mainFrame: Bool, browser: Browser, from webView: WKWebView) -> Bool {
+        guard mainFrame, url.scheme?.lowercased() == "https", let host = url.host()?.lowercased(), host.hasSuffix(".chromiumapp.org") else { return false }
         let id = String(host.dropLast(".chromiumapp.org".count))
         guard let entry = waiting[id], let from = browser.tab(for: webView),
               from.id == entry.tab || from.opener == entry.tab

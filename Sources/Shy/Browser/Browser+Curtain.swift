@@ -7,7 +7,10 @@ extension Browser {
     /// What is hidden on sites, as the page in front's profile keeps it.
     var curtain: Curtain { Profiles.curtain(active?.profile ?? profileID) }
 
-    var hereHost: String? { curtain.host(of: active?.address) }
+    /// The page on screen's, not one it is only on its way to: a page could
+    /// otherwise send itself toward another site and have you hide things,
+    /// or bring them back, there.
+    var hereHost: String? { curtain.host(of: active?.pageAddress) }
 
     var hereVeils: [Veil] { curtain.veils(on: hereHost) }
 

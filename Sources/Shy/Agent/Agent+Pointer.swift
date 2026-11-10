@@ -100,23 +100,64 @@ extension Agent {
 
     /// Your clipboard as it was, whatever the page did with the click or
     /// keys it was given: a real click lets a page write to it, and an
-    /// agent's never should.
+    /// agent's never should. Kept once for a run of them, not once each: a
+    /// copy taken in the middle of the run could be the page's own write,
+    /// and putting that back would keep it.
     func sparing(_ page: Page, _ act: () -> Void) {
         let board = NSPasteboard.general
-        let before = board.changeCount
-        let kept: [NSPasteboardItem] = (board.pasteboardItems ?? []).map { item in
+        if spared == nil {
+            spared = Spared(kept: Agent.copy(of: board), seen: board.changeCount, until: .distantPast)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.watchClipboard() }
+        }
+        spared?.until = Date().addingTimeInterval(1.5)
+        spared?.page = page
+        act()
+    }
+
+    /// Looked at every tenth of a second while it may need putting back. A
+    /// change made while you were in another app, using it, is yours: it
+    /// stays, and is what is put back from then on. Any other is the page's.
+    private func watchClipboard() {
+        guard var spared else { return }
+        let board = NSPasteboard.general
+        if board.changeCount != spared.seen {
+            if Agent.yours {
+                spared.kept = Agent.copy(of: board)
+                spared.written = false
+            } else {
+                spared.written = true
+            }
+            spared.seen = board.changeCount
+        }
+        guard Date() >= spared.until else {
+            self.spared = spared
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.watchClipboard() }
+            return
+        }
+        self.spared = nil
+        guard spared.written else { return }
+        board.clearContents()
+        board.writeObjects(spared.kept)
+        spared.page?.note("The page wrote to your clipboard; it was put back")
+    }
+
+    /// Another app in front, and a key or click of yours just now: an
+    /// agent's clicks and keys go to its page alone, never through the
+    /// system, so they count for neither.
+    private static var yours: Bool {
+        guard !NSApp.isActive else { return false }
+        let key = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown)
+        let click = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .leftMouseUp)
+        return min(key, click) < 2
+    }
+
+    private static func copy(of board: NSPasteboard) -> [NSPasteboardItem] {
+        (board.pasteboardItems ?? []).map { item in
             let copy = NSPasteboardItem()
             for type in item.types {
                 if let data = item.data(forType: type) { copy.setData(data, forType: type) }
             }
             return copy
-        }
-        act()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            guard board.changeCount != before else { return }
-            board.clearContents()
-            board.writeObjects(kept)
-            page.note("The page wrote to your clipboard; it was put back")
         }
     }
 
@@ -131,6 +172,12 @@ extension Agent {
     func permit(_ page: Page, _ what: String, verb: String, at point: CGPoint?,
 
                         _ answer: @escaping ([String: Any]) -> Void, act: @escaping () -> Void) {
+        // Taken back but not yet gone: the page still holds the sign-in, and
+        // nothing is done on it until it doesn't.
+        guard !page.ending else {
+            page.note("Refused: \(what) (the sign-in was being removed)")
+            return answer(["error": "the sign-in is being taken back from this page; try again in a moment"])
+        }
         guard let handover = page.live else { return act() }
         guard handover.acts else {
             page.note("Refused: \(what) (read only)")

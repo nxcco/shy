@@ -183,6 +183,16 @@ extension Browser {
 
     /// Its window closed for good, with others open: every page let go.
     func closeAll() {
+        // Nothing of it is written or followed from here on, whoever still
+        // holds it: its empty row would go over the space's pins everywhere.
+        retired = true
+        usesFiles = false
+        bag = []
+        profileBag = []
+        dozing?.invalidate()
+        dozing = nil
+        pressure?.cancel()
+        pressure = nil
         cancelDisplay()
         cancelCapture()
         for questions in heldDialogs.values { questions.forEach { $0.dismiss() } }

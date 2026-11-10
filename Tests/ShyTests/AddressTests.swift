@@ -60,6 +60,26 @@ final class AddressTests: XCTestCase {
             XCTAssertNil(Address.file(from: text), text)
         }
     }
+
+    func testAnAddressInTheQueryIsNotAScheme() {
+        XCTAssertEqual(
+            Address.url(from: "example.com/login?next=https://app.example.com/cb")?.absoluteString,
+            "https://example.com/login?next=https://app.example.com/cb"
+        )
+        XCTAssertEqual(
+            Address.url(from: "localhost:3000/cb?r=http://x")?.absoluteString,
+            "http://localhost:3000/cb?r=http://x"
+        )
+        // A real scheme that isn't ours is still refused.
+        XCTAssertNil(Address.url(from: "ftp://example.com/file"))
+        XCTAssertNil(Address.url(from: "javascript://example.com/%0Aalert(1)"))
+    }
+
+    func testAKeywordAfterASpaceIsStillTheKeyword() {
+        let keywords = [Keyword(keyword: "yt", template: "https://www.youtube.com/results?search_query=%s")]
+        XCTAssertEqual(Keyword.match(" yt cats", in: keywords)?.1, "cats")
+        XCTAssertNil(Keyword.match(" cats", in: keywords))
+    }
 }
 
 @MainActor

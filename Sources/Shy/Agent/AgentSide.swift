@@ -160,11 +160,13 @@ private struct ApprovalRow: View {
             Text("Allow on \(approval.site)?")
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(Palette.ink)
-            Text(approval.what)
-                .font(.system(size: 11))
-                .foregroundStyle(Palette.muted)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+            // All of it, however long: what you allow is what is done. A
+            // long one scrolls rather than pushing the buttons away.
+            ViewThatFits(in: .vertical) {
+                what
+                ScrollView(.vertical) { what }
+            }
+            .frame(maxHeight: 140)
             // The spot a click at a point would land on, marked.
             if let picture = approval.picture {
                 Image(nsImage: picture)
@@ -183,6 +185,15 @@ private struct ApprovalRow: View {
         .padding(8)
         .background(Palette.ground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
+    }
+
+    private var what: some View {
+        Text(approval.what)
+            .font(.system(size: 11))
+            .foregroundStyle(Palette.muted)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

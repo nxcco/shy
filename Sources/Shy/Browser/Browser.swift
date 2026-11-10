@@ -477,6 +477,11 @@ final class Browser: NSObject, ObservableObject {
     /// Whether its rows are the session files' — the oldest window's — or
     /// its own line in windows.json.
     var usesFiles = false
+    /// Its window closed for good (see closeAll). Something may still hold
+    /// it a while, and a write from it then — a session waited on, another
+    /// window's pins followed — would put an empty row over the space's
+    /// pins in every window, and over the session files.
+    var retired = false
     /// The first browser does what is done once for the app.
     private static var booted = false
 
@@ -554,7 +559,7 @@ final class Browser: NSObject, ObservableObject {
         // another window is so here too.
         NotificationCenter.default.publisher(for: Spaces.changed)
             .sink { [weak self] note in
-                guard let self, let list = note.object as? [Space] else { return }
+                guard let self, !retired, let list = note.object as? [Space] else { return }
                 if websitePopup {
                     if !list.contains(where: { $0.id == self.spaceID }) { window?.close() }
                     return
@@ -785,7 +790,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func writeSession(now: Bool = false) {
-        guard !isPopup else { return }
+        guard !isPopup, !retired else { return }
         // The pins as they are here, for the other windows (see Pins.swift).
         keepBlocks()
         Pins.set(spaceID, pinDefs(tabs), from: self)

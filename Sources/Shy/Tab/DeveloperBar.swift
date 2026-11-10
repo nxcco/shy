@@ -122,7 +122,7 @@ final class DevTools: NSObject, ObservableObject, WKScriptMessageHandler {
         let controller = web.configuration.userContentController
         controller.removeScriptMessageHandler(forName: name, contentWorld: Web.world)
         controller.add(shared, contentWorld: Web.world, name: name)
-        web.evaluateJavaScript(page, in: nil, in: .page) { _ in }
+        web.quietly(page, in: nil, in: .page)
         web.evaluateInShy(script)
     }
 
@@ -163,7 +163,7 @@ final class DevTools: NSObject, ObservableObject, WKScriptMessageHandler {
     static func viewSource(of tab: Tab, in browser: Browser) {
         guard tab.isWeb, let web = tab.built else { return }
         Task { @MainActor in
-            let text = try? await web.callAsyncJavaScript(source, arguments: [:], in: nil, contentWorld: Web.world) as? String
+            let text = try? await web.quietly(source, asFunction: true, in: nil, in: Web.world) as? String
             guard let data = text?.data(using: .utf8), data.count <= LocalText.largest,
                   let url = URL(string: "data:text/plain;charset=utf-8;base64," + data.base64EncodedString())
             else {

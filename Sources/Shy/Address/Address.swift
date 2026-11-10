@@ -24,8 +24,11 @@ enum Address {
         let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(" ") else { return nil }
 
-        // Written with a scheme, it is taken at its word.
-        if let split = text.range(of: "://") {
+        // Written with a scheme, it is taken at its word. Only when what comes
+        // before :// could be a scheme, though: example.com/login?next=https://…
+        // is a place with an address in its query, not a scheme to refuse.
+        if let split = text.range(of: "://"),
+           text[..<split.lowerBound].range(of: "^[A-Za-z][A-Za-z0-9+.-]*$", options: .regularExpression) != nil {
             let scheme = text[..<split.lowerBound].lowercased()
             guard ours.contains(scheme) else { return nil }
             return URL(string: text)

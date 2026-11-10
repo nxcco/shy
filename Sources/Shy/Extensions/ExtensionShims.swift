@@ -171,7 +171,9 @@ enum ExtensionShims {
             }
             guard !html.contains(file) else { continue }
             let tag = "<script src=\"/\(file)\"></script>"
-            if let head = html.range(of: "<head[^>]*>", options: [.regularExpression, .caseInsensitive]) {
+            // <head> itself, never a <header> in the body of a page without
+            // one: there the shim would come after scripts that need it.
+            if let head = html.range(of: #"<head(\s[^>]*)?>"#, options: [.regularExpression, .caseInsensitive]) {
                 html.insert(contentsOf: tag, at: head.upperBound)
             } else {
                 html = tag + html
@@ -448,7 +450,13 @@ enum ExtensionShims {
         let dir = folder.appendingPathComponent("_shy", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent(name)
-        if !FileManager.default.fileExists(atPath: url.path) { try source.write(to: url, atomically: true, encoding: .utf8) }
+        if FileManager.default.fileExists(atPath: url.path) {
+            // Made fresh again: an old one, at its old date, would be swept
+            // by another call's cleanup below before WebKit reads it.
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+        } else {
+            try source.write(to: url, atomically: true, encoding: .utf8)
+        }
         for old in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
         where old.lastPathComponent.hasPrefix("script-") && old != url {
             let age = (try? old.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate).map { -$0.timeIntervalSinceNow } ?? 0
@@ -480,13 +488,24 @@ enum ExtensionShims {
             }
         }
         let userWorld = (script["world"] as? String) != "MAIN"
+        // Messages only from a world configureWorld opened to them, as in
+        // Chrome, where they are off until then: the script's own world's
+        // settings, or else the default world's. The script can still reach
+        // the extension's whole `chrome` through globalThis, WebKit having
+        // no world of its own for it; this keeps the honest ones honest.
+        let worlds = (try? JSONSerialization.jsonObject(with: Data(contentsOf: folder.appendingPathComponent("_shy/worlds.json")))) as? [[String: Any]] ?? []
+        let worldID = script["worldId"] as? String ?? ""
+        let world = worlds.first { ($0["worldId"] as? String ?? "") == worldID } ?? worlds.first { ($0["worldId"] as? String ?? "") == "" }
+        let messages = #"""
+              sendMessage: (message, ...rest) => runtime.sendMessage({ __shyUserScript: true, message }, ...rest.filter((r) => typeof r === "function" || (r && typeof r === "object"))),
+              connect: (info) => runtime.connect({ ...(info || {}), name: "shy-us:" + ((info && info.name) || "") }),
+        """#
         let prelude = #"""
           const chrome = (() => {
             const runtime = globalThis.chrome.runtime;
             return { runtime: {
               id: runtime.id, getURL: (path) => runtime.getURL(path), get lastError() { return runtime.lastError; },
-              sendMessage: (message, ...rest) => runtime.sendMessage({ __shyUserScript: true, message }, ...rest.filter((r) => typeof r === "function" || (r && typeof r === "object"))),
-              connect: (info) => runtime.connect({ ...(info || {}), name: "shy-us:" + ((info && info.name) || "") }),
+        \#(world?["messaging"] as? Bool == true ? messages : "")
             } };
           })();
           const browser = chrome;

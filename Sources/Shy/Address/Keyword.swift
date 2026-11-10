@@ -24,6 +24,9 @@ struct Keyword: Codable, Identifiable, Equatable {
     /// space, the word before it doesn't match, or nothing follows.
     private func matches(_ typed: String) -> String? {
         let word = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        // " yt cats" is still the keyword: a space typed first is no reason
+        // to send the words off as a search instead.
+        let typed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty, let space = typed.firstIndex(of: " ") else { return nil }
         guard typed[..<space].caseInsensitiveCompare(word) == .orderedSame else { return nil }
         let rest = typed[typed.index(after: space)...].trimmingCharacters(in: .whitespacesAndNewlines)

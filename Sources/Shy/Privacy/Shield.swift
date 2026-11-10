@@ -12,7 +12,9 @@ final class Shield: ObservableObject {
     static let shared = Shield()
 
     private(set) var list: WKContentRuleList?
-    private var waiting: [WKUserContentController] = []
+    /// Tabs that asked before the list was ready, and whether the site each
+    /// is on wants it: one paused there stays paused when it arrives.
+    private var waiting: [(controller: WKUserContentController, wanted: Bool)] = []
 
     /// Set the one time compiling the list didn't work. The toggle in
     /// Settings can say "on" all it wants; nothing is actually blocked until
@@ -56,7 +58,13 @@ final class Shield: ObservableObject {
     /// doing this at the navigation is what makes "off for this site" true
     /// for the whole page rather than for the second half of it.
     func tune(_ controller: WKUserContentController, for host: String?, in profile: UUID?) {
-        guard let list else { return }
+        guard let list else {
+            // Not compiled yet: what this site wants is kept for when it is.
+            if let index = waiting.firstIndex(where: { $0.controller === controller }) {
+                waiting[index].wanted = !isPaused(on: host, in: profile)
+            }
+            return
+        }
         controller.remove(list)
         if enabled, !isPaused(on: host, in: profile) { controller.add(list) }
     }
@@ -159,7 +167,9 @@ final class Shield: ObservableObject {
                 }
                 self.list = compiled
                 // Tabs that opened while this was still compiling get it now.
-                if self.enabled { self.waiting.forEach { $0.add(compiled) } }
+                if self.enabled {
+                    for (controller, wanted) in self.waiting where wanted { controller.add(compiled) }
+                }
                 self.waiting = []
             }
         }
@@ -170,7 +180,7 @@ final class Shield: ObservableObject {
         if let list {
             if enabled { controller.add(list) }
         } else {
-            waiting.append(controller)
+            waiting.append((controller, true))
         }
     }
 

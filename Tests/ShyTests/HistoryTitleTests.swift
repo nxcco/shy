@@ -30,4 +30,19 @@ final class HistoryTitleTests: XCTestCase {
         history.forget()
         XCTAssertTrue(history.suggestions(for: "speedometer").isEmpty)
     }
+
+    /// Quitting a moment after a visit, or after Clear History, still leaves
+    /// the file saying so.
+    func testClearAndQuitAreOnDiskAtOnce() throws {
+        let name = "history-flush-\(UUID().uuidString).json"
+        let file = Store.file(name)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let history = History(file: name, profile: UUID())
+        history.record(URL(string: "https://flush.example/page")!, title: "Flushed")
+        History.flush()
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("flush.example"))
+
+        history.forget()
+        XCTAssertFalse(try String(contentsOf: file, encoding: .utf8).contains("flush.example"))
+    }
 }

@@ -91,10 +91,37 @@ enum ExtensionRedirectPolicy {
         let clean = pattern.hasPrefix("/") ? String(pattern.dropFirst()) : pattern
         guard !clean.split(separator: "/", omittingEmptySubsequences: false)
             .contains(where: { $0 == "." || $0 == ".." || $0.isEmpty }) else { return false }
-        let expression = "\\A" + clean.components(separatedBy: "*")
-            .map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: ".*") + "\\z"
-        guard let regex = try? NSRegularExpression(pattern: expression) else { return false }
-        return regex.firstMatch(in: path, range: NSRange(path.startIndex..., in: path)) != nil
+        return glob(Array(clean.utf16), matches: Array(path.utf16))
+    }
+
+    /// The whole of `text` against `pattern`, where `*` stands for any run
+    /// of characters, `/` included. Walked once with a single place to go
+    /// back to, the last `*`: the path is the page's to make as long as it
+    /// likes, and a regex of several `.*` took seconds over a long one, on
+    /// the main thread.
+    static func glob(_ pattern: [UInt16], matches text: [UInt16]) -> Bool {
+        let star = UInt16(UInt8(ascii: "*"))
+        var p = 0, t = 0
+        var lastStar: Int?, resume = 0
+        while t < text.count {
+            if p < pattern.count, pattern[p] == star {
+                lastStar = p
+                resume = t
+                p += 1
+            } else if p < pattern.count, pattern[p] == text[t] {
+                p += 1
+                t += 1
+            } else if let lastStar {
+                // The last `*` takes one more character, and the rest is tried again from there.
+                p = lastStar + 1
+                resume += 1
+                t = resume
+            } else {
+                return false
+            }
+        }
+        while p < pattern.count, pattern[p] == star { p += 1 }
+        return p == pattern.count
     }
 
     private static func origin(_ source: URL, matches pattern: String) -> Bool {

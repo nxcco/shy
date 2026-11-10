@@ -1912,8 +1912,9 @@
     if (!a || typeof a.setPopup !== "function") continue;
     const setPopup = a.setPopup.bind(a);
     put(a, "setPopup", (details = {}, callback) => {
-      const tell = (index) => native("action.popup", [details.popup || "", index]).catch(() => {});
-      if (typeof details.tabId === "number" && chrome.tabs) chrome.tabs.get(details.tabId).then((t) => tell(t.index), () => {});
+      const tell = (place) => native("action.popup", [details.popup || "", place]).catch(() => {});
+      // The tab by its place in its own window, as other tab calls name it.
+      if (typeof details.tabId === "number" && chrome.tabs) chrome.tabs.get(details.tabId).then(async (t) => tell(placeOf(t, await frames())), () => {});
       else tell(-1);
       return setPopup(details, callback);
     });
@@ -2567,6 +2568,15 @@
         await scripting.registerContentScripts(scripts);
       });
     };
+    // A world's settings are written into its scripts' files (see
+    // userScriptFile): changed, the scripts already registered are written
+    // and registered again, so the next page has the new ones.
+    const rewrite = async () => {
+      const ids = (await registered()).map((s) => s.id);
+      if (!ids.length) return;
+      await scripting.unregisterContentScripts({ ids });
+      await sync();
+    };
     const pick = (filter, l) => filter && Array.isArray(filter.ids) ? l.filter((s) => filter.ids.includes(s.id)) : l;
     const api = {
       register: async (scripts) => {
@@ -2594,11 +2604,11 @@
         await save(l.filter((o) => !gone.includes(o)));
       },
       getScripts: async (filter) => pick(filter, await list()),
-      configureWorld: (properties) => native("userScripts.world", [properties || {}]),
+      configureWorld: async (properties) => { await native("userScripts.world", [properties || {}]); await rewrite(); },
       getWorldConfigurations: () => native("userScripts.worlds", []),
-      resetWorldConfiguration: (worldId) => native("userScripts.world", [{ worldId, reset: true }]),
+      resetWorldConfiguration: async (worldId) => { await native("userScripts.world", [{ worldId, reset: true }]); await rewrite(); },
       execute: async (injection) => {
-        const file = await native("userScripts.file", [{ id: "execute-" + Date.now(), js: injection.js || [], world: injection.world }]);
+        const file = await native("userScripts.file", [{ id: "execute-" + Date.now(), js: injection.js || [], world: injection.world, worldId: injection.worldId }]);
         return scripting.executeScript({ target: injection.target, files: [file], world: injection.world === "MAIN" ? "MAIN" : "ISOLATED",
           injectImmediately: !!injection.injectImmediately });
       },

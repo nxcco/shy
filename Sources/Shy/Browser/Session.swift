@@ -98,7 +98,9 @@ enum Session {
 
     static func erase(space: UUID) {
         guard space != Space.firstID else { return }
-        try? FileManager.default.removeItem(at: file(space))
+        // In line with the writes (see Disk): one still queued would bring
+        // the deleted space's file back.
+        Disk.remove(file(space))
     }
 
     static func read(space: UUID = Space.firstID) -> Shape {

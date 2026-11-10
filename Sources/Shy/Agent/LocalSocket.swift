@@ -89,6 +89,10 @@ final class LocalSocket {
         // a SIGPIPE that ends the app.
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+        // Room for a screenshot's answer in one write, rather than the app
+        // waiting on the reader a few kilobytes at a time.
+        var room: Int32 = 4 << 20
+        setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &room, socklen_t(MemoryLayout<Int32>.size))
         let client = Client(fd: fd, decorate: decorate) { [weak self] request, answer in
             self?.handle(request, answer)
         } gone: { [weak self] fd in
@@ -157,16 +161,19 @@ final class LocalSocket {
             var out = (try? JSONSerialization.data(withJSONObject: answer)) ?? Data("{\"error\":\"unwritable answer\"}".utf8)
             out.append(0x0A)
             out.withUnsafeBytes { raw in
+                guard let base = raw.baseAddress else { return }
                 var sent = 0
-                // A reader that stops reading gets two seconds, not the app.
+                // A reader that stops reading gets two seconds, not the app;
+                // one still reading gets the whole answer, however long.
                 var patience = 1000
                 while sent < raw.count {
-                    let n = write(fd, raw.baseAddress! + sent, raw.count - sent)
+                    let n = write(fd, base + sent, raw.count - sent)
                     if n <= 0 {
                         if errno == EAGAIN, patience > 0 { patience -= 1; usleep(2000); continue }
                         break
                     }
                     sent += n
+                    patience = 1000
                 }
             }
             drop()

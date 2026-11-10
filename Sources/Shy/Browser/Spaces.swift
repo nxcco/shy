@@ -228,6 +228,9 @@ extension Browser {
         // Which way the icon at the foot turns over: the way the spaces lie.
         if !makingSpace { spaceStep = to > (spaces.firstIndex { $0.id == spaceID } ?? 0) ? 1 : -1 }
         cancelTabEdit()
+        // A peek's page was made with the space left's sign-ins: kept in the
+        // next one, it would be another profile's page in its row.
+        if peekTab != nil { closePeek() }
         // A video playing in the tab on screen goes into picture in picture,
         // as it does when you go to another tab.
         leaving()

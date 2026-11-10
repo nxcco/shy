@@ -32,6 +32,14 @@ final class Lights: NSObject {
         kept[ObjectIdentifier(window)] = Lights(window, centreX: centreX, moved: moved)
     }
 
+    /// A window closed for good. Its `moved` and `centreX` hold the window's
+    /// view, and through it its browser, which would otherwise live on until
+    /// the next window is dressed.
+    static func forget(_ window: NSWindow?) {
+        guard let window else { return }
+        kept[ObjectIdentifier(window)] = nil
+    }
+
     static func refresh(_ window: NSWindow?) {
         guard let window else { return }
         kept[ObjectIdentifier(window)]?.place()

@@ -17,6 +17,52 @@ final class PageView: WKWebView {
     /// often the page asks (Browser.handOff).
     var askingForApp = false
 
+    /// A load Shy itself started — typed, a bookmark, reload, Back — and
+    /// still on its way. WebKit's address moves to wherever any load is
+    /// going, the page's own included, and only this says that where it is
+    /// going is where you sent it (see Tab.shownURL). Through redirects,
+    /// which are the same navigation; gone once it arrives, fails, or the
+    /// page starts a load of its own over it (Browser's navigation delegate).
+    private(set) var sent: WKNavigation?
+    /// Between asking WebKit and its answer: the address has already moved.
+    private var sending = false
+    var sendingOwn: Bool { sending || sent != nil }
+
+    private func send(_ start: () -> WKNavigation?) -> WKNavigation? {
+        sending = true
+        defer { sending = false }
+        let navigation = start()
+        sent = navigation
+        return navigation
+    }
+
+    /// A load began: one that isn't Shy's took the place of Shy's.
+    func started(_ navigation: WKNavigation?) {
+        if navigation !== sent { sent = nil }
+    }
+
+    /// A load arrived or failed.
+    func ended(_ navigation: WKNavigation?) {
+        if navigation === sent { sent = nil }
+    }
+
+    @discardableResult
+    override func load(_ request: URLRequest) -> WKNavigation? { send { super.load(request) } }
+    @discardableResult
+    override func loadFileURL(_ url: URL, allowingReadAccessTo readAccessURL: URL) -> WKNavigation? {
+        send { super.loadFileURL(url, allowingReadAccessTo: readAccessURL) }
+    }
+    @discardableResult
+    override func reload() -> WKNavigation? { send { super.reload() } }
+    @discardableResult
+    override func reloadFromOrigin() -> WKNavigation? { send { super.reloadFromOrigin() } }
+    @discardableResult
+    override func goBack() -> WKNavigation? { send { super.goBack() } }
+    @discardableResult
+    override func goForward() -> WKNavigation? { send { super.goForward() } }
+    @discardableResult
+    override func go(to item: WKBackForwardListItem) -> WKNavigation? { send { super.go(to: item) } }
+
     override func didCloseMenu(_ menu: NSMenu, with event: NSEvent?) {
         super.didCloseMenu(menu, with: event)
         onMenuClosed?()
@@ -85,7 +131,7 @@ final class PageView: WKWebView {
            let name = searchName?() {
             webSearch = (item.target, item.action)
             selection = nil
-            evaluateJavaScript(PageView.selected, in: nil, in: .defaultClient) { [weak self] result in
+            quietly(PageView.selected, in: nil, in: .defaultClient) { [weak self] result in
                 self?.selection = (try? result.get()) as? String ?? ""
             }
             item.title = "Search with \(name)"

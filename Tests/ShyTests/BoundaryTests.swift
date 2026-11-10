@@ -254,6 +254,14 @@ final class BoundaryTests: XCTestCase {
         XCTAssertFalse(Agent.sent(try cookie(".example.com", expires: Date(timeIntervalSinceNow: -60)), to: "example.com"))
     }
 
+    /// A question about a click is about all of it: a selector list whose
+    /// harmless start fills the line must not hide the part that does harm.
+    func testAnApprovalQuotesAllOfWhatItAllows() {
+        let selector = "#" + String(repeating: "harmless", count: 10) + ", #delete-account"
+        XCTAssertTrue(Agent.quoted(selector, whole: true).contains("#delete-account"))
+        XCTAssertFalse(Agent.quoted(selector).contains("#delete-account"), "a step in the log stays one line")
+    }
+
     // MARK: - scripts Shy runs in a page
 
     /// Shy looks at pages all the time — their icon, their sound, whether a
@@ -279,5 +287,25 @@ final class BoundaryTests: XCTestCase {
         _ = try await web.evaluateJavaScript("1")
         let control = try await web.quietly("navigator.userActivation.hasBeenActive", in: nil, in: .page) as? Bool
         XCTAssertEqual(control, true, "the public call counts as a click, which is why it isn't used")
+    }
+
+    /// The same rule, where a tab's page is: Shy's looks at it (reading
+    /// mode's colours, Developer Mode, the selection for Search) go by
+    /// `quietly`, never the public call it falls back on.
+    func testATabsPageIsNeverLookedAtThePublicWay() throws {
+        let tab = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Shy/Tab")
+        let files = try FileManager.default.contentsOfDirectory(at: tab, includingPropertiesForKeys: nil)
+        var offenders: [String] = []
+        for file in files where file.pathExtension == "swift" && file.lastPathComponent != "WKWebView+Shy.swift" {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for (number, line) in text.components(separatedBy: "\n").enumerated() {
+                let code = line.trimmingCharacters(in: .whitespaces)
+                guard !code.hasPrefix("//") else { continue }
+                if code.contains("evaluateJavaScript(") { offenders.append("\(file.lastPathComponent):\(number + 1)") }
+            }
+        }
+        XCTAssertEqual(offenders, [], "each of these hands the page a click")
     }
 }

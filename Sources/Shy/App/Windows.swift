@@ -350,6 +350,7 @@ enum Browsers {
         all.removeAll { $0 === browser }
         if #available(macOS 15.4, *) { Extensions.all.forEach { $0.detach(browser) } }
         browser.closeAll()
+        Lights.forget(browser.window)
         ContentView.forget(browser)
         frames[ObjectIdentifier(browser)] = nil
         if Front.shared.browser === browser {

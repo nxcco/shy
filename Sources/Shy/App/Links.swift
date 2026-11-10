@@ -80,6 +80,8 @@ final class Links: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Every window, and windows.json (see Windows.swift).
         Browsers.flush()
+        // Every profile's history, a visit or a Clear History ago.
+        History.flush()
         // And the bookmarks or downloads list saved a moment ago, still on
         // their way to the disk.
         Disk.drain()

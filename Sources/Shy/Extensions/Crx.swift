@@ -58,11 +58,15 @@ enum Crx {
     /// link, an old chrome.google.com/webstore link.
     static func id(in text: String) -> String? {
         let pattern = try! NSRegularExpression(pattern: "(?<![a-z])([a-p]{32})(?![a-z])")
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = pattern.firstMatch(in: text.lowercased(), range: range),
-              let found = Range(match.range(at: 1), in: text)
+        // Matched and cut from the same string: lowercasing can change its
+        // length ("İ" becomes two), and a range found in one is not the
+        // same place in the other.
+        let lower = text.lowercased()
+        let range = NSRange(lower.startIndex..., in: lower)
+        guard let match = pattern.firstMatch(in: lower, range: range),
+              let found = Range(match.range(at: 1), in: lower)
         else { return nil }
-        return text[found].lowercased()
+        return String(lower[found])
     }
 
     /// The extension a store page is about: the id in its /detail/ path
@@ -130,8 +134,9 @@ enum Crx {
         return data
     }
 
-    /// The most a package may weigh, downloaded or unpacked.
+    /// The most a package may weigh downloaded, and unpacked.
     static let largest = 256 << 20
+    static let unpackedLargest = largest * 2
 
     /// The zip inside a CRX3, once its signature has been checked against
     /// `id`.
@@ -197,10 +202,16 @@ enum Crx {
         // by rewriting the pages a package ships: a link among them would
         // have that rewrite land wherever it points. Nothing an extension
         // needs is a link, so one is refused whole.
-        let carried = files.enumerator(at: out, includingPropertiesForKeys: [.isSymbolicLinkKey])
+        // And a small zip can unpack into a great deal: what it came to is
+        // held to twice what a download may weigh, more than any real
+        // extension's compressed scripts and images grow to.
+        var total = 0
+        let carried = files.enumerator(at: out, includingPropertiesForKeys: [.isSymbolicLinkKey, .fileSizeKey])
         while let item = carried?.nextObject() as? URL {
-            guard (try? item.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true
-            else { throw Refused.unpack }
+            let values = try? item.resourceValues(forKeys: [.isSymbolicLinkKey, .fileSizeKey])
+            guard values?.isSymbolicLink != true else { throw Refused.unpack }
+            total += values?.fileSize ?? 0
+            guard total <= unpackedLargest else { throw Refused.unpack }
         }
         try? files.removeItem(at: folder)
         try files.createDirectory(at: folder.deletingLastPathComponent(), withIntermediateDirectories: true)

@@ -5,11 +5,19 @@ import WebKit
 
 // Shy's own pages, in a tab (see InternalPages.swift).
 extension Tab {
-    /// What the field shows for this tab, and what is copied.
-    /// For a tab a page opened, the page that arrived, as `pageAddress`: its
-    /// opener can stop the load it asked for and write into it, and the
-    /// address it asked for must not stand over what it wrote.
-    var shownURL: URL? { page?.url ?? (opener == nil ? address : pageAddress) }
+    /// What the field shows for this tab, and what is copied; its icon too.
+    /// Where Shy itself is taking it — typed, a bookmark, Back — at once;
+    /// anywhere else, the page that arrived, as `pageAddress`. A page can
+    /// send itself toward another site that never answers, and a page's
+    /// opener can stop the load it asked for and write into it: the address
+    /// asked for must not stand over what is still the old page, or what
+    /// was written. A view that has had no page yet and no opener has only
+    /// ever been sent by Shy.
+    var shownURL: URL? {
+        if let page { return page.url }
+        if opener == nil, built?.sendingOwn == true || committed == nil { return address }
+        return pageAddress
+    }
 
     /// Go to one of Shy's own pages. `stepping`: whether the page it
     /// leaves is one Back comes back to — not for another section of the
@@ -59,7 +67,7 @@ extension Tab {
     var label: String {
         if let name, !name.isEmpty { return name }
         if let page { return page.title }
-        if popup, let host = address?.host(), !host.isEmpty {
+        if popup, let host = pageAddress?.host(), !host.isEmpty {
             return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
         }
         if !title.isEmpty { return title }

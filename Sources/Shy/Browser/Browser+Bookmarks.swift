@@ -19,7 +19,7 @@ extension Browser {
 
     /// The page you are on is kept, wherever it is filed.
     var pageKept: Bool {
-        active?.address.map(bookmarks.contains) ?? false
+        active?.address.flatMap(History.kept).map(bookmarks.contains) ?? false
     }
 
     /// ⇧⌘B. The page you are on, at the end of the list, and the card off
@@ -28,7 +28,9 @@ extension Browser {
     /// there is nothing to hang the card from, and a word says what
     /// happened instead.
     func bookmarkCurrent() {
-        guard let tab = active, let url = tab.address else { return }
+        // Kept without a name and password written into the address, as
+        // history keeps it: bookmarks.json is no place for them.
+        guard let tab = active, let url = tab.address.flatMap(History.kept) else { return }
         let kept = bookmarks.bookmark(for: url)
         guard let id = (kept ?? bookmarks.add(url, title: tab.title))?.id else { return }
         guard !folded else {

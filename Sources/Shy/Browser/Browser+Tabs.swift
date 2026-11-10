@@ -662,7 +662,7 @@ extension Browser {
             let tab = Tab(configuration: Web.configuration(space: spaceID))
             prepare(tab)
             tab.restore(url: ghost.url, title: ghost.title)
-            tabs.insert(tab, at: safeInsertionIndex(ghost.index))
+            tabs.insert(tab, at: reopenPlace(ghost))
             if let was = ghost.was { back[was] = tab }
             if ghost.front { front = tab }
             // A pair cleared together: its other half came back just before,
@@ -692,7 +692,7 @@ extension Browser {
         let tab = Tab(configuration: Web.configuration(space: spaceID))
         prepare(tab)
         leaving()
-        tabs.insert(tab, at: safeInsertionIndex(ghost.index))
+        tabs.insert(tab, at: reopenPlace(ghost))
         activeID = tab.id
         editing = false
         typed = ""
@@ -702,6 +702,12 @@ extension Browser {
            split(for: partner) == nil, canSplit(tab, with: partner) {
             pair(tab, with: partner, onLeft: ghost.onLeft)
         }
+    }
+
+    /// Where a closed tab goes back: its old place, but never among the
+    /// pins, which may have grown since, or been another space's.
+    private func reopenPlace(_ ghost: Ghost) -> Int {
+        safeInsertionIndex(max(ghost.index, pinnedCount))
     }
 
     private func remember(_ tab: Tab, at index: Int, partner: Tab.ID? = nil, onLeft: Bool = false) {
