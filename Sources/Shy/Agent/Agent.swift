@@ -57,6 +57,20 @@ final class Agent: NSObject, ObservableObject {
     /// The folder shown as its header alone.
     @Published var folded = false
     var room: NSWindow?
+    /// Your clipboard as it was before the agent's latest clicks and keys,
+    /// while it may still need putting back (see `sparing`).
+    var spared: Spared?
+
+    struct Spared {
+        var kept: [NSPasteboardItem]
+        /// The clipboard's change count as last looked at.
+        var seen: Int
+        var until: Date
+        /// A page has written to it since it was kept.
+        var written = false
+        /// The page acted on last, told when its write is put back.
+        weak var page: Page?
+    }
 
     /// What can be taken away from agents in Settings › Agents, and the
     /// calls each covers. Waiting, listing and closing its own pages stay.
@@ -155,6 +169,9 @@ final class Agent: NSObject, ObservableObject {
         /// there has loaded with it: after that the page's storage is its
         /// own, and a reload doesn't write the copy over it again.
         var seeding: String?
+        /// The copied sign-in is being deleted: its handover says it is over,
+        /// but the page and its store still hold it until that is done.
+        var ending = false
         /// Where the agent's pointer is on the page, in the page's points,
         /// and how many times it has pressed, for the cursor drawn over it.
         @Published var cursor: CGPoint?
@@ -182,8 +199,9 @@ final class Agent: NSObject, ObservableObject {
         /// Its handover, while the copied sign-in is still in it.
         var live: Handover? { handover.flatMap { $0.over == nil ? $0 : nil } }
 
+        /// A step is a line to look back over, however long what it names.
         func note(_ what: String) {
-            steps.append(Step(what: what))
+            steps.append(Step(what: what.count > 300 ? String(what.prefix(299)) + "…" : what))
             if steps.count > 200 { steps.removeFirst(steps.count - 200) }
         }
     }
@@ -324,7 +342,8 @@ final class Agent: NSObject, ObservableObject {
             // click can (sign out, confirm, unsubscribe). Read-only goes,
             // since reading a site means going through it; off the site the
             // sign-in is taken back first (see decidePolicyFor).
-            let what = "Go to \(url.host() ?? "")\(url.path())"
+            // With its query: that is where an address does what it does.
+            let what = "Go to \(url.host() ?? "")\(url.path())\(url.query().map { "?" + $0 } ?? "")"
             let go = {
                 page.note("Went to \(url.host() ?? "")\(url.path())")
                 page.web.load(URLRequest(url: url))
@@ -382,11 +401,13 @@ final class Agent: NSObject, ObservableObject {
             }
             let text = request["text"] as? String ?? ""
             guard verb == "click" || text.count <= 10_000 else { return answer(["error": "that is a lot to type"]) }
-            let what = verb == "click"
-                ? "Click \(Agent.quoted(selector))"
-                : "Type \(Agent.quoted(text)) into \(Agent.quoted(selector))"
-            permit(page, what, verb: verb, at: nil, answer) {
-                page.note(what)
+            func what(whole: Bool) -> String {
+                verb == "click"
+                    ? "Click \(Agent.quoted(selector, whole: whole))"
+                    : "Type \(Agent.quoted(text, whole: whole)) into \(Agent.quoted(selector, whole: whole))"
+            }
+            permit(page, what(whole: true), verb: verb, at: nil, answer) {
+                page.note(what(whole: false))
                 self.run(verb == "click" ? Agent.clicking : Agent.typing, on: page, ["selector": selector, "text": text]) { value, trouble in
                     let said = trouble ?? value as? String ?? "the page didn't answer"
                     answer(said == "ok" ? ["ok": true] : ["error": said])
@@ -408,13 +429,15 @@ final class Agent: NSObject, ObservableObject {
                 guard at != nil else { return answer(["error": "x and y must be a point on the page, in the latest screenshot's pixels"]) }
             }
             let place = at.map { " at \(Int(($0.x * (page.shotScale ?? 1)).rounded())), \(Int(($0.y * (page.shotScale ?? 1)).rounded()))" } ?? ""
-            let what = verb == "clickat"
-                ? "Click\(place)"
-                : "Type \(text.isEmpty ? "" : Agent.quoted(text) + " ")\(key.map { "then \($0) " } ?? "")\(place.isEmpty ? "where the page has focus" : place.trimmingCharacters(in: .whitespaces))"
-            permit(page, what, verb: verb, at: at, answer) {
+            func what(whole: Bool) -> String {
+                verb == "clickat"
+                    ? "Click\(place)"
+                    : "Type \(text.isEmpty ? "" : Agent.quoted(text, whole: whole) + " ")\(key.map { "then \($0) " } ?? "")\(place.isEmpty ? "where the page has focus" : place.trimmingCharacters(in: .whitespaces))"
+            }
+            permit(page, what(whole: true), verb: verb, at: at, answer) {
                 self.still(page, at != nil) { trouble in
                     if let trouble { return answer(["error": trouble]) }
-                    page.note(what)
+                    page.note(what(whole: false))
                     self.sparing(page) {
                         if let at { self.press(page, at) }
                         if verb == "typeat" { self.keyboard(text, then: key, on: page) }
@@ -453,7 +476,10 @@ final class Agent: NSObject, ObservableObject {
     }
 
     /// Short enough for a line in the folder, and plainly someone's words.
-    static func quoted(_ text: String) -> String {
+    /// `whole` for a question to you: what you allow is all of what is done,
+    /// not its first few words.
+    static func quoted(_ text: String, whole: Bool = false) -> String {
+        if whole { return "“" + text + "”" }
         let flat = text.replacingOccurrences(of: "\n", with: " ")
         return "“" + (flat.count > 60 ? String(flat.prefix(59)) + "…" : flat) + "”"
     }

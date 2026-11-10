@@ -66,4 +66,27 @@ final class ExtensionRuleRedirectTests: XCTestCase {
             XCTAssertFalse(ExtensionRedirectPolicy.allows(target: URL(string: odd)!, sourceOrigin: https, manifest: exposed("<all_urls>"), fromRule: true), odd)
         }
     }
+
+    /// A resource pattern is the whole path, `*` crossing folders, and a
+    /// long path a page made up is answered at once rather than in seconds.
+    func testResourcePatternsMatchWholePathsQuickly() {
+        let https = URL(string: "https://example.com/")!
+        func exposed(_ resource: String) -> [String: Any] {
+            ["manifest_version": 3, "web_accessible_resources": [["resources": [resource], "matches": ["<all_urls>"]]]]
+        }
+        func allows(_ path: String, _ resource: String) -> Bool {
+            ExtensionRedirectPolicy.allows(target: URL(string: base + path)!, sourceOrigin: https, manifest: exposed(resource))
+        }
+        XCTAssertTrue(allows("/a/icons/b/icons/c.png", "*/icons/*/icons/*.png"))
+        XCTAssertTrue(allows("/icons/x/y/z.png", "icons/*.png"))
+        XCTAssertTrue(allows("/blocked.html", "/blocked.html"))
+        XCTAssertFalse(allows("/icons/z.png.html", "icons/*.png"))
+        XCTAssertFalse(allows("/x/icons/z.png", "icons/*.png"))
+        XCTAssertFalse(allows("/a.b", "a?b"))
+
+        let long = "/" + String(repeating: "icons/", count: 1400) + "x.pn"
+        let started = Date()
+        XCTAssertFalse(allows(long, "*/icons/*/icons/*.png"))
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1)
+    }
 }

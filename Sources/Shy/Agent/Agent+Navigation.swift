@@ -40,9 +40,13 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
         // Leaving the site, the page stays where it was: the address it was
         // sent to may carry what the sign-in just got (a sign-in code a
         // redirect hands another site), and the copy is taken back first.
-        // The agent can go there itself afterwards, signed out.
+        // The agent can go there itself afterwards, signed out. Stopped at
+        // once, and loaded again once the copy is gone: the page that tried
+        // may hold what it read from the copy, and left as it is would go on
+        // using it.
         guard !main || Registrable.of(host) == handover.site else {
-            return end(page, "the page tried to leave \(handover.site) for \(host)") { decisionHandler(.cancel) }
+            decisionHandler(.cancel)
+            return end(page, "the page tried to leave \(handover.site) for \(host)")
         }
         // A form sent with your sign-in: never on a read-only handover, and
         // asked about first unless you said not to.
@@ -61,6 +65,20 @@ extension Agent: WKNavigationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let page = pages.first(where: { $0.web === webView }) else { return }
         seeded(page)
+    }
+
+    /// A page whose sign-in was taken back is one again once a new document
+    /// has replaced the one that held it (see Agent.end).
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard let page = pages.first(where: { $0.web === webView }) else { return }
+        page.ending = false
+    }
+
+    /// The reload that was to replace it never arrived: an empty page does
+    /// instead, rather than the old one living on with what it read.
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard let page = pages.first(where: { $0.web === webView }), page.ending else { return }
+        webView.loadHTMLString("", baseURL: nil)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse,

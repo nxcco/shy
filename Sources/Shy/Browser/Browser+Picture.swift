@@ -76,7 +76,8 @@ extension Browser {
             linkStatus.show(address, over: tab.built)
         }
         tab.onPick = { [weak self] tab, selector, label, note in
-            guard let self, let host = curtain.host(of: tab.address) else { return }
+            // The page it was picked on, not one a load has started towards.
+            guard let self, let host = curtain.host(of: tab.pageAddress) else { return }
             let curtain = Profiles.curtain(tab.profile)
             // A private tab writes nothing down, hidden.json included: taken
             // off this page only.
@@ -141,7 +142,12 @@ extension Browser {
             .sink { [weak self, weak tab] title in
                 // A translated title is the page's in your words, not its own:
                 // history keeps the page's (Translate.swift).
-                guard let tab, !tab.shy, tab.translator == nil, let url = tab.address else { return }
+                // The page on screen titles only its own address. Mid-way to
+                // another site, `address` is already that site's, and a page
+                // could set its title just then to rename someone else's
+                // entry; one moment of not retitling costs nothing.
+                guard let tab, !tab.shy, tab.translator == nil,
+                      let url = tab.committed, url == tab.address else { return }
                 guard let self else { return }
                 Profiles.history(profile(of: tab)).retitle(url, title)
             }

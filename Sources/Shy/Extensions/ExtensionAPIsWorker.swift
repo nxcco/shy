@@ -97,10 +97,12 @@ extension ExtensionShims {
         // MARK: the button's popup
         case "action.popup":
             let path = first as? String ?? ""
-            let index = args.dropFirst().first as? Int ?? -1
-            let visible = owner.visibleTabs(for: context)
-            if index >= 0, visible.indices.contains(index) {
-                popups[id, default: [:]][visible[index].id.uuidString] = path
+            // One tab, named by its place in its own window (see located):
+            // an index alone was read against the first window's row, and
+            // set the popup of whichever tab stood there.
+            if let place = args.dropFirst().first as? [String: Any] {
+                guard let tab = located(place, context: context, owner: owner) else { return nil }
+                popups[id, default: [:]][tab.id.uuidString] = path
             } else {
                 popups[id, default: [:]]["*"] = path
                 popups[id] = popups[id]?.filter { $0.key == "*" }

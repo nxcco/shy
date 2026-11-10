@@ -50,8 +50,9 @@ extension Tab {
         memory = nil
         picture = nil
         cover = nil
-        adoptIcon()
         web.open(url)
+        // Once it is Shy's load that is on its way (see shownURL).
+        adoptIcon()
         // Back, from a page that came out of one of Shy's own, goes there.
         steps()
     }

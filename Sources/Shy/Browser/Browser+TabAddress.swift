@@ -5,7 +5,8 @@ import Combine
 // The address, in the tab itself: renaming a tab and editing where it goes.
 extension Browser {
     func beginTabEdit(_ tab: Tab) {
-        guard let url = tab.shownURL else {
+        // Never a name and password written into the address, as for ⌘L.
+        guard let url = tab.shownURL.flatMap(History.kept) else {
             edit()
             return
         }

@@ -62,10 +62,15 @@ final class Extensions: NSObject, ObservableObject {
         let new = Extensions(profile: profile)
         made[profile] = new
         // Made after launch, for a profile gone to for the first time: it
-        // starts as the first did, once whatever asked for it is done.
-        if let first = launchedWith {
-            DispatchQueue.main.async { [weak first] in
-                MainActor.assumeIsolated { if let first { new.start(for: first) } }
+        // starts as the first did, once whatever asked for it is done — told
+        // of every window open by then, as Browsers.register tells it of each
+        // new one, and started even when the first window has closed since.
+        if launched {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    Browsers.all.forEach(new.attach)
+                    new.start(for: Browsers.primary)
+                }
             }
         }
         return new
@@ -99,14 +104,15 @@ final class Extensions: NSObject, ObservableObject {
         guard let profile = profile ?? owner(of: context)?.profile else { return "extensions.\(kind).unowned" }
         return grantKey(kind, context.uniqueIdentifier, profile)
     }
-    /// The first window, once extensions have started with it.
-    private static weak var launchedWith: Browser?
+    /// Extensions have started with the first window.
+    private static var launched = false
 
     /// At launch: Personal's start, and any other profile's made by then.
+    /// Marked launched only after, so none of these is started twice.
     static func launch(with browser: Browser) {
-        launchedWith = browser
         _ = of(Profile.personalID)
         for extensions in made.values { extensions.start(for: browser) }
+        launched = true
     }
 
     /// Every page view built for a tab is handed its profile's controller
@@ -266,8 +272,8 @@ final class Extensions: NSObject, ObservableObject {
 
     // MARK: - starting
 
-    func start(for browser: Browser) {
-        attach(browser)
+    func start(for browser: Browser?) {
+        if let browser { attach(browser) }
         let begin: @MainActor () -> Void = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }

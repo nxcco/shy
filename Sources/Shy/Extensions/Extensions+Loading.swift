@@ -59,6 +59,9 @@ extension Extensions {
             Extensions.watchTouches()
             // Not yet anyone's: the profile loading it is named (see grantKey).
             context.hasAccessToPrivateData = Extensions.mayGoPrivate(context, profile: profile)
+            // Switched off or removed while it was being read: loading it now
+            // would run one that was turned off, with nothing left to unload it.
+            guard installed.contains(where: { $0.id == item.id && $0.enabled }) else { return false }
             let undoRecovery = ExtensionWorkerRecovery.shared.register(context)
             do { try controller.load(context) }
             catch { undoRecovery(); throw error }

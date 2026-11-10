@@ -257,18 +257,25 @@ extension Browser {
 
     /// Another window changed a space's pins: this window's row there follows.
     func pinsChanged(in space: UUID) {
-        guard !isPopup else { return }
+        guard !isPopup, !retired else { return }
         if space == spaceID {
             // Drawn again even when only a pin's letter or name changed.
             objectWillChange.send()
             let row = reconcilePins(tabs, space: space)
             if row.map(\.id) != tabs.map(\.id) { tabs = row }
-            if !tabs.contains(where: { $0.id == activeID }) {
-                activeID = tabs.first { $0.pin == nil }?.id ?? tabs.first?.id
-                if activeID == nil { newTab() }
-            }
+            // The pairs first: one still holding the pin that went would be
+            // taken by select for the pair on screen.
             splits.removeAll { pair in
                 !pair.tabs.allSatisfy { id in tabs.contains { $0.id == id } }
+            }
+            // The pin in front went: the next one is gone to as any tab is,
+            // so one asleep, or brought back from last time, wakes.
+            if !tabs.contains(where: { $0.id == activeID }) {
+                if let next = tabs.first(where: { $0.pin == nil }) ?? tabs.first {
+                    select(next, floatPrevious: false)
+                } else {
+                    newTab()
+                }
             }
             writeRow(spaceID, session(tabs, active: activeID, splits: splits), now: false)
         } else if var row = parked[space] {

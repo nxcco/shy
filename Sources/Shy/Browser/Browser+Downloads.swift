@@ -131,8 +131,19 @@ extension Browser: WKDownloadDelegate {
         panel.nameFieldStringValue = name
         panel.directoryURL = downloadsFolder
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK else { return nil }
-        return panel.url
+        guard panel.runModal() == .OK, let file = panel.url else { return nil }
+        // Replace, said in the panel, leaves the old file where it was, and
+        // neither WebKit's download nor a write that won't overwrite will go
+        // over it. It goes to the Trash first, where it can still be found.
+        if FileManager.default.fileExists(atPath: file.path) {
+            do {
+                try FileManager.default.trashItem(at: file, resultingItemURL: nil)
+            } catch {
+                announce("Couldn't replace \(file.lastPathComponent)")
+                return nil
+            }
+        }
+        return file
     }
 
     /// A name a site or an extension suggested, made safe to save under: its
@@ -165,7 +176,8 @@ extension Browser: WKDownloadDelegate {
     }
 
     func saved(_ file: URL, from source: URL?) {
-        loot.add(Keep(name: file.lastPathComponent, from: source?.host() ?? "", path: file.path, date: Date()))
+        loot.add(Keep(name: file.lastPathComponent, from: source?.host() ?? "", path: file.path, date: Date(),
+                      source: source, profile: profileID))
         announce("Saved \(file.lastPathComponent)", file: file)
     }
 

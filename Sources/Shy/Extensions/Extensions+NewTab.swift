@@ -11,10 +11,16 @@ extension Extensions {
         newTabPageID.flatMap { contexts[$0]?.overrideNewTabPageURL }
     }
 
+    /// Where the answer about one extension's page in new tabs is kept: per
+    /// profile, as its other yeses are (see grantKey), so a yes in one never
+    /// answers for another. Personal's is the key there always was, and
+    /// keeps the answer given before.
+    func newTabKey(_ id: String) -> String { Extensions.grantKey("newtab", id, profile) }
+
     /// The extension new tabs show, the one added last of those you said
     /// yes to.
     var newTabPageID: String? {
-        newTabAskers.last { Store.settings.object(forKey: "extensions.newtab.\($0.id)") as? Bool == true }?.id
+        newTabAskers.last { Store.settings.object(forKey: newTabKey($0.id)) as? Bool == true }?.id
     }
 
     /// The extensions, on and running, that ask to replace the new tab page,
@@ -28,7 +34,7 @@ extension Extensions {
     /// none of them puts its page back in by asking again.
     func setNewTabPage(_ id: String?) {
         for item in newTabAskers {
-            Store.settings.set(item.id == id, forKey: "extensions.newtab.\(item.id)")
+            Store.settings.set(item.id == id, forKey: newTabKey(item.id))
         }
         objectWillChange.send()
     }
@@ -39,7 +45,7 @@ extension Extensions {
     /// asks even while another extension's page has new tabs, naming that
     /// one, so the first to ask doesn't keep them for good.
     func offerNewTabPage(into tab: Tab) {
-        guard let item = newTabAskers.last(where: { Store.settings.object(forKey: "extensions.newtab.\($0.id)") == nil }),
+        guard let item = newTabAskers.last(where: { Store.settings.object(forKey: newTabKey($0.id)) == nil }),
               let url = contexts[item.id]?.overrideNewTabPageURL else { return }
         let holder = newTabPageID.flatMap { id in installed.first { $0.id == id } }
         let shown = newTabPage.flatMap(Browser.extensionHost(of:))
@@ -47,7 +53,7 @@ extension Extensions {
         Task {
             let yes = await ask("Show “\(item.name)” in new tabs?", detail: "\(replacing) You can change this later in Settings › General › Home page.",
                                 icon: contexts[item.id]?.webExtension.icon(for: CGSize(width: 64, height: 64)), yes: "Keep It", no: "Don't Allow")
-            if yes { setNewTabPage(item.id) } else { Store.settings.set(false, forKey: "extensions.newtab.\(item.id)") }
+            if yes { setNewTabPage(item.id) } else { Store.settings.set(false, forKey: newTabKey(item.id)) }
             // The tab just opened, if it is still the page it opened on.
             let untouched = tab.isBlank || (shown != nil && tab.address.flatMap(Browser.extensionHost(of:)) == shown)
             if yes, untouched, let browser { browser.replaceNewTab(tab, with: url) }

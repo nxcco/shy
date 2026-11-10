@@ -273,7 +273,11 @@ final class History: ObservableObject {
         visits = [:]
         pageText = [:]
         visitedHosts = []
-        save()
+        // Written now rather than in a moment: cleared and then quit at once,
+        // the old file would otherwise be what the next launch reads.
+        saving = false
+        History.unsaved[ObjectIdentifier(self)] = nil
+        write(now: true)
     }
 
     /// Everywhere you have been, newest first, for the window that shows it.
@@ -593,19 +597,38 @@ final class History: ObservableObject {
     private func save() {
         guard !saving, !retired else { return }
         saving = true
+        History.unsaved[ObjectIdentifier(self)] = self
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self else { return }
+            // Already written by flush(), on the way out.
+            guard let self, saving else { return }
             saving = false
-            guard !retired else { return }
-            let now = Date()
-            // A cap, so the file can't grow without end. What goes is what has
-            // been visited least and longest ago.
-            let snapshot = self.visits
-            let file = self.file
-            Disk.write(file) {
-                let list = Array(snapshot.values.sorted { History.score($0, now: now) > History.score($1, now: now) }.prefix(2_000))
-                return try? JSONEncoder().encode(list)
-            }
+            History.unsaved[ObjectIdentifier(self)] = nil
+            write(now: false)
+        }
+    }
+
+    /// Histories with a save still waiting out its moment.
+    private static var unsaved: [ObjectIdentifier: History] = [:]
+
+    /// Every history's waiting save, written before this returns: quitting
+    /// doesn't wait out the moment save() leaves.
+    static func flush() {
+        for history in unsaved.values {
+            history.saving = false
+            if !history.retired { history.write(now: true) }
+        }
+        unsaved = [:]
+    }
+
+    private func write(now: Bool) {
+        guard !retired else { return }
+        let date = Date()
+        // A cap, so the file can't grow without end. What goes is what has
+        // been visited least and longest ago.
+        let snapshot = visits
+        Disk.write(file, now: now) {
+            let list = Array(snapshot.values.sorted { History.score($0, now: date) > History.score($1, now: date) }.prefix(2_000))
+            return try? JSONEncoder().encode(list)
         }
     }
 

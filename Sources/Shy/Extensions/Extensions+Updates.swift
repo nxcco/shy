@@ -16,14 +16,21 @@ extension Extensions {
             }
             updateClock?.tolerance = 60 * 5
         }
-        let key = "extensions.checked"
-        let last = Store.settings.object(forKey: key) as? Date ?? .distantPast
+        // Each profile's own: one stamp for all of them let only the first
+        // profile to check ever update. Stamped in update(_:) once the store
+        // has answered, so a launch with no network tries again within the hour
+        // rather than a day later.
+        let last = Store.settings.object(forKey: key(Extensions.checkedKey)) as? Date ?? .distantPast
         guard Date().timeIntervalSince(last) > 60 * 60 * 20 else { return }
-        Store.settings.set(Date(), forKey: key)
-        for item in installed where item.fromStore {
+        let fromStore = installed.filter(\.fromStore)
+        // Nothing to ask the store about is a check done, today.
+        if fromStore.isEmpty { Store.settings.set(Date(), forKey: key(Extensions.checkedKey)) }
+        for item in fromStore {
             Task { await update(item) }
         }
     }
+
+    static let checkedKey = "extensions.checked"
 
     func update(_ item: Installed) async {
         // Permission approval can wait past the next check; its staging folder must stay its own.
@@ -37,8 +44,9 @@ extension Extensions {
             URLQueryItem(name: "x", value: "id=\(item.id)&v=\(item.version)&uc"),
         ]
         guard let url = parts.url,
-              let (data, _) = try? await Crx.session.data(from: url),
-              let xml = String(data: data, encoding: .utf8),
+              let (data, _) = try? await Crx.session.data(from: url) else { return }
+        Store.settings.set(Date(), forKey: key(Extensions.checkedKey))
+        guard let xml = String(data: data, encoding: .utf8),
               // The answer is the <updatecheck> element alone: status="ok"
               // with a version when there is a newer one, "noupdate" when
               // not. Read across the whole reply, the first version="" is
@@ -58,6 +66,10 @@ extension Extensions {
             try Crx.unpack(zip, into: staged)
             try ExtensionShims.prepare(staged, fresh: true)
             let found = try await WKWebExtension(resourceBaseURL: staged)
+            // What is installed is the package's own version, not the one the
+            // reply named: an older package served under a newer number would
+            // otherwise roll the extension back.
+            guard let packaged = found.version, Extensions.newer(packaged, than: item.version) else { return }
             guard let current = installed.first(where: { $0.id == item.id }), current.fromStore,
                   current.version == item.version else { return }
             // Everything it could do, sites included, against what it was
@@ -76,7 +88,7 @@ extension Extensions {
             unload(item.id)
             errors[item.id] = nil
             workersChanged()
-            installed[index].version = found.version ?? version
+            installed[index].version = packaged
             installed[index].permissions = wants.sorted()
             save()
             if installed[index].enabled { await load(installed[index]) }

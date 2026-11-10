@@ -172,13 +172,21 @@ final class ExtensionWindow: NSObject, WKWebExtensionWindow {
     func frame(for context: WKWebExtensionContext) -> CGRect { nsWindow?.frame ?? .null }
     func screenFrame(for context: WKWebExtensionContext) -> CGRect { nsWindow?.screen?.frame ?? NSScreen.main?.frame ?? .null }
 
+    /// A window of another profile is not there for this extension, as it
+    /// is left out of the windows it is shown (see openWindowsFor).
+    private func checkProfile() throws {
+        if let browser, browser.profileID != owner.profile { throw Extensions.otherProfile }
+    }
+
     func focus(for context: WKWebExtensionContext) async throws {
+        try checkProfile()
         guard let browser else { return }
         Browsers.show(browser)
     }
 
     /// windows.remove.
     func close(for context: WKWebExtensionContext) async throws {
+        try checkProfile()
         guard context.hasAccessToPrivateData || browser?.tabs.contains(where: { $0.shy }) != true else {
             throw NSError(domain: "Shy", code: 1, userInfo: [NSLocalizedDescriptionKey: "The window contains private tabs this extension cannot access."])
         }
@@ -188,6 +196,7 @@ final class ExtensionWindow: NSObject, WKWebExtensionWindow {
     /// windows.update with a position or size; unset parts come as NaN and
     /// stay as they are, and the window never goes below its smallest size.
     func setFrame(_ frame: CGRect, for context: WKWebExtensionContext) async throws {
+        try checkProfile()
         guard let window = nsWindow else { return }
         let now = window.frame
         func or(_ value: CGFloat, _ current: CGFloat) -> CGFloat { value.isFinite ? value : current }

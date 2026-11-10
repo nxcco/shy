@@ -18,7 +18,8 @@ extension Extensions {
             browser?.announce("Already installed")
             return
         }
-        busy = id
+        // Marked busy by install(id:), past its checks: set here, a check
+        // that turned it away left it busy for good.
         Task { await install(id: id, confirm: confirm) }
     }
 
@@ -244,6 +245,9 @@ extension Extensions {
         installed.removeAll { $0.id == id }
         installed.append(item)
         save()
+        // Put in again after a removal whose clearing failed: what the next
+        // launch would clear now belongs to this one.
+        forgotten(id)
         if await load(item) {
             browser?.announce("\(name) is installed")
         } else {
@@ -259,7 +263,7 @@ extension Extensions {
         Store.settings.removeObject(forKey: Extensions.grantKey("granted", id, profile))
         loadsThisRun.remove(id)
         loadedBefore.remove(id)
-        Store.settings.removeObject(forKey: "extensions.newtab.\(id)")
+        Store.settings.removeObject(forKey: newTabKey(id))
         Store.settings.removeObject(forKey: Extensions.grantKey("private", id, profile))
         installed.removeAll { $0.id == id }
         save()

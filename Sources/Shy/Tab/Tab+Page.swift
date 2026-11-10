@@ -74,7 +74,9 @@ extension Tab {
             icon = page.glyph
             return
         }
-        icon = Favicons.of(profile).cached(for: address, shy: shy)
+        // As the field has it: a site's icon on a page only on its way
+        // there would vouch for the page still on screen.
+        icon = Favicons.of(profile).cached(for: shownURL, shy: shy)
     }
 
     /// What a site opens at until you zoom it yourself: Settings › General ›

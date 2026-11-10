@@ -262,6 +262,12 @@ extension Browser {
         fresh.opener = tab.opener
         fresh.popup = tab.popup
         fresh.pin = tab.pin
+        // The same pin, not a new one: its id is how the other windows know
+        // it, and its home stays the page it was pinned at.
+        fresh.pinID = tab.pinID
+        fresh.home = tab.home
+        fresh.touched = tab.touched
+        fresh.letGo = tab.letGo
         fresh.listed = tab.listed
         fresh.folder = tab.folder
         fresh.name = tab.name

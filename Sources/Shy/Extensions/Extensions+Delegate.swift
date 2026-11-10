@@ -7,14 +7,18 @@ import Combine
 
 @available(macOS 15.4, *)
 extension Extensions: WKWebExtensionControllerDelegate {
-    /// Every window, oldest first — the order Security's shim counts on.
+    /// Every window of this profile, oldest first — the order Security's
+    /// shim counts on. Another profile's windows are not this extension's
+    /// to list, open tabs in, move or close.
     func webExtensionController(_ controller: WKWebExtensionController, openWindowsFor extensionContext: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
-        Browsers.all.map(window(of:))
+        Browsers.all.filter { $0.profileID == profile }.map(window(of:))
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, focusedWindowFor extensionContext: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
         window
     }
+
+    static let otherProfile = NSError(domain: "Shy", code: 5, userInfo: [NSLocalizedDescriptionKey: "No window with that id."])
 
     /// Where an extension may send a tab. Not to javascript:, which would run
     /// its code in whatever page the tab shows — an extension with no access
@@ -27,8 +31,10 @@ extension Extensions: WKWebExtensionControllerDelegate {
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, openNewTabUsing configuration: WKWebExtension.TabConfiguration, for extensionContext: WKWebExtensionContext) async throws -> (any WKWebExtensionTab)? {
-        // In the window asked for, or the one in front.
-        guard let browser = (configuration.window as? ExtensionWindow)?.browser ?? browser else { return nil }
+        // In the window asked for, or the one in front — never another profile's.
+        let named = (configuration.window as? ExtensionWindow)?.browser
+        if let named, named.profileID != profile { throw Extensions.otherProfile }
+        guard let browser = named ?? browser else { return nil }
         let url = configuration.url ?? URL(string: "about:blank")!
         try Extensions.mayOpen(url)
         let tab = browser.open(url, foreground: configuration.shouldBeActive, atEnd: true)
@@ -61,7 +67,12 @@ extension Extensions: WKWebExtensionControllerDelegate {
                 }
             }
         }
-        let fresh = Browser(record: WindowRecord(space: browser?.spaceID ?? Space.firstID))
+        // In a space of this profile: Personal's first space would put the
+        // pages of another profile's extension among Personal's.
+        guard let space = browser?.spaceID
+                ?? (isPersonal ? Space.firstID : Spaces.owners.first(where: { $0.value == profile })?.key)
+        else { throw NSError(domain: "Shy", code: 4, userInfo: [NSLocalizedDescriptionKey: "No window of this profile to open one beside."]) }
+        let fresh = Browser(record: WindowRecord(space: space))
         // A popup, as a password manager's vault or a sign-in opens: a small
         // window of the page, not another browser window.
         if configuration.windowType == .popup {

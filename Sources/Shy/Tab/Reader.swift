@@ -126,7 +126,7 @@ struct ReaderLook: View {
                 Button {
                     look = each
                     Reader.look = each
-                    tab.built?.evaluateJavaScript(Reader.apply(each))
+                    tab.built?.evaluateInShy(Reader.apply(each))
                 } label: {
                     Image(systemName: each == .light ? "sun.max" : each == .dark ? "moon" : "circle.lefthalf.filled")
                         .font(.system(size: 11, weight: .medium))
@@ -151,6 +151,6 @@ struct ReaderLook: View {
         .padding(14)
         // An article read in another tab may have been given another look
         // since: the one kept is the one it wears when it comes back.
-        .onAppear { tab.built?.evaluateJavaScript(Reader.apply(look)) }
+        .onAppear { tab.built?.evaluateInShy(Reader.apply(look)) }
     }
 }

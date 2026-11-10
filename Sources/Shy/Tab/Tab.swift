@@ -90,6 +90,15 @@ final class Tab: ObservableObject, Identifiable {
     /// still loading, and that address must not vouch for what it wrote.
     /// A tab with no view (asleep, restored) has only its address to say.
     var restAddress: URL? { built == nil ? address : committed }
+    /// The site the blocker and the hidden things were last set for: the
+    /// next document's, decided before it loads (Browser's navigation
+    /// delegate), and the page on screen's again if that one never comes.
+    var tuned: String?
+    /// The load they were set for, once it has begun (a redirect is the
+    /// same load); nil while the one just decided hasn't. Only
+    /// that load failing gives the page on screen its own back: an earlier
+    /// one, cancelled because the next began, must not undo the next's.
+    var tunedLoad: WKNavigation?
 
     func didCommit() {
         popupGesture.clear()
@@ -106,7 +115,14 @@ final class Tab: ObservableObject, Identifiable {
         // about:blank too: a document another page wrote into (an opener
         // sending its window there, then writing) is that page's, not the
         // one before it, and is offered nothing that belonged to it.
+        let before = committed
         if let url = built?.url { committed = url }
+        // A page that sent itself somewhere wore the old page's icon on the
+        // way (see shownURL); arrived, it wears its own.
+        if committed != before { adoptIcon() }
+        // The old document's sound and frames went with it. Not before: a
+        // load that turns into a download, or is stopped, leaves it playing.
+        leaving()
         // A link followed out of an article is a page, not an article: ⇧⌘R
         // reads it rather than reloading it, and the article's corner goes.
         reader = false

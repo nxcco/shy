@@ -137,6 +137,7 @@ extension Agent {
     func end(_ page: Page, _ why: String, then: (() -> Void)? = nil) {
         guard page.live != nil else { then?(); return }
         page.handover?.over = why
+        page.ending = true
         page.seeding = nil
         page.web.configuration.userContentController.removeAllUserScripts()
         page.note("Sign-in removed: \(why)")
@@ -144,7 +145,10 @@ extension Agent {
         let store = page.web.configuration.websiteDataStore
         store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
             MainActor.assumeIsolated {
-                if let then { then() } else { page.web.reloadFromOrigin() }
+                // Reloaded, the old document is still on screen until the
+                // new one arrives: nothing is done on it until then (see
+                // didCommit).
+                if let then { page.ending = false; then() } else { page.web.reloadFromOrigin() }
             }
         }
     }

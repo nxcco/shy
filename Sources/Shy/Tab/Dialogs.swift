@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import WebKit
 
 // The questions a page is allowed to ask, and the answers it gets.
@@ -267,8 +268,8 @@ extension Browser {
             return
         }
         let host = challenge.protectionSpace.host.lowercased()
-        let excuse = Dialogs.excuse(host, in: webView)
-        if Dialogs.isLoopback(host) || Dialogs.excused.contains(excuse) {
+        let excuse = Dialogs.excuse(host, port: challenge.protectionSpace.port, trust: trust, in: webView)
+        if Dialogs.isLoopback(host) || excuse.map(Dialogs.excused.contains) == true {
             completionHandler(.useCredential, URLCredential(trust: trust))
             return
         }
@@ -293,7 +294,7 @@ extension Browser {
                     completionHandler(.cancelAuthenticationChallenge, nil)
                     return
                 }
-                Dialogs.excused.insert(excuse)
+                if let excuse { Dialogs.excused.insert(excuse) }
                 completionHandler(.useCredential, URLCredential(trust: trust))
             }
         }, drop: { completionHandler(.cancelAuthenticationChallenge, nil) })
@@ -392,10 +393,16 @@ enum Dialogs {
 
     /// A certificate let through counts for the store it was let through in
     /// only: a yes in a private tab or another profile is not one here.
-    @MainActor static func excuse(_ host: String, in webView: WKWebView) -> String {
+    /// And for that one certificate, on that one port: a yes to the
+    /// self-signed one you looked at is not a yes to whatever else turns up
+    /// for the same name later in the launch. None without a certificate to
+    /// name, and then nothing is kept.
+    @MainActor static func excuse(_ host: String, port: Int, trust: SecTrust, in webView: WKWebView) -> String? {
+        guard let leaf = (SecTrustCopyCertificateChain(trust) as? [SecCertificate])?.first else { return nil }
+        let print = SHA256.hash(data: SecCertificateCopyData(leaf) as Data).map { String(format: "%02x", $0) }.joined()
         let store = webView.configuration.websiteDataStore
         let whose = Profiles.owner(of: store)?.uuidString ?? "store-\(UInt(bitPattern: ObjectIdentifier(store).hashValue))"
-        return whose + "|" + host
+        return [whose, host, String(port), print].joined(separator: "|")
     }
 
     static func alert(from frame: WKFrameInfo, saying message: String) -> NSAlert {

@@ -60,7 +60,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
 
         // An extension's OAuth sign-in coming back: the address is the
         // answer, handed to the extension, and never loaded.
-        if ExtensionAuth.intercept(url, browser: self, from: webView)
+        if ExtensionAuth.intercept(url, mainFrame: action.targetFrame?.isMainFrame == true, browser: self, from: webView)
             || ExtensionAuth.handOver(url, mainFrame: action.targetFrame?.isMainFrame == true, browser: self, from: webView) {
             decisionHandler(.cancel)
             return
@@ -156,27 +156,47 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return
         }
 
+        // chrome-extension: an extension's own pages — options, a side
+        // panel, a tab it opened. WebKit serves them; nothing else here does.
+        guard ["http", "https", "file", "about", "data", "blob", "chrome-extension", "webkit-extension"].contains(scheme) else {
+            decisionHandler(.cancel)
+            handOff(url, scheme: scheme, action: action, from: webView)
+            return
+        }
+
         // The next document gets this site's stylesheet of hidden things,
         // decided here because here is the last moment before it loads.
         // The tab's own main frame only: a nil target is a new window, and a
-        // window.open (even a refused one) must not retune the opener.
+        // window.open (even a refused one) must not retune the opener. The
+        // page on screen wears it too until the next one arrives, and gets
+        // its own back if that never does (see settle).
         if action.targetFrame?.isMainFrame == true, let tab = tab(for: webView) {
-            let host = curtain.host(of: url)
-            tab.arm(hiding: Profiles.curtain(tab.profile).css(on: host), to: url)
-            // And the blocker, on or off for where it is going.
-            Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.shy ? nil : tab.profile)
-            // And the frames that played, and the count to the media keys.
-            tab.leaving()
+            // A server's redirect is asked about again, as the load already
+            // begun; WebKit marks it, as it marks a rule's (see below).
+            let redirect = action.responds(to: NSSelectorFromString("_isRedirect"))
+                && (action.value(forKey: "_isRedirect") as? Bool) == true
+            tune(tab, webView, to: url, redirect: redirect)
         }
+        decisionHandler(.allow)
+    }
 
-        // chrome-extension: an extension's own pages — options, a side
-        // panel, a tab it opened. WebKit serves them; nothing else here does.
-        if ["http", "https", "file", "about", "data", "blob", "chrome-extension", "webkit-extension"].contains(scheme) {
-            decisionHandler(.allow)
-        } else {
-            decisionHandler(.cancel)
-            handOff(url, scheme: scheme, action: action, from: webView)
-        }
+    /// The hidden things and the blocker, on or off, for one site.
+    private func tune(_ tab: Tab, _ webView: WKWebView, to url: URL?, redirect: Bool = false) {
+        let host = curtain.host(of: url)
+        tab.tuned = host
+        if !redirect { tab.tunedLoad = nil }
+        tab.arm(hiding: Profiles.curtain(tab.profile).css(on: host), to: url)
+        Shield.shared.tune(webView.configuration.userContentController, for: host, in: tab.shy ? nil : tab.profile)
+    }
+
+    /// Set again for the page that is on screen, when it isn't the one they
+    /// were set for. A navigation is tuned before it is known to arrive, and
+    /// one that becomes a download, a 204, a stopped load or a refused one
+    /// leaves the old page where it was: a page could otherwise send itself
+    /// toward a site with the blocker paused, stay, and load unblocked.
+    private func settle(_ tab: Tab, _ webView: WKWebView) {
+        guard let here = tab.committed, curtain.host(of: here) != tab.tuned else { return }
+        tune(tab, webView, to: here)
     }
 
     /// Unlike tabs.update(), a website's navigation must be checked against
@@ -228,8 +248,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         cancelDisplay(for: webView)
+        (webView as? PageView)?.started(navigation)
         guard let navigation else { return }
-        tab(for: webView)?.extensionReturn.started(navigation, at: webView.url)
+        guard let tab = tab(for: webView) else { return }
+        if tab.tunedLoad == nil { tab.tunedLoad = navigation }
+        tab.extensionReturn.started(navigation, at: webView.url)
     }
 
     func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
@@ -831,7 +854,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        tab(for: webView)?.extensionReturn.finished(navigation)
+        (webView as? PageView)?.ended(navigation)
+        if let tab = tab(for: webView) {
+            tab.extensionReturn.finished(navigation)
+            if let navigation, tab.tunedLoad === navigation { settle(tab, webView) }
+        }
         fail(webView, error)
     }
 
@@ -856,11 +883,13 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         if let opener = tab.opener, let home = tabs.first(where: { $0.id == opener }) {
             select(home)
         }
-        tab.pin = nil
+        // A pin is put down, at its home, as ⌘W puts it down: a page can
+        // close itself, not take your pin out of the row.
         close(tab)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        (webView as? PageView)?.ended(navigation)
         if websitePopup { cancelCapture() }
         popupTab(for: webView)?.popupGesture.clear()
         guard let tab = tab(for: webView) else {
@@ -875,6 +904,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return
         }
         tab.didCommit()
+        settle(tab, webView)
         tab.extensionReturn.finished(navigation)
         if tab.id == activeID {
             invalidateFindPage(retryOnActiveTab: false)
