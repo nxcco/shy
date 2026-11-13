@@ -40,8 +40,7 @@ struct SideRow: View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 if editing {
-                    TabAddressField(browser: browser)
-                        .frame(height: 16)
+                    ColumnAddressField(browser: browser, row: prefs.sideRow)
                 } else {
                     if !tab.isBlank {
                         Mark(icon: tab.icon, size: prefs.roomyTabs ? 17 : 15)
@@ -75,7 +74,9 @@ struct SideRow: View {
             }
             .padding(.leading, 10)
             .padding(.trailing, status || peeking ? 0 : 10)
-            .frame(height: prefs.sideRow)
+            // As tall as the address while it is being edited, never less
+            // than a row (ColumnAddressField).
+            .frame(minHeight: prefs.sideRow, maxHeight: editing ? nil : prefs.sideRow)
             .contentShape(Rectangle())
             .modifier(TabPress(enabled: interactive && !editing, active: live, selected: $selectedOnPress, pressing: $pressed) {
                 browser.clearTabSelection()
@@ -105,7 +106,7 @@ struct SideRow: View {
             }
         }
         .padding(.trailing, status || peeking ? 7 : 0)
-        .frame(height: prefs.sideRow)
+        .frame(minHeight: prefs.sideRow, maxHeight: editing ? nil : prefs.sideRow)
         .frame(maxWidth: .infinity, alignment: .leading)
         // The title keeps its length under the pointer and fades out
         // beneath the cross, rather than being cut shorter, so its end

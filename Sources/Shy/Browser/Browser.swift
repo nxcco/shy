@@ -332,6 +332,10 @@ final class Browser: NSObject, ObservableObject {
     /// form, ready to be changed.
     @Published var editingTab: Tab.ID?
     @Published var tabDraft = ""
+    /// How much taller than a row the address has made the line it is being
+    /// edited in, in the column: a long one wraps (ColumnAddressField), and
+    /// the column counts it in (SideBar.rowsHeight).
+    @Published var tabRise: CGFloat = 0
     /// Set while that field is being used to name the tab rather than to go
     /// somewhere: the same field, the same keys, a different thing at the end.
     @Published var renamingTab = false

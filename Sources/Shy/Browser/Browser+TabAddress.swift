@@ -11,6 +11,7 @@ extension Browser {
             return
         }
         renamingTab = false
+        tabRise = 0
         tabDraft = Address.editable(url)
         tabOriginal = tabDraft
         tabOffers = []
@@ -60,6 +61,7 @@ extension Browser {
     /// replaces it; emptying the field gives the page its own title back.
     func beginTabRename(_ tab: Tab) {
         renamingTab = true
+        tabRise = 0
         tabDraft = tab.label
         editingTab = tab.id
     }
