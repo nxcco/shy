@@ -218,6 +218,12 @@ extension Browser {
         return URL(fileURLWithPath: path)
     }
 
+    /// Where the space on screen sits among them: one past the last while
+    /// the card for a new one is up.
+    var spaceAt: Int {
+        makingSpace ? spaces.count : (spaces.firstIndex { $0.id == spaceID } ?? 0)
+    }
+
     /// ⌃1–⌃9, and the menu on the space's dot.
     func switchSpace(to id: UUID) {
         enter(id)

@@ -2,33 +2,18 @@ import SwiftUI
 
 // The spaces, as pages to swipe between.
 extension SideBar {
-    /// Where the space on screen sits among them: one past the last while
-    /// the card for a new one is up.
-    private var spaceAt: Int {
-        browser.makingSpace ? browser.spaces.count : (browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0)
-    }
-
     var pages: some View {
-        let width = prefs.sideWidth
-        let swipe = browser.spaceSwipe
-        let at = spaceAt
-        return ZStack(alignment: .topLeading) {
-            page(at, pill: pill)
-                .offset(x: swipe)
-            // Only while the fingers are bringing one in: the one they are
-            // bringing, a page's width away.
-            if swipe > 0, at > 0 {
-                page(at - 1, pill: before)
-                    .offset(x: swipe - width)
-            }
-            if swipe < 0, at < browser.spaces.count {
-                page(at + 1, pill: after)
-                    .offset(x: swipe + width)
-            }
-        }
-        // The pages are the column's whole width, each with its own margin.
-        .padding(.horizontal, -10)
-        .frame(maxHeight: .infinity, alignment: .top)
+        let at = browser.spaceAt
+        // Built here, moved there: SpacePages alone follows the fingers,
+        // and this column isn't drawn again for every point they go.
+        return SpacePages(travel: browser.spaceTravel, width: prefs.sideWidth,
+                          before: at > 0, after: at < browser.spaces.count,
+                          here: page(at, pill: pill),
+                          last: { page(at - 1, pill: before) },
+                          next: { page(at + 1, pill: after) })
+            // The pages are the column's whole width, each with its own margin.
+            .padding(.horizontal, -10)
+            .frame(maxHeight: .infinity, alignment: .top)
     }
 
     /// One space's page: the rows on screen, another space's rows as they
@@ -275,6 +260,35 @@ extension SideBar {
             SideRow(browser: browser, prefs: prefs, tab: tab,
                     live: tab.id == activeID, pill: pill, close: close,
                     interactive: interactive)
+        }
+    }
+}
+
+/// The space on screen and, only while the fingers are bringing one in, the
+/// one they are bringing, a page's width away.
+struct SpacePages<Here: View, Last: View, Next: View>: View {
+    @ObservedObject var travel: SpaceTravel
+    let width: CGFloat
+    /// Whether there is a space before this one, and one after.
+    let before: Bool
+    let after: Bool
+    let here: Here
+    let last: () -> Last
+    let next: () -> Next
+
+    var body: some View {
+        let swipe = travel.offset
+        ZStack(alignment: .topLeading) {
+            here
+                .offset(x: swipe)
+            if swipe > 0, before {
+                last()
+                    .offset(x: swipe - width)
+            }
+            if swipe < 0, after {
+                next()
+                    .offset(x: swipe + width)
+            }
         }
     }
 }

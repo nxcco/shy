@@ -407,7 +407,7 @@ final class Browser: NSObject, ObservableObject {
     var parked: [UUID: Parked] = [:]
     /// How far the column's rows have followed two fingers sideways, and
     /// whether the card for a new space stands in for them (see SpaceSwipe).
-    @Published var spaceSwipe: CGFloat = 0
+    let spaceTravel = SpaceTravel()
     @Published var makingSpace = false
     /// The profile a space being made starts in (askForSpace).
     var newSpaceProfile: UUID?

@@ -602,7 +602,7 @@ extension Bench {
                 "parked": browser.parked.map { [$0.key.uuidString: $0.value.tabs.count] },
                 "tabs": browser.tabs.count,
                 "making": browser.makingSpace,
-                "swipe": Double(browser.spaceSwipe),
+                "swipe": Double(browser.spaceTravel.offset),
                 // Each space off screen as a swipe draws it passing by
                 // (Folders.lines): its folders' lines, folded or not, and
                 // its tabs.

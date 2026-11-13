@@ -12,6 +12,14 @@ import SwiftUI
 /// the tabs and sets off clearly along the spaces' axis — sideways in the
 /// column, up or down in the bar; everything else (scrolling the tabs, a
 /// long row of them sideways) goes on as it would have.
+/// How far the column's rows have followed two fingers sideways. On its own
+/// rather than on the browser: it changes with every event the trackpad
+/// sends, and only the pages (SideBar.pages) have anything to draw for it.
+@MainActor
+final class SpaceTravel: ObservableObject {
+    @Published var offset: CGFloat = 0
+}
+
 @MainActor
 final class SpaceSwipe {
     static let shared = SpaceSwipe()
@@ -25,6 +33,9 @@ final class SpaceSwipe {
     /// The glide after a swipe that was taken, which is taken too.
     private var gliding = false
     private var gathered = CGSize.zero
+    /// Where the fingers were over the last moments, for how fast they
+    /// were going as they let go.
+    private var trail: [(time: TimeInterval, travel: CGFloat)] = []
     /// When the wheel last turned over the bar, whether a space came of it
     /// or not. A spin of the wheel is a run of notches close together, and
     /// it brings one space: the next waits for the wheel to have rested.
@@ -38,12 +49,13 @@ final class SpaceSwipe {
     /// How long after a space comes before another can.
     static let rest: TimeInterval = 0.4
 
-    /// How far the fingers have to go for the next space to come: 50
-    /// points in the column; in a bar only 52 tall, most of its height, so
-    /// that scrolling the page with the pointer a little high doesn't.
-    static func enough(for browser: Browser) -> CGFloat {
-        50
-    }
+    /// How far the fingers have to go for the next space to come — or
+    /// would have gone, carried on by their speed (see `carry`).
+    static let enough: CGFloat = 50
+    /// A flick counts from here: less is a twitch, however fast.
+    static let least: CGFloat = 12
+    /// How long the fingers' speed is taken to carry them on for.
+    static let carry: TimeInterval = 0.15
 
     func start(for browser: Browser) {
         self.browser = browser
@@ -77,7 +89,7 @@ final class SpaceSwipe {
         guard let browser = Browsers.browser(for: event.window), !browser.isPopup,
               !browser.folded || browser.peeking, overTabs(event, in: browser) else { return false }
         self.browser = browser
-        let here = browser.makingSpace ? browser.spaces.count : (browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0)
+        let here = browser.spaceAt
         let target = here + step
         if target >= 0, target <= browser.spaces.count { slide(browser, to: target, from: here) }
         return true
@@ -111,7 +123,7 @@ final class SpaceSwipe {
             let rested = now.timeIntervalSince(notched) > 0.3 && now > resting
             notched = now
             guard rested else { return true }
-            let here = browser.makingSpace ? browser.spaces.count : (browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0)
+            let here = browser.spaceAt
             let target = here + (step < 0 ? 1 : -1)
             if target >= 0, target <= browser.spaces.count { slide(browser, to: target, from: here) }
             return true
@@ -128,11 +140,11 @@ final class SpaceSwipe {
             }
             began()
             if ignoring { return true }
-            return moved(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY)
+            return moved(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY, at: event.timestamp)
         case .changed:
             if ignoring { return true }
             guard tracking else { return false }
-            return moved(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY)
+            return moved(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY, at: event.timestamp)
         case .ended, .cancelled:
             if ignoring {
                 ignoring = false
@@ -141,7 +153,7 @@ final class SpaceSwipe {
             }
             guard tracking else { return false }
             let taken = axis == .across
-            ended(cancelled: event.phase == .cancelled)
+            ended(cancelled: event.phase == .cancelled, at: event.timestamp)
             gliding = taken
             return taken
         default:
@@ -154,61 +166,97 @@ final class SpaceSwipe {
     func began() {
         axis = .undecided
         gathered = .zero
+        trail = []
         // Just after a space came: the same hand's next stroke is let go by.
         ignoring = Date() <= resting
         tracking = !ignoring
     }
 
     /// True while the gesture is this one's to take. The spaces lie
-    /// sideways in the column and one above the other in the bar.
+    /// sideways in the column. `time` is the event's own, on the clock
+    /// that has run since the Mac started.
     @discardableResult
-    func moved(dx: CGFloat, dy: CGFloat) -> Bool {
+    func moved(dx: CGFloat, dy: CGFloat, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
         guard tracking, let browser else { return false }
-        let (step, aside) = (dx, dy)
-        gathered.width += step
-        gathered.height += aside
+        // No further than the next page: there is nothing drawn beyond it.
+        let width = browser.prefs.sideWidth
+        gathered.width = min(max(gathered.width + dx, -width), width)
+        gathered.height += dy
         if axis == .undecided {
             guard abs(gathered.width) + abs(gathered.height) > 6 else { return false }
             axis = abs(gathered.width) > abs(gathered.height) * 1.5 ? .across : .along
         }
         guard axis == .across else { return false }
-        browser.spaceSwipe = resisted(gathered.width, in: browser)
+        trail.append((time, gathered.width))
+        trail.removeAll { time - $0.time > 0.08 }
+        browser.spaceTravel.offset = resisted(gathered.width, in: browser)
         return true
     }
 
-    /// Along the spaces' axis, whichever it is — for the bench.
+    /// Along the spaces' axis — for the bench.
     @discardableResult
     func moved(along travel: CGFloat) -> Bool {
         guard browser != nil else { return false }
         return moved(dx: travel, dy: 0)
     }
 
-    func ended(cancelled: Bool = false) {
+    /// How fast the fingers were going as they let go, in points a second:
+    /// across the last moments of the trail. Nothing if they had stopped
+    /// first, or if the trail is too short to tell (the bench's, all at once).
+    private func speed(at time: TimeInterval) -> CGFloat {
+        guard let first = trail.first, let last = trail.last,
+              time - last.time < 0.1, last.time - first.time >= 0.008 else { return 0 }
+        return (last.travel - first.travel) / (last.time - first.time)
+    }
+
+    func ended(cancelled: Bool = false, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         defer { tracking = false }
         guard let browser, axis == .across else { return }
         let travel = gathered.width
-        let here = browser.makingSpace ? browser.spaces.count : (browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0)
-        // Fingers to the left, or up, bring what is next.
-        let target = cancelled || abs(travel) < SpaceSwipe.enough(for: browser) ? here : here + (travel < 0 ? 1 : -1)
+        let speed = speed(at: time)
+        // Where the fingers would have got to, going on as they were: a
+        // short flick brings the next space as a long drag does, and a
+        // drag turned back before letting go doesn't.
+        let reach = travel + speed * SpaceSwipe.carry
+        let far = abs(travel) >= SpaceSwipe.least && abs(reach) >= SpaceSwipe.enough && (reach < 0) == (travel < 0)
+        let here = browser.spaceAt
+        // Fingers to the left bring what is next.
+        let target = cancelled || !far ? here : here + (travel < 0 ? 1 : -1)
         guard target != here, target >= 0, target <= browser.spaces.count else {
-            withAnimation(Motion.settle) { browser.spaceSwipe = 0 }
+            withAnimation(landing(browser, to: 0, speed: speed)) { browser.spaceTravel.offset = 0 }
             return
         }
-        slide(browser, to: target, from: here)
+        slide(browser, to: target, from: here, speed: speed)
     }
 
     /// Nothing that way: the rows give a little, and come back.
     private func resisted(_ travel: CGFloat, in browser: Browser) -> CGFloat {
-        let here = browser.makingSpace ? browser.spaces.count : (browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0)
+        let here = browser.spaceAt
         let blocked = (travel > 0 && here == 0) || (travel < 0 && here == browser.spaces.count)
         return blocked ? travel / 4 : travel
+    }
+
+    /// The rest of the way to `rest`, setting off at the speed the fingers
+    /// left at, so nothing changes pace as they lift: a spring with no
+    /// bounce in it. With motion reduced or light (see Motion), the short
+    /// ease-out there was before.
+    private func landing(_ browser: Browser, to rest: CGFloat, speed: CGFloat) -> Animation? {
+        if Motion.reduced { return rest == 0 ? nil : .easeOut(duration: 0.22) }
+        if Motion.light { return .easeOut(duration: rest == 0 ? 0.16 : 0.22) }
+        let left = rest - browser.spaceTravel.offset
+        // The spring takes its speed as a share of the way left, a second.
+        // Past 2π / duration it would overshoot, and show what is beyond
+        // the page coming in: nothing.
+        let duration = 0.24
+        let pace = abs(left) < 1 ? 0 : min(max(speed / left, -8), 0.8 * 2 * .pi / duration)
+        return .interpolatingSpring(duration: duration, bounce: 0, initialVelocity: pace)
     }
 
     /// The pages carry on the way the fingers went until the next one is
     /// where this one was; then it becomes the one on screen, in the same
     /// frame and without anything moving — it was already there. One past
     /// the last space is the card for a new one.
-    func slide(_ browser: Browser, to target: Int, from here: Int) {
+    func slide(_ browser: Browser, to target: Int, from here: Int, speed: CGFloat = 0) {
         if browser.makingSpace, target != browser.spaces.count {
             browser.cancelSpaceCreation()
         }
@@ -217,8 +265,8 @@ final class SpaceSwipe {
         let away: CGFloat = target > here ? -1 : 1
         browser.spaceStep = target > here ? 1 : -1
         resting = Date().addingTimeInterval(SpaceSwipe.rest)
-        withAnimation(.easeOut(duration: 0.22), completionCriteria: .removed) {
-            browser.spaceSwipe = away * width
+        withAnimation(landing(browser, to: away * width, speed: speed), completionCriteria: .removed) {
+            browser.spaceTravel.offset = away * width
         } completion: {
             var still = Transaction()
             still.disablesAnimations = true
@@ -229,7 +277,7 @@ final class SpaceSwipe {
                     browser.makingSpace = false
                     browser.switchSpace(to: browser.spaces[target].id)
                 }
-                browser.spaceSwipe = 0
+                browser.spaceTravel.offset = 0
             }
         }
     }
