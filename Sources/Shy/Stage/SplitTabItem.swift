@@ -73,7 +73,9 @@ struct SplitTabItem: View {
             pill: pill,
             hovered: $hovered
         )
-        .frame(maxWidth: .infinity, maxHeight: stacked ? height : .infinity)
+        // In the column a line grows with the address being edited in it
+        // (ColumnAddressField).
+        .frame(maxWidth: .infinity, maxHeight: stacked ? (browser.editingTab == tab.id ? nil : height) : .infinity)
     }
 
     /// Across the top: one cross, at the end of the item, for whichever half
@@ -117,6 +119,9 @@ private struct SplitTabHalf: View {
     private var title: String { tab.label.isEmpty ? "New Tab" : tab.label }
     private var playing: Bool { !tab.loading && (tab.noisy || tab.muted) }
     private var editing: Bool { browser.editingTab == tab.id }
+    /// A line of the column with its address being edited: as tall as the
+    /// address, never less than a line.
+    private var grows: Bool { stacked && editing }
     /// Where the page is, said on the half you're on (Settings › Tabs › Show
     /// the address on the tab you're on).
     private var rest: AtRest? { focused && !editing && !narrow ? AtRest.said(tab.restAddress, always: prefs.showsAddress) : nil }
@@ -126,10 +131,10 @@ private struct SplitTabHalf: View {
         row
             .padding(.leading, stacked ? 0 : 9)
             .padding(.trailing, stacked ? 7 : 4)
-            .frame(height: stacked ? height : 28)
+            .frame(minHeight: stacked ? height : 28, maxHeight: grows ? nil : stacked ? height : 28)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { ground.animation(Motion.quick, value: stacked && focused) }
-            .frame(height: height)
+            .frame(minHeight: height, maxHeight: grows ? nil : height)
             .contentShape(Rectangle())
     }
 
@@ -197,7 +202,7 @@ private struct SplitTabHalf: View {
             titleContent
                 .padding(.leading, stacked ? 10 : 0)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: stacked ? height : 16)
+                .frame(minHeight: stacked ? height : 16, maxHeight: grows ? nil : stacked ? height : 16)
                 .contentShape(Rectangle())
                 .modifier(TabPress(enabled: stacked && interactive && !editing, active: focused, selected: $selectedOnPress) {
                     browser.clearTabSelection()
@@ -214,7 +219,10 @@ private struct SplitTabHalf: View {
 
     @ViewBuilder
     private var titleContent: some View {
-        if editing {
+        if editing, stacked {
+            ColumnAddressField(browser: browser, row: height)
+        } else if editing {
+            // Across the top the strip is one line high, and so is this.
             TabAddressField(browser: browser)
                 .frame(height: 16)
         } else {

@@ -243,7 +243,11 @@ extension SideBar {
         // A pair is two lines (see SplitTabItem).
         let pairs = rows.filter { browser.split(for: $0) != nil }.count
         let loose = CGFloat(rows.count) * (rowHeight + SideBar.gap) + CGFloat(pairs) * rowHeight
-        return listBlock + loose + rowHeight + 8
+        // The line an address is being edited in, as tall as the address
+        // (ColumnAddressField). Measured, this one, and so a frame behind:
+        // nothing else is pressed in that frame, the field has the keys.
+        let rise = browser.editingTab == nil ? 0 : browser.tabRise
+        return listBlock + loose + rise + rowHeight + 8
     }
 
     @ViewBuilder

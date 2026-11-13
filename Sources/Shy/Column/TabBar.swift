@@ -235,6 +235,15 @@ struct Carried: ViewModifier {
 
 struct TabAddressField: NSViewRepresentable {
     @ObservedObject var browser: Browser
+    /// In the column: an address longer than the row goes on to the next
+    /// line, and the field is as tall as what is in it. Across the top it
+    /// stays the one line the strip has room for, and scrolls.
+    var wraps = false
+
+    /// One line of it, and the most lines it grows to before what is left
+    /// scrolls under the caret instead.
+    static let line: CGFloat = 16
+    static let lines = 4
 
     func makeCoordinator() -> Coordinator { Coordinator(browser: browser) }
 
@@ -246,13 +255,23 @@ struct TabAddressField: NSViewRepresentable {
         field.focusRingType = .none
         field.font = .systemFont(ofSize: 12.5)
         field.textColor = Palette.NS.ink
-        field.cell?.usesSingleLineMode = true
-        field.cell?.wraps = false
-        // Without this the field editor stays as wide as the field: the text
-        // past the edge is cut off, and the caret, Home/End and a click can't
-        // reach it. Scrollable, the editor grows to the text and follows the caret.
-        field.cell?.isScrollable = true
-        field.lineBreakMode = .byClipping
+        if wraps {
+            // Broken wherever the line runs out, not at a "/" or a "?": an
+            // address has few places a word would end, and every line full
+            // is the fewest lines.
+            field.cell?.usesSingleLineMode = false
+            field.cell?.wraps = true
+            field.cell?.isScrollable = false
+            field.lineBreakMode = .byCharWrapping
+        } else {
+            field.cell?.usesSingleLineMode = true
+            field.cell?.wraps = false
+            // Without this the field editor stays as wide as the field: the text
+            // past the edge is cut off, and the caret, Home/End and a click can't
+            // reach it. Scrollable, the editor grows to the text and follows the caret.
+            field.cell?.isScrollable = true
+            field.lineBreakMode = .byClipping
+        }
         field.stringValue = browser.tabDraft
         context.coordinator.watch(field)
         // The site card stands under whichever field the address is in, and
@@ -273,7 +292,15 @@ struct TabAddressField: NSViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, nsView field: NSTextField, context: Context) -> CGSize? {
         let natural = field.intrinsicContentSize
         guard let width = proposal.width, width.isFinite else { return nil }
-        return CGSize(width: max(0, width), height: proposal.height ?? natural.height)
+        guard wraps else { return CGSize(width: max(0, width), height: proposal.height ?? natural.height) }
+        // Wrapping, the height is the text's own at that width, whatever was
+        // offered: the row is as tall as the field, not the other way round.
+        // (Asking for the string first hands the cell what is in the editor.)
+        _ = field.stringValue
+        let fitted = field.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: max(1, width), height: .greatestFiniteMagnitude)).height ?? Self.line
+        let step = ceil(NSLayoutManager().defaultLineHeight(for: field.font ?? .systemFont(ofSize: 12.5)))
+        let most = Self.line + step * CGFloat(Self.lines - 1)
+        return CGSize(width: max(0, width), height: min(max(Self.line, ceil(fitted)), most))
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {
@@ -281,6 +308,11 @@ struct TabAddressField: NSViewRepresentable {
         coordinator.browser = browser
         if !coordinator.typing, field.stringValue != browser.tabDraft {
             field.stringValue = browser.tabDraft
+        }
+        // A line more or a line fewer: measured again, not kept from before.
+        if wraps, coordinator.measured != browser.tabDraft {
+            coordinator.measured = browser.tabDraft
+            field.invalidateIntrinsicContentSize()
         }
         guard !coordinator.claimed else { return }
         coordinator.claimed = true
@@ -299,6 +331,8 @@ struct TabAddressField: NSViewRepresentable {
         var browser: Browser
         var claimed = false
         var typing = false
+        /// The text the field's height was last asked for.
+        var measured: String?
         /// A key that takes letters off: the field mustn't put the same
         /// letters straight back as a completion, or it can't be shortened.
         private var deleting = false
@@ -382,6 +416,29 @@ struct TabAddressField: NSViewRepresentable {
             if let watcher { NSEvent.removeMonitor(watcher) }
             watcher = nil
         }
+    }
+}
+
+/// The address in a line of the column: the field, wrapping, with the room
+/// above and below that centres one line of it in the row — so a short
+/// address sits where the title did, and a long one makes the row taller by
+/// each line it runs on to. What it adds to the row is told to the browser,
+/// for the column's sums (SideBar.rowsHeight).
+struct ColumnAddressField: View {
+    let browser: Browser
+    /// The row's height at rest.
+    let row: CGFloat
+
+    var body: some View {
+        TabAddressField(browser: browser, wraps: true)
+            .padding(.vertical, max(0, (row - TabAddressField.line) / 2))
+            // All the row's width, ahead of the spacer after it: half a row
+            // is twice the lines.
+            .layoutPriority(1)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                let rise = max(0, height - row)
+                if browser.tabRise != rise { browser.tabRise = rise }
+            }
     }
 }
 
