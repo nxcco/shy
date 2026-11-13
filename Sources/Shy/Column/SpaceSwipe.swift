@@ -4,8 +4,13 @@ import QuartzCore
 // Spaces, paged through: in the column, two fingers sideways go from one to
 // the next, the rows following them, as in Arc — or a mouse wheel's notch
 // sideways, one space at a time, or the mouse's back and forward buttons
-// with the pointer over the tabs. Past the last space a new one is made in
-// place (NewSpaceCard). The space's icon turns over as it goes (see SpaceDot).
+// with the pointer over the tabs. The space's icon turns over as it goes
+// (see SpaceDot).
+//
+// The card for a new space (NewSpaceCard) is a page past the last, and only
+// New Space brings it: the fingers stop at the last space, where it would
+// otherwise come in every time they went through them. While it is up they
+// can send it back.
 //
 // The spaces are one band, a page each, and the band goes where the fingers
 // do: past one space and on to the next, or back, for as long as they are
@@ -27,6 +32,10 @@ import QuartzCore
 @MainActor
 final class SpaceTravel: ObservableObject {
     @Published var offset: CGFloat = 0
+    /// Whether the card for a new space is on its way in (SpaceSwipe.fly).
+    /// Otherwise it isn't drawn past the last space, where the rows giving
+    /// a little at the band's end would show its edge.
+    var bringsCard = false
 }
 
 /// The swipe between spaces. It reads the trackpad's own scroll events
@@ -104,8 +113,7 @@ final class SpaceSwipe {
 
     /// The mouse's back and forward buttons over the tabs: the space before,
     /// or the one after. Over the page they stay the page's back and forward
-    /// (PageView.otherMouseDown). Past the last space, as with the wheel,
-    /// the card for a new one.
+    /// (PageView.otherMouseDown).
     ///
     /// Most mice send them as buttons 3 and 4. A Logitech mouse set up with
     /// Logi Options+, Logitech's own driver, doesn't: it turns them into the
@@ -130,7 +138,13 @@ final class SpaceSwipe {
     /// One space on from where the band is, or is heading.
     private func step(_ browser: Browser, by step: Int) {
         let target = heading(in: browser) + step
-        if target >= 0, target <= browser.spaces.count { fly(browser, to: target) }
+        if target >= 0, target <= furthest(in: browser) { fly(browser, to: target) }
+    }
+
+    /// The last page the fingers, the wheel or the buttons go to: the last
+    /// space, or the card for a new one while it is up.
+    private func furthest(in browser: Browser) -> Int {
+        browser.makingSpace ? browser.spaces.count : max(browser.spaces.count - 1, 0)
     }
 
     /// The page the band is on, or on its way to.
@@ -277,16 +291,16 @@ final class SpaceSwipe {
         // One of the two pages the band lies across: speed brings the
         // next one sooner, never one beyond it.
         target = min(max(target, Int(place.rounded(.down))), Int(place.rounded(.up)))
-        fly(browser, to: min(max(target, 0), browser.spaces.count), speed: speed)
+        fly(browser, to: min(max(target, 0), furthest(in: browser)), speed: speed)
     }
 
     // MARK: - the band
 
     /// How far the band goes each way from the space on screen: back to
-    /// the first space, and on to the card for a new one past the last.
+    /// the first space, and on to the last.
     private func ends(in browser: Browser) -> ClosedRange<CGFloat> {
         let width = browser.prefs.sideWidth, at = browser.spaceAt
-        return -CGFloat(browser.spaces.count - at) * width ... CGFloat(at) * width
+        return -CGFloat(max(furthest(in: browser) - at, 0)) * width ... CGFloat(at) * width
     }
 
     /// Nothing that way: the rows give a little, and come back.
@@ -307,16 +321,18 @@ final class SpaceSwipe {
 
     /// The band let go, on its way to rest on the page at `target`, setting
     /// off at the speed the fingers left at so nothing changes pace as they
-    /// lift. One past the last space is the card for a new one. Already on
+    /// lift. One past the last space is the card for a new one, which only
+    /// New Space asks for (Browser.askForSpace). Already on
     /// its way, it keeps the speed it has and heads there instead.
     func fly(_ browser: Browser, to target: Int, speed: CGFloat = 0) {
         if let flight, flight.browser !== browser { land() }
-        if browser.makingSpace, target != browser.spaces.count {
+        if target != browser.spaces.count {
             browser.cancelSpaceCreation()
         }
         let at = browser.spaceAt
         // Which way the icon at the foot turns over.
         if target != at { browser.spaceStep = target > at ? 1 : -1 }
+        browser.spaceTravel.bringsCard = target == browser.spaces.count
         flight = Flight(browser: browser, base: at, target: target, speed: flight?.speed ?? speed)
         guard !Motion.reduced else { return land() }
         if ticker == nil {
@@ -379,6 +395,7 @@ final class SpaceSwipe {
                     browser.switchSpace(to: browser.spaces[flight.target].id)
                 }
             }
+            browser.spaceTravel.bringsCard = false
             browser.spaceTravel.offset = 0
         }
     }

@@ -284,7 +284,8 @@ struct SpacePages<Here: View, Passing: View>: View {
     var body: some View {
         let swipe = travel.offset
         let first = at + Int((-swipe / max(width, 1)).rounded(.down))
-        let inSight = swipe == 0 ? [] : [first, first + 1].filter { $0 != at && $0 >= 0 && $0 <= last }
+        let end = travel.bringsCard ? last : last - 1
+        let inSight = swipe == 0 ? [] : [first, first + 1].filter { $0 != at && $0 >= 0 && $0 <= end }
         ZStack(alignment: .topLeading) {
             here
                 .offset(x: swipe)

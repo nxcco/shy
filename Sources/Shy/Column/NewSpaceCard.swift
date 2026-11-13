@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A new space, made where the next one would have been: its name, its
+/// A new space, made past the last one when New Space asks for it: its name, its
 /// icon, and on its way. Escape, Cancel or two fingers back leave it.
 struct NewSpaceCard: View {
     @ObservedObject var browser: Browser
