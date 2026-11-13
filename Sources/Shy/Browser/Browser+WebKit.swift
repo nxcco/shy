@@ -5,6 +5,10 @@ import Combine
 // MARK: - WebKit
 
 extension Browser: WKNavigationDelegate, WKUIDelegate {
+    /// Views whose page was asked for once more after WebKit asked with no
+    /// response (see decidePolicyFor response): once, never in a loop.
+    @MainActor static var askedAgain: Set<ObjectIdentifier> = []
+
     /// Every navigation is decided in `decide` below; this form of the
     /// question also hands over the page's preferences, the only place a
     /// site allowed to play sound by itself can say so (see Autoplay). Only
@@ -434,6 +438,22 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decidePolicyFor response: WKNavigationResponse,
         decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
+        // WebKit can ask with no response at all — the first youtube.com
+        // after a launch, from a second page process it starts for the same
+        // navigation — though Swift calls it never nil. Read as "nothing
+        // WebKit can show", that turned the page into a download; let
+        // through, nothing more happened and the page stayed white. It is
+        // stopped and the page asked for once more, which arrives.
+        guard response.perform(NSSelectorFromString("response"))?.takeUnretainedValue() is URLResponse else {
+            decisionHandler(.cancel)
+            let key = ObjectIdentifier(webView)
+            if response.isForMainFrame, !Self.askedAgain.contains(key), let url = webView.url {
+                Self.askedAgain.insert(key)
+                DispatchQueue.main.async { webView.load(URLRequest(url: url)) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 10) { Self.askedAgain.remove(key) }
+            }
+            return
+        }
         // What the page answered, for Developer Mode's bar.
         if response.isForMainFrame, let http = response.response as? HTTPURLResponse, let tab = tab(for: webView) {
             DevTools.shared.answered(http.statusCode, in: webView, for: tab, at: http.url)
