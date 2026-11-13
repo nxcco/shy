@@ -148,7 +148,7 @@ struct NewSpaceCard: View {
     private func cancel() {
         browser.cancelSpaceCreation()
         let back = browser.spaces.firstIndex { $0.id == browser.spaceID } ?? 0
-        SpaceSwipe.shared.slide(browser, to: back, from: browser.spaces.count)
+        SpaceSwipe.shared.fly(browser, to: back)
     }
 }
 

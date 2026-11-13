@@ -7,10 +7,11 @@ extension SideBar {
         // Built here, moved there: SpacePages alone follows the fingers,
         // and this column isn't drawn again for every point they go.
         return SpacePages(travel: browser.spaceTravel, width: prefs.sideWidth,
-                          before: at > 0, after: at < browser.spaces.count,
+                          at: at, last: browser.spaces.count,
                           here: page(at, pill: pill),
-                          last: { page(at - 1, pill: before) },
-                          next: { page(at + 1, pill: after) })
+                          // Two can pass at once, side by side: each with a
+                          // pill of its own, neither this page's.
+                          passing: { page($0, pill: abs($0 - at) % 2 == 0 ? before : after) })
             // The pages are the column's whole width, each with its own margin.
             .padding(.horizontal, -10)
             .frame(maxHeight: .infinity, alignment: .top)
@@ -264,30 +265,28 @@ extension SideBar {
     }
 }
 
-/// The space on screen and, only while the fingers are bringing one in, the
-/// one they are bringing, a page's width away.
-struct SpacePages<Here: View, Last: View, Next: View>: View {
+/// The space on screen and, only while the band is away from it, the one
+/// or two pages in sight: each a page's width from the next (see SpaceTravel).
+struct SpacePages<Here: View, Passing: View>: View {
     @ObservedObject var travel: SpaceTravel
     let width: CGFloat
-    /// Whether there is a space before this one, and one after.
-    let before: Bool
-    let after: Bool
+    /// Where the space on screen sits among the pages, and the last of
+    /// them: the card for a new space.
+    let at: Int
+    let last: Int
     let here: Here
-    let last: () -> Last
-    let next: () -> Next
+    let passing: (Int) -> Passing
 
     var body: some View {
         let swipe = travel.offset
+        let first = at + Int((-swipe / max(width, 1)).rounded(.down))
+        let inSight = swipe == 0 ? [] : [first, first + 1].filter { $0 != at && $0 >= 0 && $0 <= last }
         ZStack(alignment: .topLeading) {
             here
                 .offset(x: swipe)
-            if swipe > 0, before {
-                last()
-                    .offset(x: swipe - width)
-            }
-            if swipe < 0, after {
-                next()
-                    .offset(x: swipe + width)
+            ForEach(inSight, id: \.self) { index in
+                passing(index)
+                    .offset(x: swipe + CGFloat(index - at) * width)
             }
         }
     }
